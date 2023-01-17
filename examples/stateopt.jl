@@ -56,7 +56,7 @@ opt,data = pstateopt_first(supp, coe, n, d, vargroup=[2;2], TS=false, constraint
 n = 9
 supp = [[[[4;7]], [[5;8]], [[6;9]], [[1;4]], [[2;5]], [[3;6]], [[1;5;9]], [[1;6;8]], [[2;4;9]], [[2;6;7]], [[3;4;8]], [[3;5;7]]]]
 coe = [-[1/3;1/3;1/3;-1/3;-1/3;-1/3;-1;-1;-1;-1;-1;-1]]
-d = 4
+d = 5
 opt,data = pstateopt_first(supp, coe, n, d, vargroup=[3;3;3], TS="block", solve=false, bilocal=true)
 opt,data = pstateopt_higher!(data, TS="block", bilocal=true, solve=true)
 # check flatness

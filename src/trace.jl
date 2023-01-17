@@ -43,7 +43,7 @@ function get_tbasis(n, d, ptsupp)
     return basis
 end
 
-function get_tbasis(ptsupp)
+function get_tbasis4(ptsupp)
     d1 = findfirst(i->length(ptsupp[i])>1, 1:length(ptsupp)) - 1
     d2 = findfirst(i->length(ptsupp[i])>2, 1:length(ptsupp)) - 1 - d1
     d3 = findfirst(i->length(ptsupp[i])>3, 1:length(ptsupp)) - 1 - d1 - d2
@@ -60,16 +60,45 @@ function get_tbasis(ptsupp)
     return basis
 end
 
+function get_tbasis5(ptsupp)
+    d1 = findfirst(i->length(ptsupp[i])>1, 1:length(ptsupp)) - 1
+    d2 = findfirst(i->length(ptsupp[i])>2, 1:length(ptsupp)) - 1 - d1
+    d3 = findfirst(i->length(ptsupp[i])>3, 1:length(ptsupp)) - 1 - d1 - d2
+    d4 = findfirst(i->length(ptsupp[i])>4, 1:length(ptsupp)) - 1 - d1 - d2 - d3
+    basis = get_tbasis(d1+d2, 5, ptsupp[1:d1+d2])
+    for i = d1+d2+1:d1+d2+d3
+        push!(basis, [i])
+        for j = 1:d1+d2
+            push!(basis, [j;i])
+        end
+        for j = 1:d1, k = j:d1
+            push!(basis, [j;k;i])
+        end
+    end
+    for i = d1+d2+d3+1:d1+d2+d3+d4
+        push!(basis, [i])
+        for j = 1:d1
+            push!(basis, [j;i])
+        end
+    end
+    for i = d1+d2+d3+d4+1:length(ptsupp)
+        push!(basis, [i])
+    end
+    return basis
+end
+
 function get_wbasis(n, d, ptsupp, bsupp; scalar=0)
-    ind = [length(bsupp[i]) <= d for i = 1:length(bsupp)]
+    ind = [length(item) <= d for item in bsupp]
     basis = bsupp[ind]
     if scalar > 0
-        ind = [i == 1 || maximum(basis[i]) <= n-scalar for i = 1:length(basis)]
+        ind = [i == 1 || maximum(item) <= n-scalar for item in basis]
         basis = basis[ind]
     end
     inx = findfirst(i->length(ptsupp[i])>d, 1:length(ptsupp)) - 1
     if d == 4
-        tbasis = get_tbasis(ptsupp[1:inx])
+        tbasis = get_tbasis4(ptsupp[1:inx])
+    elseif d == 5
+        tbasis = get_tbasis5(ptsupp[1:inx])
     else
         tbasis = get_tbasis(inx, d, ptsupp[1:inx])
     end
@@ -100,11 +129,10 @@ function ptraceopt_first(tr_supp, coe, n, d; TS="block", monosquare=false, QUIET
     println("********************************** NCTSSOS **********************************")
     println("Version 0.2.0, developed by Jie Wang, 2020--2022")
     println("NCTSSOS is launching...")
-    bsupp = get_ncbasis(n, 2d)
-    ind = [length(bsupp[i]) <= 1 || findfirst(j -> bsupp[i][j] == bsupp[i][j+1], 1:length(bsupp[i])-1) == nothing for i = 1:length(bsupp)]
-    bsupp = bsupp[ind]
-    ind = [length(bsupp[i]) <= 1 || (bsupp[i][1] != bsupp[i][end] && sym_cyclic(bsupp[i])==bsupp[i]) for i=1:length(bsupp)]
-    ptsupp = bsupp[ind]
+    bsupp = get_ncbasis(n, d, binary=true)
+    ptsupp = get_ncbasis(n, 2d, binary=true)
+    ind = [length(item) <= 1 || (item[1] != item[end] && sym_cyclic(item)==item) for item in ptsupp]
+    ptsupp = ptsupp[ind]
     ptsupp = ptsupp[2:end]
     sort!(ptsupp, lt=isless_td)
     supp = Vector{Vector{UInt16}}(undef, length(tr_supp))
@@ -160,12 +188,14 @@ function ptraceopt_higher!(data; TS="block", QUIET=false, solve=true)
     if QUIET == false
         println("Starting to compute the block structure...")
     end
+    time = @elapsed begin
     blocks,cl,blocksize,sb,numb,status = get_ncblocks(ksupp, ptsupp, wbasis, tbasis, basis, sb=sb, numb=numb, TS=TS, QUIET=QUIET, constraint=constraint)
+    end
     opt = moment = nothing
     if status == 1
         if QUIET == false
             mb = maximum(maximum.(sb))
-            println("Obtained the block structure. The maximal size of blocks is $mb.")
+            println("Obtained the block structure in $time seconds. The maximal size of blocks is $mb.")
         end
         opt,ksupp,moment = ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, QUIET=QUIET, constraint=constraint, solve=solve)
     end

@@ -64,17 +64,28 @@ function pstateopt_first(st_supp, coe, n, d; scalar=0, vargroup=[n], TS="block",
     println("********************************** NCTSSOS **********************************")
     println("Version 0.2.0, developed by Jie Wang, 2020--2022")
     println("NCTSSOS is launching...")
-    bsupp = get_ncbasis(n, 2d)
-    ind = [iscomm(bsupp[i], vargroup) for i = 1:length(bsupp)]
+    bsupp = get_ncbasis(n, d, binary=true)
+    ind = [iscomm(item, vargroup) for item in bsupp]
     bsupp = bsupp[ind]
-    ind = [length(bsupp[i]) <= 1 || findfirst(j -> bsupp[i][j] == bsupp[i][j+1], 1:length(bsupp[i])-1) == nothing for i = 1:length(bsupp)]
-    bsupp = bsupp[ind]
-    if bilocal == false
-        ind = [sym(bsupp[i], vargroup)==bsupp[i] for i=1:length(bsupp)]
-    else
-        ind = [isbilocal(bsupp[i]) && sym(bsupp[i], vargroup)==bsupp[i] for i=1:length(bsupp)]
+    ptsupp = get_ncbasis(vargroup[1], 2d, ind=Vector{UInt16}(1:vargroup[1]), binary=true)
+    l = vargroup[1]
+    for i = 2:length(vargroup)
+        nptsupp = Vector{UInt16}[]
+        temp = get_ncbasis(vargroup[i], 2d, ind=Vector{UInt16}(l+1:l+vargroup[i]), binary=true)
+        for item1 in ptsupp, item2 in temp
+            if length(item1) + length(item2) <= 2d
+                push!(nptsupp, [item1;item2])
+            end
+        end
+        ptsupp = nptsupp
+        l += vargroup[i]
     end
-    ptsupp = bsupp[ind]
+    if bilocal == false
+        ind = [sym(item, vargroup)==item for item in ptsupp]
+    else
+        ind = [isbilocal(item) && sym(item, vargroup)==item for item in ptsupp]
+    end
+    ptsupp = ptsupp[ind]
     ptsupp = ptsupp[2:end]
     if bilocal == true
         others = [[1], [2], [3], [4], [5], [6], [7], [8], [9], 
@@ -84,7 +95,7 @@ function pstateopt_first(st_supp, coe, n, d; scalar=0, vargroup=[n], TS="block",
          [2;4;7], [2;4;8], [2;5;7], [2;5;8], [2;5;9], [2;6;8], [2;6;9], 
          [3;4;7], [3;4;9], [3;5;8], [3;5;9], [3;6;7], [3;6;8], [3;6;9]]
          sort!(others)
-         ind = [ncbfind(others, length(others), ptsupp[i]) == 0 for i=1:length(ptsupp)]
+         ind = [ncbfind(others, length(others), item) == 0 for item in ptsupp]
          ptsupp = ptsupp[ind]
     end
     sort!(ptsupp, lt=isless_td)
@@ -145,12 +156,14 @@ function pstateopt_higher!(data; TS="block", solver="Mosek", QUIET=false, solve=
     if QUIET == false
         println("Starting to compute the block structure...")
     end
+    time = @elapsed begin
     blocks,cl,blocksize,sb,numb,status = get_ncblocks(ksupp, ptsupp, wbasis, tbasis, basis, supp=supp, vargroup=vargroup, sb=sb, numb=numb, TS=TS, QUIET=QUIET, constraint=constraint, type="state", bilocal=bilocal)
+    end
     opt = moment = nothing
     if status == 1
         if QUIET == false
             mb = maximum(maximum.(sb))
-            println("Obtained the block structure. The maximal size of blocks is $mb.")
+            println("Obtained the block structure in $time seconds. The maximal size of blocks is $mb.")
         end
         opt,ksupp,moment = pstate_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, vargroup, solver=solver, QUIET=QUIET, constraint=constraint, solve=solve, bilocal=bilocal)
     end
@@ -167,9 +180,9 @@ end
 
 function pstate_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, vargroup; solver="Mosek", QUIET=false, constraint="unipotent", solve=true, bilocal=false)
     m = length(supp) - 1
-    # ksupp = Vector{Vector{UInt16}}(undef, Int(sum(Int.(blocksize[1]).^2+blocksize[1])/2))
+    # ksupp = Vector{Vector{UInt32}}(undef, Int(sum(Int.(blocksize[1]).^2+blocksize[1])/2))
     # k = 1
-    ksupp = Vector{UInt16}[]
+    ksupp = Vector{UInt32}[]
     for i = 1:cl[1], j = 1:blocksize[1][i], r = j:blocksize[1][i]
         @inbounds bi1 = sort([tbasis[1][wbasis[1][blocks[1][i][j]][1]]; tbasis[1][wbasis[1][blocks[1][i][r]][1]]])
         @inbounds bi2 = [reverse(basis[1][wbasis[1][blocks[1][i][j]][2]]); basis[1][wbasis[1][blocks[1][i][r]][2]]]
@@ -357,16 +370,16 @@ end
 
 function state_reduce(word1, word2, ptsupp, vargroup; bilocal=false)
     if isempty(word2)
-        ind = UInt16[]
+        ind = UInt32[]
     elseif bilocal == false
-        ind = UInt16(ncbfind(ptsupp, length(ptsupp), sym(word2, vargroup), lt=isless_td))
+        ind = UInt32(ncbfind(ptsupp, length(ptsupp), sym(word2, vargroup), lt=isless_td))
     else
         wx,wz,flag = bilocal_reduce(word2)
         if flag == true
-            ind = UInt16[ncbfind(ptsupp, length(ptsupp), sym(wx, vargroup), lt=isless_td);
+            ind = UInt32[ncbfind(ptsupp, length(ptsupp), sym(wx, vargroup), lt=isless_td);
             ncbfind(ptsupp, length(ptsupp), sym(wz, vargroup), lt=isless_td)]
         else
-            ind = UInt16(ncbfind(ptsupp, length(ptsupp), sym(word2, vargroup), lt=isless_td))
+            ind = UInt32(ncbfind(ptsupp, length(ptsupp), sym(word2, vargroup), lt=isless_td))
         end
     end
     return sort([word1; ind])

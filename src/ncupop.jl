@@ -316,21 +316,29 @@ function sym_canon(supp, coe)
     return nsupp,ncoe
 end
 
-function get_ncbasis(n, d; ind=UInt16[i for i=1:n])
+function get_ncbasis(n, d; ind=Vector{UInt16}(1:n), binary=false)
     basis = [UInt16[]]
     for i = 1:d
-        append!(basis, _get_ncbasis_deg(n, i, ind=ind))
+        append!(basis, _get_ncbasis_deg(n, i, ind=ind, binary=binary))
     end
     return basis
 end
 
-function _get_ncbasis_deg(n, d; ind=UInt16[i for i=1:n])
+function _get_ncbasis_deg(n, d; ind=Vector{UInt16}(1:n), binary=false)
     if d > 0
         basis = Vector{UInt16}[]
         for i = 1:n
-            temp = _get_ncbasis_deg(n, d-1, ind=ind)
-            push!.(temp, ind[i])
-            append!(basis, temp)
+            temp = _get_ncbasis_deg(n, d-1, ind=ind, binary=binary)
+            if binary == false || d == 1
+                push!.(temp, ind[i])
+                append!(basis, temp)
+            else
+                for item in temp
+                    if item[end] != ind[i]
+                        push!(basis, [item;ind[i]])
+                    end
+                end
+            end
         end
         return basis
     else
