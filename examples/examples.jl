@@ -1,9 +1,7 @@
 using DynamicPolynomials
 using DelimitedFiles
 using Plots
-
-include("D:\\Programs\\NCTSSOS\\src\\NCTSSOS.jl")
-using .NCTSSOS
+using NCTSSOS
 
 n = 3
 @ncpolyvar x[1:3]

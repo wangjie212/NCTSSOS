@@ -6,7 +6,7 @@ for i = 1:n
     jset = max(1, i-5) : min(n, i+1)
     jset = setdiff(jset, i)
     g = sum(x[j] + x[j]^2 for j in jset)
-    global f += (2*x[i] + 5*x[i]^3 + 1 - g)^2
+    f += (2*x[i] + 5*x[i]^3 + 1 - g)^2
 end
 
 # the Broyden banded polynomial
@@ -66,7 +66,7 @@ n = 4
 f = 0
 @ncpolyvar x[1:n]
 for i = 1:2:n-3
-    global f += (x[i] + 10*x[i+1])^2 + 5*(x[i+2] - x[i+3])^2 + (x[i+1] - 2*x[i+2])^4 + 10*(x[i] - 10*x[i+3])^4
+    f += (x[i] + 10*x[i+1])^2 + 5*(x[i+2] - x[i+3])^2 + (x[i+1] - 2*x[i+2])^4 + 10*(x[i] - 10*x[i+3])^4
 end
 
 # the Chained singular polynomial

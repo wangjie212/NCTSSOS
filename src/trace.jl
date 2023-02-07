@@ -27,7 +27,7 @@ function get_tbasis(n, d, ptsupp)
             temp2 = copy(temp)
             j = temp[1]
             ind = findfirst(x->temp[x]!=j, 1:length(temp))
-            if ind == nothing
+            if ind === nothing
                 ind = length(temp)+1
             end
             if j != 1
@@ -369,7 +369,7 @@ function get_ncgraph(ksupp, ptsupp, wbasis, tbasis, basis; vargroup=nothing, con
     for i = 1:lb, j = i+1:lb
         @inbounds bi1 = sort([tbasis[wbasis[i][1]]; tbasis[wbasis[j][1]]])
         @inbounds bi2 = [reverse(basis[wbasis[i][2]]); basis[wbasis[j][2]]]
-        if vargroup != nothing
+        if vargroup !== nothing
             res_comm!(bi2, vargroup)
         end
         constraint_reduce!(bi2, constraint=constraint)
@@ -408,7 +408,7 @@ function get_nccgraph(ksupp, ptsupp, supp, wbasis, tbasis, basis; vargroup=nothi
         while r <= length(supp)
             @inbounds bi1 = sort([tbasis[wbasis[i][1]]; supp[r]; tbasis[wbasis[j][1]]])
             @inbounds bi2 = [reverse(basis[wbasis[i][2]]); basis[wbasis[j][2]]]
-            if vargroup != nothing
+            if vargroup !== nothing
                 res_comm!(bi2, vargroup)
             end
             constraint_reduce!(bi2, constraint=constraint)
@@ -505,7 +505,7 @@ function Werner_witness_first(dY, sigma, n, d; TS="block", monosquare=false, QUI
     println("Version 0.2.0, developed by Jie Wang, 2020--2022")
     println("NCTSSOS is launching...")
     bsupp = get_ncbasis(n, 2d)
-    ind = [findfirst(j -> bsupp[i][j] == bsupp[i][j+1], 1:length(bsupp[i])-1) == nothing for i = 1:length(bsupp)]
+    ind = [findfirst(j -> bsupp[i][j] == bsupp[i][j+1], 1:length(bsupp[i])-1) === nothing for i = 1:length(bsupp)]
     bsupp = bsupp[ind]
     ind = [length(bsupp[i]) <= 1 || (bsupp[i][1] != bsupp[i][end] && sym_cyclic(bsupp[i])==bsupp[i]) for i=1:length(bsupp)]
     ptsupp = bsupp[ind]

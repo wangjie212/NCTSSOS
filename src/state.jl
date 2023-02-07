@@ -60,7 +60,11 @@ function res_comm!(a, vargroup)
     return a
 end
 
-function pstateopt_first(st_supp, coe, n, d; scalar=0, vargroup=[n], TS="block", monosquare=false, solver="Mosek", QUIET=false, constraint="unipotent", solve=true, bilocal=false)
+function pstateopt_first(st_supp::Vector{Vector{Vector{Int}}}, coe, n, d; scalar=0, vargroup=[n], TS="block", monosquare=false, solver="Mosek", QUIET=false, constraint="unipotent", solve=true, bilocal=false)
+    return pstateopt_first([st_supp], [coe], n, d, scalar=scalar, vargroup=vargroup, TS=TS, monosquare=monosquare, solver=solver, QUIET=QUIET, constraint=constraint, solve=solve, bilocal=bilocal)
+end
+
+function pstateopt_first(st_supp::Vector{Vector{Vector{Vector{Int}}}}, coe, n, d; scalar=0, vargroup=[n], TS="block", monosquare=false, solver="Mosek", QUIET=false, constraint="unipotent", solve=true, bilocal=false)
     println("********************************** NCTSSOS **********************************")
     println("Version 0.2.0, developed by Jie Wang, 2020--2022")
     println("NCTSSOS is launching...")

@@ -20,6 +20,7 @@ mutable struct ncmpop_data
     blocksize # sizes of blocks
     sb # sizes of different blocks
     numb # numbers of different blocks
+    moment # moment matrix
 end
 
 function cs_nctssos_first(f, x; d=0, CS="MF", minimize=false, TS="block", merge=false, md=3,
@@ -61,10 +62,10 @@ function cs_nctssos_first(supp::Vector{Vector{UInt16}}, coe, n::Int; d=0, CS="MF
         mb = maximum(maximum.(sb))
         println("Obtained the block structure in $time seconds. The maximal size of blocks is $mb.")
     end
-    opt,ksupp = blockupop_mix(n, supp, coe, basis, cliques, cql, cliquesize, blocks, cl, blocksize, obj=obj,
+    opt,ksupp,moment = blockupop_mix(n, supp, coe, basis, cliques, cql, cliquesize, blocks, cl, blocksize, obj=obj,
     solve=solve, QUIET=QUIET, partition=partition, constraint=constraint)
     data = ncmpop_data(n, 0, 0, d, supp, coe, partition, constraint, obj, ksupp, basis, cql, cliques, cliquesize,
-    [], [], blocks, cl, blocksize, sb, numb)
+    [], [], blocks, cl, blocksize, sb, numb, moment)
     return opt,data
 end
 
@@ -135,10 +136,10 @@ function cs_nctssos_first(supp::Vector{Vector{Vector{UInt16}}}, coe, n::Int, d::
         mb = maximum(maximum.(sb))
         println("Obtained the block structure in $time seconds. The maximal size of blocks is $mb.")
     end
-    opt,ksupp = blockcpop_mix(n, m, supp, coe, basis, cliques, cql, cliquesize, J, ncc, blocks, cl, blocksize,
+    opt,ksupp,moment = blockcpop_mix(n, m, supp, coe, basis, cliques, cql, cliquesize, J, ncc, blocks, cl, blocksize,
     numeq=numeq, QUIET=QUIET, obj=obj, solve=solve, partition=partition, constraint=constraint)
     data = ncmpop_data(n, m, numeq, d, supp, coe, partition, constraint, obj, ksupp, basis, cql, cliques, cliquesize,
-    J, ncc, blocks, cl, blocksize, sb, numb)
+    J, ncc, blocks, cl, blocksize, sb, numb, moment)
     return opt,data
 end
 
@@ -183,7 +184,7 @@ function cs_nctssos_higher!(data::ncmpop_data; TS="block", QUIET=false, merge=fa
                 mb = maximum(maximum.(sb))
                 println("Obtained the block structure in $time seconds. The maximal size of blocks is $mb.")
             end
-            opt,ksupp = blockupop_mix(n, supp, coe, basis, cliques, cql, cliquesize, blocks, cl, blocksize, obj=obj, solve=solve, QUIET=QUIET,
+            opt,ksupp,moment = blockupop_mix(n, supp, coe, basis, cliques, cql, cliquesize, blocks, cl, blocksize, obj=obj, solve=solve, QUIET=QUIET,
             partition=partition, constraint=constraint)
         end
     else
@@ -196,7 +197,7 @@ function cs_nctssos_higher!(data::ncmpop_data; TS="block", QUIET=false, merge=fa
                 mb = maximum(maximum.(sb))
                 println("Obtained the block structure in $time seconds. The maximal size of blocks is $mb.")
             end
-            opt,ksupp = blockcpop_mix(n, m, supp, coe, basis, cliques, cql, cliquesize, J, ncc, blocks, cl, blocksize, numeq=numeq,
+            opt,ksupp,moment = blockcpop_mix(n, m, supp, coe, basis, cliques, cql, cliquesize, J, ncc, blocks, cl, blocksize, numeq=numeq,
             QUIET=QUIET, obj=obj, solve=solve, partition=partition, constraint=constraint)
         end
     end
@@ -210,6 +211,7 @@ function cs_nctssos_higher!(data::ncmpop_data; TS="block", QUIET=false, merge=fa
     data.blocksize = blocksize
     data.sb = sb
     data.numb = numb
+    data.moment = moment
     return opt,data
 end
 
@@ -227,7 +229,7 @@ function blockupop_mix(n, supp, coe, basis, cliques, cql, cliquesize, blocks, cl
     if QUIET == false
         println("There are $lksupp affine constraints.")
     end
-    objv = nothing
+    objv = moment = nothing
     if solve == true
         if QUIET == false
             println("Assembling the SDP...")
@@ -275,7 +277,7 @@ function blockupop_mix(n, supp, coe, basis, cliques, cql, cliquesize, blocks, cl
         end
         @variable(model, lower)
         cons[1] += lower
-        @constraint(model, cons.==bc)
+        @constraint(model, con, cons.==bc)
         @objective(model, Max, lower)
         end
         if QUIET == false
@@ -296,8 +298,23 @@ function blockupop_mix(n, supp, coe, basis, cliques, cql, cliquesize, blocks, cl
            println("solution status: $status")
         end
         println("optimum = $objv")
+        dual_var = -dual.(con)
+        moment = Vector{Vector{Matrix{Float64}}}(undef, cql)
+        for i = 1:cql
+            moment[i] = Vector{Matrix{Float64}}(undef, cl[i]) 
+            for k = 1:cl[i]
+                moment[i][k] = zeros(blocksize[i][k],blocksize[i][k])
+                for j = 1:blocksize[i][k], r = j:blocksize[i][k]
+                    @inbounds bi = [basis[i][blocks[i][k][j]][end:-1:1]; basis[i][blocks[i][k][r]]]
+                    bi = reduce!(bi, obj=obj, partition=partition, constraint=constraint)
+                    Locb = ncbfind(ksupp, lksupp, bi)
+                    moment[i][k][j,r] = dual_var[Locb]
+                end
+                moment[i][k] = Symmetric(moment[i][k],:U)
+            end
+        end
     end
-    return objv,ksupp
+    return objv,ksupp,moment
 end
 
 function blockcpop_mix(n, m, supp, coe, basis, cliques, cql, cliquesize, J, ncc, blocks, cl, blocksize;
@@ -327,7 +344,7 @@ function blockcpop_mix(n, m, supp, coe, basis, cliques, cql, cliquesize, J, ncc,
     if QUIET == false
         println("There are $lksupp affine constraints.")
     end
-    objv = nothing
+    objv = moment = nothing
     if solve == true
         if QUIET == false
             println("Assembling the SDP...")
@@ -424,7 +441,7 @@ function blockcpop_mix(n, m, supp, coe, basis, cliques, cql, cliquesize, J, ncc,
         end
         @variable(model, lower)
         cons[1] += lower
-        @constraint(model, cons.==bc)
+        @constraint(model, con, cons.==bc)
         @objective(model, Max, lower)
         end
         if QUIET == false
@@ -445,8 +462,23 @@ function blockcpop_mix(n, m, supp, coe, basis, cliques, cql, cliquesize, J, ncc,
            println("solution status: $status")
         end
         println("optimum = $objv")
+        dual_var = -dual.(con)
+        moment = Vector{Vector{Matrix{Float64}}}(undef, cql)
+        for i = 1:cql
+            moment[i] = Vector{Matrix{Float64}}(undef, cl[i][1]) 
+            for k = 1:cl[i][1]
+                moment[i][k] = zeros(blocksize[i][1][k],blocksize[i][1][k])
+                for j = 1:blocksize[i][1][k], r = j:blocksize[i][1][k]
+                    @inbounds bi = [basis[i][1][blocks[i][1][k][j]][end:-1:1]; basis[i][1][blocks[i][1][k][r]]]
+                    bi = reduce!(bi, obj=obj, partition=partition, constraint=constraint)
+                    Locb = ncbfind(ksupp, lksupp, bi)
+                    moment[i][k][j,r] = dual_var[Locb]
+                end
+                moment[i][k] = Symmetric(moment[i][k],:U)
+            end
+        end
     end
-    return objv,ksupp
+    return objv,ksupp,moment
 end
 
 function get_blocks_mix(d, supp, cliques, cql, cliquesize; basis=[], sb=[], numb=[], TS="block", merge=false, md=3, obj="eigen", partition=0, constraint=nothing)
@@ -472,8 +504,8 @@ function get_blocks_mix(d, supp, cliques, cql, cliquesize; basis=[], sb=[], numb
                 ind = [_comm(basis[i][j], partition) == basis[i][j] for j=1:length(basis[i])]
                 basis[i] = basis[i][ind]
             end
-            if constraint != nothing
-                ind = [findfirst(j -> basis[i][k][j] == basis[i][k][j+1], 1:length(basis[i][k])-1) == nothing for k=1:length(basis[i])]
+            if constraint !== nothing
+                ind = [findfirst(j -> basis[i][k][j] == basis[i][k][j+1], 1:length(basis[i][k])-1) === nothing for k=1:length(basis[i])]
                 basis[i] = basis[i][ind]
             end
             if obj == "trace"
@@ -484,7 +516,7 @@ function get_blocks_mix(d, supp, cliques, cql, cliquesize; basis=[], sb=[], numb
             if partition > 0
                 ksupp = _comm.(ksupp, partition)
             end
-            if constraint != nothing
+            if constraint !== nothing
                 reduce_cons!.(ksupp, constraint = constraint)
             end
             sort!(ksupp)
@@ -531,8 +563,8 @@ function get_cblocks_mix(d, dg, J, m, supp, cliques, cql, cliquesize; ksupp=[], 
                 ind = [_comm(basis[i][1][k], partition) == basis[i][1][k] for i=1:length(basis[i][1])]
                 basis[i][1] = basis[i][1][ind]
             end
-            if constraint != nothing
-                ind = [findfirst(j -> basis[i][1][k][j] == basis[i][1][k][j+1], 1:length(basis[i][1][k])-1) == nothing for i=1:length(basis[i][1])]
+            if constraint !== nothing
+                ind = [findfirst(j -> basis[i][1][k][j] == basis[i][1][k][j+1], 1:length(basis[i][1][k])-1) === nothing for i=1:length(basis[i][1])]
                 basis[i][1] = basis[i][1][ind]
             end
             for s = 1:lc
@@ -541,8 +573,8 @@ function get_cblocks_mix(d, dg, J, m, supp, cliques, cql, cliquesize; ksupp=[], 
                     ind = [_comm(basis[i][s+1][k], partition) == basis[i][s+1][k] for i=1:length(basis[i][s+1])]
                     basis[i][s+1] = basis[i][s+1][ind]
                 end
-                if constraint != nothing
-                    ind = [findfirst(j -> basis[i][s+1][k][j] == basis[i][s+1][k][j+1], 1:length(basis[i][s+1][k])-1) == nothing for i=1:length(basis[i][s+1])]
+                if constraint !== nothing
+                    ind = [findfirst(j -> basis[i][s+1][k][j] == basis[i][s+1][k][j+1], 1:length(basis[i][s+1][k])-1) === nothing for i=1:length(basis[i][s+1])]
                     basis[i][s+1] = basis[i][s+1][ind]
                 end
             end
@@ -559,7 +591,7 @@ function get_cblocks_mix(d, dg, J, m, supp, cliques, cql, cliquesize; ksupp=[], 
             if partition > 0
                 fsupp = _comm.(fsupp, partition)
             end
-            if constraint != nothing
+            if constraint !== nothing
                 reduce_cons!.(fsupp, constraint = constraint)
             end
             sort!(fsupp)
@@ -586,7 +618,7 @@ function assign_constraint(m, supp, cliques, cql, cliquesize; assign="first")
         rind = unique(rind)
         if assign == "first"
             ind = findfirst(k->issubset(rind, cliques[k]), 1:cql)
-            if ind != nothing
+            if ind !== nothing
                 push!(J[ind], i-1)
             else
                 push!(ncc, i-1)

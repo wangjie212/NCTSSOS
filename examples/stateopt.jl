@@ -4,33 +4,33 @@ using LinearAlgebra
 
 ## Example 7.2.0
 n = 4
-supp = [[[[1;3]], [[1;4]], [[2;3]], [[2;4]]]]
-coe = [[-1; -1; -1; 1]]
+supp = [[[1;3]], [[1;4]], [[2;3]], [[2;4]]]
+coe = [-1; -1; -1; 1]
 d = 1
 opt,data = pstateopt_first(supp, coe, n, d, TS="block", constraint="unipotent")
 
 ## Example 7.2.1
 n = 4
-supp = [[[[1;4], [1;4]], [[2;3], [2;3]], [[1;4], [2;3]], [[1;3], [1;3]], [[2;4], [2;4]], [[1;3], [2;4]]]]
-coe = [[-1; -1; -2; -1; -1; 2]]
+supp = [[[1;4], [1;4]], [[2;3], [2;3]], [[1;4], [2;3]], [[1;3], [1;3]], [[2;4], [2;4]], [[1;3], [2;4]]]
+coe = [-1; -1; -2; -1; -1; 2]
 d = 3
 opt,data = pstateopt_first(supp, coe, n, d, vargroup=[2;2], TS="block", constraint="unipotent")
 # opt,data = pstateopt_higher!(data, TS="block")
 
 ## Example 7.2.2
 n = 6
-supp = [[[[1;4]], [[1], [4]], [[1;5]], [[1], [5]], [[1;6]], [[1], [6]], [[2;4]], [[2], [4]],
-[[2;5]], [[2], [5]], [[2;6]], [[2], [6]], [[3;4]], [[3], [4]], [[3;5]], [[3], [5]]]]
-coe = [[-1; 1; -1; 1; -1; 1; -1; 1; -1; 1; 1; -1; -1; 1; 1; -1]]
+supp = [[[1;4]], [[1], [4]], [[1;5]], [[1], [5]], [[1;6]], [[1], [6]], [[2;4]], [[2], [4]],
+[[2;5]], [[2], [5]], [[2;6]], [[2], [6]], [[3;4]], [[3], [4]], [[3;5]], [[3], [5]]]
+coe = [-1; 1; -1; 1; -1; 1; -1; 1; -1; 1; 1; -1; -1; 1; 1; -1]
 d = 2
 opt,data = pstateopt_first(supp, coe, n, d, vargroup=[3;3], TS="block", constraint="unipotent")
 # opt,data = pstateopt_higher!(data, TS="block")
 
 ## Example 7.2.3
 n = 4
-supp = [[[[2]], [[3]], [[4]], [[1;3]], [[2;3]], [[1;4]], [[2;4]], [[1], [3]],
-[[2], [3]], [[2], [4]], [[1], [1]], [[4], [4]]]]
-coe = [-[1; 1; 1; -1; 1; 1; 1; -1; -1; -1; -1; -1]]
+supp = [[[2]], [[3]], [[4]], [[1;3]], [[2;3]], [[1;4]], [[2;4]], [[1], [3]],
+[[2], [3]], [[2], [4]], [[1], [1]], [[4], [4]]]
+coe = -[1; 1; 1; -1; 1; 1; 1; -1; -1; -1; -1; -1]
 d = 2
 opt,data = pstateopt_first(supp, coe, n, d, vargroup=[2;2], TS=false, constraint="unipotent")
 
@@ -54,11 +54,17 @@ opt,data = pstateopt_first(supp, coe, n, d, vargroup=[2;2], TS=false, constraint
 ## Example 8.1.3
 # quantum bilocal networks
 n = 9
-supp = [[[[4;7]], [[5;8]], [[6;9]], [[1;4]], [[2;5]], [[3;6]], [[1;5;9]], [[1;6;8]], [[2;4;9]], [[2;6;7]], [[3;4;8]], [[3;5;7]]]]
-coe = [-[1/3;1/3;1/3;-1/3;-1/3;-1/3;-1;-1;-1;-1;-1;-1]]
+supp = [[[4;7]], [[5;8]], [[6;9]], [[1;4]], [[2;5]], [[3;6]], [[1;5;9]], [[1;6;8]], [[2;4;9]], [[2;6;7]], [[3;4;8]], [[3;5;7]]]
+coe = -[1/3;1/3;1/3;-1/3;-1/3;-1/3;-1;-1;-1;-1;-1;-1]
 d = 5
+# time = @elapsed begin
 opt,data = pstateopt_first(supp, coe, n, d, vargroup=[3;3;3], TS="block", solve=false, bilocal=true)
-opt,data = pstateopt_higher!(data, TS="block", bilocal=true, solve=true)
+opt,data = pstateopt_higher!(data, TS="block", bilocal=true, solve=true, solver="COSMO")
+# end
+# io = open("/home/jwang/Programs/NCTSSOS/examples/bilocal.txt", "w")
+# write(io, "opt = $opt\n")
+# write(io, "time = $time\n")
+# close(io)
 # check flatness
 k = 4
 ind = [sum(length.(data.ptsupp[data.tbasis[1][data.wbasis[1][i][1]]])) + length(data.basis[1][data.wbasis[1][i][2]]) <= 1 for i = 1:length(data.wbasis[1][data.blocks[1][k]])]

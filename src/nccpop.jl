@@ -14,28 +14,29 @@ mutable struct nccpop_data
     blocks # block structure
     cl # numbers of blocks
     blocksize # sizes of blocks
+    moment # moment matrix
 end
 
 """
     opt,data = nctssos_first(pop::Vector{Polynomial{false, T}} where T<:Number, x::Vector{PolyVar{false}},
-        d::Int; numeq=0, reducebasis=false, TS="block", obj="eigen", merge=false, md=3, solve=true, QUIET=false)
+        order::Int; numeq=0, reducebasis=false, TS="block", obj="eigen", merge=false, md=3, solve=true, QUIET=false)
 
 Compute the first step of the NCTSSOS hierarchy for constrained noncommutative polynomial optimization with
-relaxation order `d`.
+relaxation order `order`.
 Return the optimum and other auxiliary data.
 
 # Arguments
 - `pop`: the vector of the objective function, inequality constraints, and equality constraints.
 - `x`: the set of noncommuting variables.
-- `d`: the relaxation order of the moment-SOHS hierarchy.
+- `order`: the relaxation order of the moment-SOHS hierarchy.
 - `numeq`: the number of equality constraints.
 """
 
 function nctssos_first(pop::Vector{Polynomial{false, T}} where T<:Number, x::Vector{PolyVar{false}},
-    d::Int; numeq=0, reducebasis=false, TS="block", obj="eigen", merge=false, md=3, solve=true, QUIET=false,
+    order::Int; numeq=0, reducebasis=false, TS="block", obj="eigen", merge=false, md=3, solve=true, QUIET=false,
     partition=0, constraint=nothing)
     n,supp,coe = polys_info(pop, x)
-    opt,data = nctssos_first(supp, coe, n, d, numeq=numeq, reducebasis=reducebasis, TS=TS, obj=obj, merge=merge,
+    opt,data = nctssos_first(supp, coe, n, order, numeq=numeq, reducebasis=reducebasis, TS=TS, obj=obj, merge=merge,
     md=md, QUIET=QUIET, solve=solve, partition=partition, constraint=constraint)
     return opt,data
 end
@@ -62,7 +63,7 @@ function polys_info(pop, x)
     return n,supp,coe
 end
 
-function nctssos_first(supp::Vector{Vector{Vector{UInt16}}}, coe, n::Int64, d::Int64; numeq=0,
+function nctssos_first(supp::Vector{Vector{Vector{UInt16}}}, coe, n::Int64, order::Int64; numeq=0,
     reducebasis=false, TS="block", obj="eigen", merge=false, md=3, solve=true, QUIET=false, partition=0, constraint=nothing)
     println("********************************** NCTSSOS **********************************")
     println("Version 0.2.0, developed by Jie Wang, 2020--2022")
@@ -75,24 +76,24 @@ function nctssos_first(supp::Vector{Vector{Vector{UInt16}}}, coe, n::Int64, d::I
         supp[1],coe[1] = sym_canon(supp[1], coe[1])
     end
     basis = Vector{Vector{Vector{UInt16}}}(undef, m+1)
-    basis[1] = get_ncbasis(n, d)
+    basis[1] = get_ncbasis(n, order)
     if partition > 0
         ind = [_comm(basis[1][i], partition) == basis[1][i] for i=1:length(basis[1])]
         basis[1] = basis[1][ind]
     end
-    if constraint != nothing
-        ind = [findfirst(j -> basis[1][i][j] == basis[1][i][j+1], 1:length(basis[1][i])-1) == nothing for i=1:length(basis[1])]
+    if constraint !== nothing
+        ind = [findfirst(j -> basis[1][i][j] == basis[1][i][j+1], 1:length(basis[1][i])-1) === nothing for i=1:length(basis[1])]
         basis[1] = basis[1][ind]
     end
     ksupp = copy(supp[1])
     for i = 1:m
-        basis[i+1] = get_ncbasis(n, d-Int(ceil(dg[i]/2)))
+        basis[i+1] = get_ncbasis(n, order-Int(ceil(dg[i]/2)))
         if partition > 0
             ind = [_comm(basis[i+1][k], partition) == basis[i+1][k] for k=1:length(basis[i+1])]
             basis[i+1] = basis[i+1][ind]
         end
-        if constraint != nothing
-            ind = [findfirst(j -> basis[i+1][k][j] == basis[i+1][k][j+1], 1:length(basis[i+1][k])-1) == nothing for k=1:length(basis[i+1])]
+        if constraint !== nothing
+            ind = [findfirst(j -> basis[i+1][k][j] == basis[i+1][k][j+1], 1:length(basis[i+1][k])-1) === nothing for k=1:length(basis[i+1])]
             basis[i+1] = basis[i+1][ind]
         end
         if obj == "trace"
@@ -109,7 +110,7 @@ function nctssos_first(supp::Vector{Vector{Vector{UInt16}}}, coe, n::Int64, d::I
     if partition > 0
         ksupp = _comm.(ksupp, partition)
     end
-    if constraint != nothing
+    if constraint !== nothing
         reduce_cons!.(ksupp, constraint = constraint)
     end
     sort!(ksupp)
@@ -120,7 +121,7 @@ function nctssos_first(supp::Vector{Vector{Vector{UInt16}}}, coe, n::Int64, d::I
     time = @elapsed begin
     blocks,cl,blocksize,sb,numb,_ = get_nccblocks(m, ksupp, supp[2:end], basis, TS=TS, obj=obj, QUIET=QUIET,
     merge=merge, md=md, partition=partition, constraint=constraint)
-    if reducebasis == true && obj == "eigen" && constraint == nothing
+    if reducebasis == true && obj == "eigen" && constraint === nothing
         gsupp = get_ncgsupp(m, supp, basis[2:end], blocks[2:end], cl[2:end], blocksize[2:end])
         psupp = copy(supp[1])
         push!(psupp, UInt16[])
@@ -143,9 +144,9 @@ function nctssos_first(supp::Vector{Vector{Vector{UInt16}}}, coe, n::Int64, d::I
         mb = maximum(maximum.(sb))
         println("Obtained the block structure in $time seconds. The maximal size of blocks is $mb.")
     end
-    opt,ksupp = ncblockcpop(m, supp, coe, basis, blocks, cl, blocksize, numeq=numeq, QUIET=QUIET, obj=obj,
+    opt,ksupp,moment = ncblockcpop(m, supp, coe, basis, blocks, cl, blocksize, numeq=numeq, QUIET=QUIET, obj=obj,
     solve=solve, partition=partition, constraint=constraint)
-    data = nccpop_data(n, m, numeq, supp, coe, partition, constraint, obj, basis, ksupp, sb, numb, blocks, cl, blocksize)
+    data = nccpop_data(n, m, numeq, supp, coe, partition, constraint, obj, basis, ksupp, sb, numb, blocks, cl, blocksize, moment)
     return opt,data
 end
 
@@ -178,7 +179,7 @@ function nctssos_higher!(data::nccpop_data; TS="block", merge=false, md=3, solve
             mb = maximum(maximum.(sb))
             println("Obtained the block structure in $time seconds. The maximal size of blocks is $mb.")
         end
-        opt,ksupp = ncblockcpop(m, supp, coe, basis, blocks, cl, blocksize, numeq=numeq, QUIET=QUIET, obj=obj,
+        opt,ksupp,moment = ncblockcpop(m, supp, coe, basis, blocks, cl, blocksize, numeq=numeq, QUIET=QUIET, obj=obj,
         solve=solve, partition=partition, constraint=constraint)
     end
     data.ksupp = ksupp
@@ -187,6 +188,7 @@ function nctssos_higher!(data::nccpop_data; TS="block", merge=false, md=3, solve
     data.blocks = blocks
     data.cl = cl
     data.blocksize = blocksize
+    data.moment = moment
     return opt,data
 end
 
@@ -352,7 +354,7 @@ function ncblockcpop(m, supp, coe, basis, blocks, cl, blocksize; numeq=0, QUIET=
     if QUIET == false
         println("There are $lksupp affine constraints.")
     end
-    objv = nothing
+    objv = moment = nothing
     if solve == true
         if QUIET==false
             println("Assembling the SDP...")
@@ -432,7 +434,7 @@ function ncblockcpop(m, supp, coe, basis, blocks, cl, blocksize; numeq=0, QUIET=
         end
         @variable(model, lower)
         cons[1] += lower
-        @constraint(model, cons.==bc)
+        @constraint(model, con, cons.==bc)
         @objective(model, Max, lower)
         end
         if QUIET == false
@@ -453,6 +455,18 @@ function ncblockcpop(m, supp, coe, basis, blocks, cl, blocksize; numeq=0, QUIET=
            println("solution status: $status")
         end
         println("optimum = $objv")
+        dual_var = -dual.(con)
+        moment = Vector{Matrix{Float64}}(undef, cl[1])
+        for i = 1:cl[1]
+            moment[i] = zeros(blocksize[1][i],blocksize[1][i])
+            for j = 1:blocksize[1][i], k = j:blocksize[1][i]
+                @inbounds bi = [basis[1][blocks[1][i][j]][end:-1:1]; basis[1][blocks[1][i][k]]]
+                bi = reduce!(bi, obj=obj, partition=partition, constraint=constraint)
+                Locb = ncbfind(ksupp, lksupp, bi)
+                moment[i][j,k] = dual_var[Locb]
+            end
+            moment[i] = Symmetric(moment[i],:U)
+        end
     end
-    return objv,ksupp
+    return objv,ksupp,moment
 end
