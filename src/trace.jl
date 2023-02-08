@@ -10,6 +10,7 @@ mutable struct traceopt_type
     sb # sizes of different blocks
     numb # numbers of different blocks
     moment # moment matrix
+    GramMat # Gram matrix
 end
 
 function get_tbasis(n, d, ptsupp)
@@ -125,7 +126,7 @@ function sym_cyclic(word)
     return min(_cyclic_canon(word), _cyclic_canon(reverse(word)))
 end
 
-function ptraceopt_first(tr_supp, coe, n, d; TS="block", monosquare=false, QUIET=false, constraint="unipotent", solve=true)
+function ptraceopt_first(tr_supp, coe, n, d; TS="block", monosquare=false, QUIET=false, constraint="unipotent", solve=true, Gram=false)
     println("********************************** NCTSSOS **********************************")
     println("Version 0.2.0, developed by Jie Wang, 2020--2022")
     println("NCTSSOS is launching...")
@@ -169,12 +170,12 @@ function ptraceopt_first(tr_supp, coe, n, d; TS="block", monosquare=false, QUIET
         mb = maximum(maximum.(sb))
         println("Obtained the block structure in $time seconds. The maximal size of blocks is $mb.")
     end
-    opt,ksupp,moment = ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, QUIET=QUIET, constraint=constraint, solve=solve)
-    data = traceopt_type(supp, coe, constraint, ptsupp, wbasis, tbasis, basis, ksupp, sb, numb, moment)
+    opt,ksupp,moment,GramMat = ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, QUIET=QUIET, constraint=constraint, solve=solve, Gram=Gram)
+    data = traceopt_type(supp, coe, constraint, ptsupp, wbasis, tbasis, basis, ksupp, sb, numb, moment, GramMat)
     return opt,data
 end
 
-function ptraceopt_higher!(data; TS="block", QUIET=false, solve=true)
+function ptraceopt_higher!(data; TS="block", QUIET=false, solve=true, Gram=false)
     supp = data.supp
     coe = data.coe
     constraint = data.constraint
@@ -197,16 +198,17 @@ function ptraceopt_higher!(data; TS="block", QUIET=false, solve=true)
             mb = maximum(maximum.(sb))
             println("Obtained the block structure in $time seconds. The maximal size of blocks is $mb.")
         end
-        opt,ksupp,moment = ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, QUIET=QUIET, constraint=constraint, solve=solve)
+        opt,ksupp,moment,GramMat = ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, QUIET=QUIET, constraint=constraint, solve=solve, Gram=Gram)
     end
     data.ksupp = ksupp
     data.sb = sb
     data.numb = numb
     data.moment = moment
+    data.GramMat = GramMat
     return opt,data
 end
 
-function ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize; QUIET=false, constraint="unipotent", solve=true)
+function ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize; QUIET=false, constraint="unipotent", solve=true, Gram=false)
     ksupp = Vector{Vector{UInt16}}(undef, Int(sum(Int.(blocksize).^2+blocksize)/2))
     k = 1
     for i = 1:cl, j = 1:blocksize[i], r = j:blocksize[i]
@@ -229,7 +231,7 @@ function ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocks
     if QUIET == false
         println("There are $lksupp affine constraints.")
     end
-    objv = moment = nothing
+    objv = moment = GramMat = nothing
     if solve == true
         if QUIET == false
             println("Assembling the SDP...")
@@ -237,10 +239,11 @@ function ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocks
         model = Model(optimizer_with_attributes(Mosek.Optimizer))
         set_optimizer_attribute(model, MOI.Silent(), QUIET)
         cons = [AffExpr(0) for i=1:lksupp]
+        pos = Vector{Union{VariableRef,Symmetric{VariableRef}}}(undef, cl)
         for i = 1:cl
             bs = blocksize[i]
             if bs == 1
-               @inbounds pos = @variable(model, lower_bound=0)
+               @inbounds pos[i] = @variable(model, lower_bound=0)
                @inbounds bi1 = sort([tbasis[wbasis[blocks[i][1]][1]]; tbasis[wbasis[blocks[i][1]][1]]])
                @inbounds bi2 = [reverse(basis[wbasis[blocks[i][1]][2]]); basis[wbasis[blocks[i][1]][2]]]
                constraint_reduce!(bi2, constraint=constraint)
@@ -253,9 +256,9 @@ function ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocks
                end
                bi = trace_reduce(bi1, bi2, ptsupp)
                Locb = ncbfind(ksupp, lksupp, bi)
-               @inbounds add_to_expression!(cons[Locb], pos)
+               @inbounds add_to_expression!(cons[Locb], pos[i])
             else
-               @inbounds pos = @variable(model, [1:bs, 1:bs], PSD)
+               @inbounds pos[i] = @variable(model, [1:bs, 1:bs], PSD)
                for j = 1:blocksize[i], r = j:blocksize[i]
                    @inbounds bi1 = sort([tbasis[wbasis[blocks[i][j]][1]]; tbasis[wbasis[blocks[i][r]][1]]])
                    @inbounds bi2 = [reverse(basis[wbasis[blocks[i][j]][2]]); basis[wbasis[blocks[i][r]][2]]]
@@ -274,9 +277,9 @@ function ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocks
                        return nothing,nothing
                    end
                    if j == r
-                       @inbounds add_to_expression!(cons[Locb], pos[j,r])
+                       @inbounds add_to_expression!(cons[Locb], pos[i][j,r])
                    else
-                       @inbounds add_to_expression!(cons[Locb], 2, pos[j,r])
+                       @inbounds add_to_expression!(cons[Locb], 2, pos[i][j,r])
                    end
                end
             end
@@ -312,6 +315,9 @@ function ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocks
            println("solution status: $status")
         end
         println("optimum = $objv")
+        if Gram == true
+            GramMat = [value.(pos[i]) for i = 1:cl]
+        end
         dual_var = -dual.(con)
         moment = Vector{Matrix{Float64}}(undef, cl)
         for i = 1:cl
@@ -334,7 +340,7 @@ function ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocks
             moment[i] = Symmetric(moment[i],:U)
         end
     end
-    return objv,ksupp,moment
+    return objv,ksupp,moment,GramMat
 end
 
 function trace_reduce(word1, word2, ptsupp)

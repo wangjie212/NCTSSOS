@@ -15,6 +15,7 @@ mutable struct stateopt_type
     sb # sizes of different blocks
     numb # numbers of different blocks
     moment # moment matrix
+    GramMat # Gram matrix
 end
 
 function sym(word, vargroup)
@@ -60,11 +61,11 @@ function res_comm!(a, vargroup)
     return a
 end
 
-function pstateopt_first(st_supp::Vector{Vector{Vector{Int}}}, coe, n, d; scalar=0, vargroup=[n], TS="block", monosquare=false, solver="Mosek", QUIET=false, constraint="unipotent", solve=true, bilocal=false)
-    return pstateopt_first([st_supp], [coe], n, d, scalar=scalar, vargroup=vargroup, TS=TS, monosquare=monosquare, solver=solver, QUIET=QUIET, constraint=constraint, solve=solve, bilocal=bilocal)
+function pstateopt_first(st_supp::Vector{Vector{Vector{Int}}}, coe, n, d; scalar=0, vargroup=[n], TS="block", monosquare=false, solver="Mosek", QUIET=false, constraint="unipotent", solve=true, Gram=false, bilocal=false)
+    return pstateopt_first([st_supp], [coe], n, d, scalar=scalar, vargroup=vargroup, TS=TS, monosquare=monosquare, solver=solver, QUIET=QUIET, constraint=constraint, solve=solve, Gram=Gram, bilocal=bilocal)
 end
 
-function pstateopt_first(st_supp::Vector{Vector{Vector{Vector{Int}}}}, coe, n, d; scalar=0, vargroup=[n], TS="block", monosquare=false, solver="Mosek", QUIET=false, constraint="unipotent", solve=true, bilocal=false)
+function pstateopt_first(st_supp::Vector{Vector{Vector{Vector{Int}}}}, coe, n, d; scalar=0, vargroup=[n], TS="block", monosquare=false, solver="Mosek", QUIET=false, constraint="unipotent", solve=true, Gram=false, bilocal=false)
     println("********************************** NCTSSOS **********************************")
     println("Version 0.2.0, developed by Jie Wang, 2020--2022")
     println("NCTSSOS is launching...")
@@ -140,12 +141,12 @@ function pstateopt_first(st_supp::Vector{Vector{Vector{Vector{Int}}}}, coe, n, d
         mb = maximum(maximum.(sb))
         println("Obtained the block structure in $time seconds. The maximal size of blocks is $mb.")
     end
-    opt,ksupp,moment = pstate_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, vargroup, solver=solver, QUIET=QUIET, constraint=constraint, solve=solve, bilocal=bilocal)
-    data = stateopt_type(supp, coe, scalar, vargroup, constraint, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, ksupp, sb, numb, moment)
+    opt,ksupp,moment,GramMat = pstate_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, vargroup, solver=solver, QUIET=QUIET, constraint=constraint, solve=solve, Gram=Gram, bilocal=bilocal)
+    data = stateopt_type(supp, coe, scalar, vargroup, constraint, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, ksupp, sb, numb, moment, GramMat)
     return opt,data
 end
 
-function pstateopt_higher!(data; TS="block", solver="Mosek", QUIET=false, solve=true, bilocal=false)
+function pstateopt_higher!(data; TS="block", solver="Mosek", QUIET=false, solve=true, Gram=false, bilocal=false)
     supp = data.supp
     coe = data.coe
     constraint = data.constraint
@@ -169,7 +170,7 @@ function pstateopt_higher!(data; TS="block", solver="Mosek", QUIET=false, solve=
             mb = maximum(maximum.(sb))
             println("Obtained the block structure in $time seconds. The maximal size of blocks is $mb.")
         end
-        opt,ksupp,moment = pstate_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, vargroup, solver=solver, QUIET=QUIET, constraint=constraint, solve=solve, bilocal=bilocal)
+        opt,ksupp,moment,GramMat = pstate_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, vargroup, solver=solver, QUIET=QUIET, constraint=constraint, solve=solve, Gram=Gram, bilocal=bilocal)
     end
     data.ksupp = ksupp
     data.blocks = blocks
@@ -179,10 +180,11 @@ function pstateopt_higher!(data; TS="block", solver="Mosek", QUIET=false, solve=
     data.sb = sb
     data.numb = numb
     data.moment = moment
+    data.GramMat = GramMat
     return opt,data
 end
 
-function pstate_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, vargroup; solver="Mosek", QUIET=false, constraint="unipotent", solve=true, bilocal=false)
+function pstate_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, vargroup; solver="Mosek", QUIET=false, constraint="unipotent", solve=true, Gram=false, bilocal=false)
     m = length(supp) - 1
     # ksupp = Vector{Vector{UInt32}}(undef, Int(sum(Int.(blocksize[1]).^2+blocksize[1])/2))
     # k = 1
@@ -218,7 +220,7 @@ function pstate_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocks
     if QUIET == false
         println("There are $lksupp affine constraints.")
     end
-    objv = moment = nothing
+    objv = moment = GramMat = nothing
     if solve == true
         if QUIET == false
             println("Assembling the SDP...")
@@ -231,10 +233,11 @@ function pstate_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocks
         end
         set_optimizer_attribute(model, MOI.Silent(), QUIET)
         cons = [AffExpr(0) for i=1:lksupp]
+        pos = Vector{Union{VariableRef,Symmetric{VariableRef}}}(undef, cl[1])
         for i = 1:cl[1]
             bs = blocksize[1][i]
             if bs == 1
-               @inbounds pos = @variable(model, lower_bound=0)
+               @inbounds pos[i] = @variable(model, lower_bound=0)
                @inbounds bi1 = sort([tbasis[1][wbasis[1][blocks[1][i][1]][1]]; tbasis[1][wbasis[1][blocks[1][i][1]][1]]])
                @inbounds bi2 = [reverse(basis[1][wbasis[1][blocks[1][i][1]][2]]); basis[1][wbasis[1][blocks[1][i][1]][2]]]
                res_comm!(bi2, vargroup)
@@ -246,11 +249,11 @@ function pstate_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocks
                    if bilocal == false || flag == false || (bilocal_zeros(wx) == false && bilocal_zeros(wz) == false)
                        bi = state_reduce(bi1, bi2, ptsupp, vargroup, bilocal=bilocal)
                        Locb = ncbfind(ksupp, lksupp, bi)
-                       @inbounds add_to_expression!(cons[Locb], pos)
+                       @inbounds add_to_expression!(cons[Locb], pos[i])
                    end
                end
             else
-               @inbounds pos = @variable(model, [1:bs, 1:bs], PSD)
+               @inbounds pos[i] = @variable(model, [1:bs, 1:bs], PSD)
                for j = 1:blocksize[1][i], r = j:blocksize[1][i]
                    @inbounds bi1 = sort([tbasis[1][wbasis[1][blocks[1][i][j]][1]]; tbasis[1][wbasis[1][blocks[1][i][r]][1]]])
                    @inbounds bi2 = [reverse(basis[1][wbasis[1][blocks[1][i][j]][2]]); basis[1][wbasis[1][blocks[1][i][r]][2]]]
@@ -268,9 +271,9 @@ function pstate_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocks
                            return nothing,nothing
                        end
                        if j == r
-                           @inbounds add_to_expression!(cons[Locb], pos[j,r])
+                           @inbounds add_to_expression!(cons[Locb], pos[i][j,r])
                        else
-                           @inbounds add_to_expression!(cons[Locb], 2, pos[j,r])
+                           @inbounds add_to_expression!(cons[Locb], 2, pos[i][j,r])
                        end
                     end
                    end
@@ -280,7 +283,7 @@ function pstate_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocks
         for k = 1:m, i = 1:cl[k+1]
             bs = blocksize[k+1][i]
             if bs == 1
-                @inbounds pos = @variable(model, lower_bound=0)
+                @inbounds gpos = @variable(model, lower_bound=0)
                 for s = 1:length(supp[k+1])
                     @inbounds bi1 = sort([tbasis[k+1][wbasis[k+1][blocks[k+1][i][1]][1]]; supp[k+1][s]; tbasis[k+1][wbasis[k+1][blocks[k+1][i][1]][1]]])
                     @inbounds bi2 = [reverse(basis[k+1][wbasis[k+1][blocks[k+1][i][1]][2]]); basis[k+1][wbasis[k+1][blocks[k+1][i][1]][2]]]
@@ -288,10 +291,10 @@ function pstate_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocks
                     constraint_reduce!(bi2, constraint=constraint)
                     bi = state_reduce(bi1, bi2, ptsupp, vargroup, bilocal=bilocal)
                     Locb = ncbfind(ksupp, lksupp, bi)
-                    @inbounds add_to_expression!(cons[Locb], coe[k+1][s], pos)
+                    @inbounds add_to_expression!(cons[Locb], coe[k+1][s], gpos)
                 end
             else
-                @inbounds pos = @variable(model, [1:bs, 1:bs], PSD)
+                @inbounds gpos = @variable(model, [1:bs, 1:bs], PSD)
                 for j = 1:blocksize[k+1][i], r = j:blocksize[k+1][i], s = 1:length(supp[k+1])
                     @inbounds bi1 = sort([tbasis[k+1][wbasis[k+1][blocks[k+1][i][j]][1]]; supp[k+1][s]; tbasis[k+1][wbasis[k+1][blocks[k+1][i][r]][1]]])
                     @inbounds bi2 = [reverse(basis[k+1][wbasis[k+1][blocks[k+1][i][j]][2]]); basis[k+1][wbasis[k+1][blocks[k+1][i][r]][2]]]
@@ -304,9 +307,9 @@ function pstate_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocks
                         return nothing,nothing
                     end
                     if j == r
-                        @inbounds add_to_expression!(cons[Locb], coe[k+1][s], pos[j,r])
+                        @inbounds add_to_expression!(cons[Locb], coe[k+1][s], gpos[j,r])
                     else
-                        @inbounds add_to_expression!(cons[Locb], 2*coe[k+1][s], pos[j,r])
+                        @inbounds add_to_expression!(cons[Locb], 2*coe[k+1][s], gpos[j,r])
                     end
                 end
             end
@@ -342,6 +345,9 @@ function pstate_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocks
            println("solution status: $status")
         end
         println("optimum = $objv")
+        if Gram == true
+            GramMat = [value.(pos[i]) for i = 1:cl[1]]
+        end
         dual_var = -dual.(con)
         moment = Vector{Matrix{Float64}}(undef, cl[1])
         for i = 1:cl[1]
@@ -369,7 +375,7 @@ function pstate_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocks
             moment[i] = Symmetric(moment[i],:U)
         end
     end
-    return objv,ksupp,moment
+    return objv,ksupp,moment,GramMat
 end
 
 function state_reduce(word1, word2, ptsupp, vargroup; bilocal=false)

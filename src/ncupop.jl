@@ -9,11 +9,12 @@ mutable struct ncupop_type
     sb # sizes of different blocks
     numb # numbers of different blocks
     moment # moment matrix
+    GramMat # Gram matrix
 end
 
 """
     opt,data = nctssos_first(f::Polynomial{false, T} where T<:Number, x::Vector{PolyVar{false}};
-        newton=true, reducebasis=true, TS="block", obj="eigen", merge=false, md=3, solve=true, QUIET=false)
+        newton=true, reducebasis=true, TS="block", obj="eigen", merge=false, md=3, solve=true, Gram=false, QUIET=false)
 
 Compute the first step of the NCTSSOS hierarchy for unconstrained noncommutative polynomial optimization.
 If `newton=true`, then compute a monomial basis by the Newton chip method.
@@ -28,15 +29,15 @@ If `merge=true`, perform the PSD block merging. Return the optimum and other aux
 - `md`: the tunable parameter for merging blocks.
 """
 function nctssos_first(f::Polynomial{false, T} where T<:Number, x::Vector{PolyVar{false}}; order=0, newton=true, reducebasis=true,
-    monosquare=true, TS="block", obj="eigen", partition=0, constraint=nothing, merge=false, md=3, solve=true, QUIET=false)
+    monosquare=true, TS="block", obj="eigen", partition=0, constraint=nothing, merge=false, md=3, solve=true, Gram=false, QUIET=false)
     n,supp,coe = poly_info(f, x)
     opt,data = nctssos_first(supp, coe, n, order=order, newton=newton, reducebasis=reducebasis, monosquare=monosquare, TS=TS, obj=obj,
-    partition=partition, constraint=constraint, merge=merge, md=md, solve=solve, QUIET=QUIET)
+    partition=partition, constraint=constraint, merge=merge, md=md, solve=solve, Gram=Gram, QUIET=QUIET)
     return opt,data
 end
 
 function nctssos_first(supp::Vector{Vector{UInt16}}, coe, n::Int; order=0, newton=true, reducebasis=true, monosquare=true,
-    TS="block", obj="eigen", partition=0, constraint=nothing, merge=false, md=3, solve=true, QUIET=false)
+    TS="block", obj="eigen", partition=0, constraint=nothing, merge=false, md=3, solve=true, Gram=false, QUIET=false)
     println("********************************** NCTSSOS **********************************")
     println("Version 0.2.0, developed by Jie Wang, 2020--2022")
     println("NCTSSOS is launching...")
@@ -108,8 +109,8 @@ function nctssos_first(supp::Vector{Vector{UInt16}}, coe, n::Int; order=0, newto
         mb = maximum(maximum.(sb))
         println("Obtained the block structure. The maximal size of blocks is $mb.")
     end
-    opt,ksupp,moment = ncblockupop(supp, coe, basis, blocks, cl, blocksize, QUIET=QUIET, obj=obj, partition=partition, constraint=constraint, solve=solve)
-    data = ncupop_type(supp, coe, partition, constraint, basis, obj, ksupp, sb, numb, moment)
+    opt,ksupp,moment,GramMat = ncblockupop(supp, coe, basis, blocks, cl, blocksize, QUIET=QUIET, obj=obj, partition=partition, constraint=constraint, solve=solve, Gram=Gram)
+    data = ncupop_type(supp, coe, partition, constraint, basis, obj, ksupp, sb, numb, moment, GramMat)
     return opt,data
 end
 
@@ -132,12 +133,12 @@ function poly_info(f, x)
 end
 
 """
-    opt,data = nctssos_higher!(data, TS="block", merge=false, md=3, QUIET=false)
+    opt,data = nctssos_higher!(data, TS="block", merge=false, md=3, solve=true, Gram=false, QUIET=false)
 
 Compute higher steps of the NCTSSOS hierarchy.
 Return the optimum and other auxiliary data.
 """
-function nctssos_higher!(data::ncupop_type; TS="block", merge=false, md=3, solve=true, QUIET=false)
+function nctssos_higher!(data::ncupop_type; TS="block", merge=false, md=3, solve=true, Gram=false, QUIET=false)
     supp = data.supp
     basis = data.basis
     coe = data.coe
@@ -157,12 +158,13 @@ function nctssos_higher!(data::ncupop_type; TS="block", merge=false, md=3, solve
             mb = maximum(maximum.(sb))
             println("Obtained the block structure. The maximal size of blocks is $mb.")
         end
-        opt,ksupp,moment = ncblockupop(supp, coe, basis, blocks, cl, blocksize, QUIET=QUIET, obj=obj, partition=partition, constraint=constraint, solve=solve)
+        opt,ksupp,moment,GramMat = ncblockupop(supp, coe, basis, blocks, cl, blocksize, QUIET=QUIET, obj=obj, partition=partition, constraint=constraint, solve=solve, Gram=Gram)
     end
     data.ksupp = ksupp
     data.sb = sb
     data.numb = numb
     data.moment=moment
+    data.GramMat = GramMat
     return opt,data
 end
 
@@ -438,7 +440,7 @@ function get_ncblocks(ksupp, basis; sb=[], numb=[], TS="block", obj="eigen", par
     return blocks,cl,blocksize,nsb,nnumb,status
 end
 
-function ncblockupop(supp, coe, basis, blocks, cl, blocksize; QUIET=true, obj="eigen", partition=0, constraint=nothing, solve=true)
+function ncblockupop(supp, coe, basis, blocks, cl, blocksize; QUIET=true, obj="eigen", partition=0, constraint=nothing, solve=true, Gram=false)
     ksupp = Vector{Vector{UInt16}}(undef, Int(sum(Int.(blocksize).^2+blocksize)/2))
     k = 1
     for i = 1:cl, j = 1:blocksize[i], r = j:blocksize[i]
@@ -453,7 +455,7 @@ function ncblockupop(supp, coe, basis, blocks, cl, blocksize; QUIET=true, obj="e
     if QUIET == false
         println("There are $lksupp affine constraints.")
     end
-    objv = moment = nothing
+    objv = moment = GramMat = nothing
     if solve == true
         if QUIET == false
             println("Assembling the SDP...")
@@ -461,24 +463,25 @@ function ncblockupop(supp, coe, basis, blocks, cl, blocksize; QUIET=true, obj="e
         model = Model(optimizer_with_attributes(Mosek.Optimizer))
         set_optimizer_attribute(model, MOI.Silent(), QUIET)
         cons = [AffExpr(0) for i=1:lksupp]
+        pos = Vector{Union{VariableRef,Symmetric{VariableRef}}}(undef, cl)
         for i = 1:cl
             bs = blocksize[i]
             if bs == 1
-               @inbounds pos = @variable(model, lower_bound=0)
+               @inbounds pos[i] = @variable(model, lower_bound=0)
                @inbounds bi = [basis[blocks[i][1]][end:-1:1]; basis[blocks[i][1]]]
                bi = reduce!(bi, obj=obj, partition=partition, constraint=constraint)
                Locb = ncbfind(ksupp,lksupp,bi)
-               @inbounds add_to_expression!(cons[Locb], pos)
+               @inbounds add_to_expression!(cons[Locb], pos[i])
             else
-               @inbounds pos = @variable(model, [1:bs, 1:bs], PSD)
+               @inbounds pos[i] = @variable(model, [1:bs, 1:bs], PSD)
                for j = 1:blocksize[i], r = j:blocksize[i]
                    @inbounds bi = [basis[blocks[i][j]][end:-1:1]; basis[blocks[i][r]]]
                    bi = reduce!(bi, obj=obj, partition=partition, constraint=constraint)
                    Locb = ncbfind(ksupp, lksupp, bi)
                    if j == r
-                       @inbounds add_to_expression!(cons[Locb], pos[j,r])
+                       @inbounds add_to_expression!(cons[Locb], pos[i][j,r])
                    else
-                       @inbounds add_to_expression!(cons[Locb], 2, pos[j,r])
+                       @inbounds add_to_expression!(cons[Locb], 2, pos[i][j,r])
                    end
                end
             end
@@ -514,6 +517,9 @@ function ncblockupop(supp, coe, basis, blocks, cl, blocksize; QUIET=true, obj="e
            println("solution status: $status")
         end
         println("optimum = $objv")
+        if Gram == true
+            GramMat = [value.(pos[i]) for i = 1:cl]
+        end
         dual_var = -dual.(con)
         moment = Vector{Matrix{Float64}}(undef, cl)
         for i = 1:cl
@@ -527,7 +533,7 @@ function ncblockupop(supp, coe, basis, blocks, cl, blocksize; QUIET=true, obj="e
             moment[i] = Symmetric(moment[i],:U)
         end
     end
-    return objv,ksupp,moment
+    return objv,ksupp,moment,GramMat
 end
 
 function reduce_cons!(word; constraint="unipotent")
