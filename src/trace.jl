@@ -126,7 +126,7 @@ function sym_cyclic(word)
     return min(_cyclic_canon(word), _cyclic_canon(reverse(word)))
 end
 
-function ptraceopt_first(tr_supp, coe, n, d; TS="block", monosquare=false, QUIET=false, constraint="unipotent", solve=true, Gram=false)
+function ptraceopt_first(tr_supp, coe, n, d; TS="block", monosquare=false, QUIET=false, constraint="unipotent", solve=true, Gram=false, solver="Mosek")
     println("********************************** NCTSSOS **********************************")
     println("Version 0.2.0, developed by Jie Wang, 2020--2022")
     println("NCTSSOS is launching...")
@@ -170,12 +170,12 @@ function ptraceopt_first(tr_supp, coe, n, d; TS="block", monosquare=false, QUIET
         mb = maximum(maximum.(sb))
         println("Obtained the block structure in $time seconds. The maximal size of blocks is $mb.")
     end
-    opt,ksupp,moment,GramMat = ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, QUIET=QUIET, constraint=constraint, solve=solve, Gram=Gram)
+    opt,ksupp,moment,GramMat = ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, QUIET=QUIET, constraint=constraint, solve=solve, Gram=Gram, solver=solver)
     data = traceopt_type(supp, coe, constraint, ptsupp, wbasis, tbasis, basis, ksupp, sb, numb, moment, GramMat)
     return opt,data
 end
 
-function ptraceopt_higher!(data; TS="block", QUIET=false, solve=true, Gram=false)
+function ptraceopt_higher!(data; TS="block", QUIET=false, solve=true, solver="Mosek", Gram=false)
     supp = data.supp
     coe = data.coe
     constraint = data.constraint
@@ -198,7 +198,7 @@ function ptraceopt_higher!(data; TS="block", QUIET=false, solve=true, Gram=false
             mb = maximum(maximum.(sb))
             println("Obtained the block structure in $time seconds. The maximal size of blocks is $mb.")
         end
-        opt,ksupp,moment,GramMat = ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, QUIET=QUIET, constraint=constraint, solve=solve, Gram=Gram)
+        opt,ksupp,moment,GramMat = ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, QUIET=QUIET, constraint=constraint, solve=solve, Gram=Gram, solver=solver)
     end
     data.ksupp = ksupp
     data.sb = sb
@@ -208,7 +208,7 @@ function ptraceopt_higher!(data; TS="block", QUIET=false, solve=true, Gram=false
     return opt,data
 end
 
-function ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize; QUIET=false, constraint="unipotent", solve=true, Gram=false)
+function ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize; QUIET=false, constraint="unipotent", solve=true, Gram=false, solver="Mosek")
     ksupp = Vector{Vector{UInt16}}(undef, Int(sum(Int.(blocksize).^2+blocksize)/2))
     k = 1
     for i = 1:cl, j = 1:blocksize[i], r = j:blocksize[i]
@@ -236,7 +236,14 @@ function ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocks
         if QUIET == false
             println("Assembling the SDP...")
         end
-        model = Model(optimizer_with_attributes(Mosek.Optimizer))
+        if solver == "Mosek"
+            model = Model(optimizer_with_attributes(Mosek.Optimizer))
+        elseif solver == "COSMO"
+            model = Model(optimizer_with_attributes(COSMO.Optimizer, "eps_abs" => 1e-4, "eps_rel" => 1e-4, "max_iter" => 10000))
+        else
+            @error "The solver is currently not supported!"
+            return nothing,nothing,nothing,nothing
+        end
         set_optimizer_attribute(model, MOI.Silent(), QUIET)
         cons = [AffExpr(0) for i=1:lksupp]
         pos = Vector{Union{VariableRef,Symmetric{VariableRef}}}(undef, cl)
@@ -506,7 +513,7 @@ function get_ncblocks(ksupp, ptsupp, wbasis, tbasis, basis; supp=[], vargroup=no
     return blocks,cl,blocksize,nsb,nnumb,status
 end
 
-function Werner_witness_first(dY, sigma, n, d; TS="block", monosquare=false, QUIET=false, solve=true)
+function Werner_witness_first(dY, sigma, n, d; TS="block", monosquare=false, QUIET=false, solve=true, solver="Mosek")
     println("********************************** NCTSSOS **********************************")
     println("Version 0.2.0, developed by Jie Wang, 2020--2022")
     println("NCTSSOS is launching...")
@@ -547,12 +554,12 @@ function Werner_witness_first(dY, sigma, n, d; TS="block", monosquare=false, QUI
         mb = maximum(maximum.(sb))
         println("Obtained the block structure in $time seconds. The maximal size of blocks is $mb.")
     end
-    opt,ksupp = Werner_SDP(dY, sigma, htrace, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, QUIET=QUIET, solve=solve)
+    opt,ksupp = Werner_SDP(dY, sigma, htrace, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, QUIET=QUIET, solve=solve, solver=solver)
     data = traceopt_type(htrace, dY, sigma, ptsupp, wbasis, tbasis, basis, ksupp, sb, numb, nothing)
     return opt,data
 end
 
-function Werner_witness_higher!(data; TS="block", QUIET=false, solve=true)
+function Werner_witness_higher!(data; TS="block", QUIET=false, solve=true, solver="Mosek")
     htrace = data.supp
     dY = data.coe
     sigma = data.constraint
@@ -573,7 +580,7 @@ function Werner_witness_higher!(data; TS="block", QUIET=false, solve=true)
             mb = maximum(maximum.(sb))
             println("Obtained the block structure. The maximal size of blocks is $mb.")
         end
-        opt,ksupp = Werner_SDP(dY, sigma, htrace, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, QUIET=QUIET, solve=solve)
+        opt,ksupp = Werner_SDP(dY, sigma, htrace, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, QUIET=QUIET, solve=solve, solver=solver)
     end
     data.ksupp = ksupp
     data.sb = sb
@@ -581,7 +588,7 @@ function Werner_witness_higher!(data; TS="block", QUIET=false, solve=true)
     return opt,data
 end
 
-function Werner_SDP(dY, sigma, htrace, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize; QUIET=false, solve=true)
+function Werner_SDP(dY, sigma, htrace, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize; QUIET=false, solve=true, solver="Mosek")
     ksupp = Vector{Vector{UInt16}}(undef, Int(sum(Int.(blocksize).^2+blocksize)/2))
     k = 1
     for i = 1:cl, j = 1:blocksize[i], r = j:blocksize[i]
@@ -605,7 +612,14 @@ function Werner_SDP(dY, sigma, htrace, ptsupp, wbasis, tbasis, basis, blocks, cl
         if QUIET == false
             println("Assembling the SDP...")
         end
-        model = Model(optimizer_with_attributes(Mosek.Optimizer))
+        if solver == "Mosek"
+            model = Model(optimizer_with_attributes(Mosek.Optimizer))
+        elseif solver == "COSMO"
+            model = Model(optimizer_with_attributes(COSMO.Optimizer, "eps_abs" => 1e-4, "eps_rel" => 1e-4, "max_iter" => 10000))
+        else
+            @error "The solver is currently not supported!"
+            return nothing,nothing,nothing,nothing
+        end
         set_optimizer_attribute(model, MOI.Silent(), QUIET)
         cons = [AffExpr(0) for i=1:lksupp]
         for i = 1:cl

@@ -35,10 +35,10 @@ Return the optimum and other auxiliary data.
 
 function nctssos_first(pop::Vector{Polynomial{false, T}} where T<:Number, x::Vector{PolyVar{false}},
     order::Int; numeq=0, reducebasis=false, TS="block", obj="eigen", merge=false, md=3, solve=true, Gram=false, QUIET=false,
-    partition=0, constraint=nothing)
+    solver="Mosek", partition=0, constraint=nothing)
     n,supp,coe = polys_info(pop, x)
     opt,data = nctssos_first(supp, coe, n, order, numeq=numeq, reducebasis=reducebasis, TS=TS, obj=obj, merge=merge,
-    md=md, QUIET=QUIET, solve=solve, Gram=Gram, partition=partition, constraint=constraint)
+    md=md, QUIET=QUIET, solve=solve, solver=solver, Gram=Gram, partition=partition, constraint=constraint)
     return opt,data
 end
 
@@ -64,8 +64,8 @@ function polys_info(pop, x)
     return n,supp,coe
 end
 
-function nctssos_first(supp::Vector{Vector{Vector{UInt16}}}, coe, n::Int64, order::Int64; numeq=0,
-    reducebasis=false, TS="block", obj="eigen", merge=false, md=3, solve=true, Gram=false, QUIET=false, partition=0, constraint=nothing)
+function nctssos_first(supp::Vector{Vector{Vector{UInt16}}}, coe, n::Int64, order::Int64; numeq=0, reducebasis=false,
+    TS="block", obj="eigen", merge=false, md=3, solve=true, solver="Mosek", Gram=false, QUIET=false, partition=0, constraint=nothing)
     println("********************************** NCTSSOS **********************************")
     println("Version 0.2.0, developed by Jie Wang, 2020--2022")
     println("NCTSSOS is launching...")
@@ -146,12 +146,12 @@ function nctssos_first(supp::Vector{Vector{Vector{UInt16}}}, coe, n::Int64, orde
         println("Obtained the block structure in $time seconds. The maximal size of blocks is $mb.")
     end
     opt,ksupp,moment,GramMat = ncblockcpop(m, supp, coe, basis, blocks, cl, blocksize, numeq=numeq, QUIET=QUIET, obj=obj,
-    solve=solve, Gram=Gram, partition=partition, constraint=constraint)
+    solve=solve, solver=solver, Gram=Gram, partition=partition, constraint=constraint)
     data = nccpop_data(n, m, numeq, supp, coe, partition, constraint, obj, basis, ksupp, sb, numb, blocks, cl, blocksize, moment, GramMat)
     return opt,data
 end
 
-function nctssos_higher!(data::nccpop_data; TS="block", merge=false, md=3, solve=true, Gram=false, QUIET=false)
+function nctssos_higher!(data::nccpop_data; TS="block", merge=false, md=3, solve=true, solver="Mosek", Gram=false, QUIET=false)
     m = data.m
     numeq = data.numeq
     supp = data.supp
@@ -181,7 +181,7 @@ function nctssos_higher!(data::nccpop_data; TS="block", merge=false, md=3, solve
             println("Obtained the block structure in $time seconds. The maximal size of blocks is $mb.")
         end
         opt,ksupp,moment,GramMat = ncblockcpop(m, supp, coe, basis, blocks, cl, blocksize, numeq=numeq, QUIET=QUIET, obj=obj,
-        solve=solve, Gram=Gram, partition=partition, constraint=constraint)
+        solve=solve, solver=solver, Gram=Gram, partition=partition, constraint=constraint)
     end
     data.ksupp = ksupp
     data.sb = sb
@@ -341,7 +341,7 @@ function get_nccblocks(m, ksupp, gsupp, basis; blocks=[], cl=[], blocksize=[], s
 end
 
 function ncblockcpop(m, supp, coe, basis, blocks, cl, blocksize; numeq=0, QUIET=true, obj="eigen",
-    solve=true, Gram=false, partition=0, constraint=nothing)
+    solve=true, solver="Mosek", Gram=false, partition=0, constraint=nothing)
     ksupp = Vector{UInt16}[]
     for i = 1:cl[1], j = 1:blocksize[1][i], r = j:blocksize[1][i]
         @inbounds bi = [basis[1][blocks[1][i][j]][end:-1:1]; basis[1][blocks[1][i][r]]]
@@ -361,7 +361,14 @@ function ncblockcpop(m, supp, coe, basis, blocks, cl, blocksize; numeq=0, QUIET=
         if QUIET==false
             println("Assembling the SDP...")
         end
-        model = Model(optimizer_with_attributes(Mosek.Optimizer))
+        if solver == "Mosek"
+            model = Model(optimizer_with_attributes(Mosek.Optimizer))
+        elseif solver == "COSMO"
+            model = Model(optimizer_with_attributes(COSMO.Optimizer, "eps_abs" => 1e-4, "eps_rel" => 1e-4, "max_iter" => 10000))
+        else
+            @error "The solver is currently not supported!"
+            return nothing,nothing,nothing,nothing
+        end
         set_optimizer_attribute(model, MOI.Silent(), QUIET)
         time = @elapsed begin
         cons = [AffExpr(0) for i=1:lksupp]

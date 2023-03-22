@@ -29,15 +29,15 @@ If `merge=true`, perform the PSD block merging. Return the optimum and other aux
 - `md`: the tunable parameter for merging blocks.
 """
 function nctssos_first(f::Polynomial{false, T} where T<:Number, x::Vector{PolyVar{false}}; order=0, newton=true, reducebasis=true,
-    monosquare=true, TS="block", obj="eigen", partition=0, constraint=nothing, merge=false, md=3, solve=true, Gram=false, QUIET=false)
+    monosquare=true, TS="block", obj="eigen", partition=0, constraint=nothing, merge=false, md=3, solve=true, Gram=false, solver="Mosek", QUIET=false)
     n,supp,coe = poly_info(f, x)
     opt,data = nctssos_first(supp, coe, n, order=order, newton=newton, reducebasis=reducebasis, monosquare=monosquare, TS=TS, obj=obj,
-    partition=partition, constraint=constraint, merge=merge, md=md, solve=solve, Gram=Gram, QUIET=QUIET)
+    partition=partition, constraint=constraint, merge=merge, md=md, solve=solve, Gram=Gram, solver=solver, QUIET=QUIET)
     return opt,data
 end
 
 function nctssos_first(supp::Vector{Vector{UInt16}}, coe, n::Int; order=0, newton=true, reducebasis=true, monosquare=true,
-    TS="block", obj="eigen", partition=0, constraint=nothing, merge=false, md=3, solve=true, Gram=false, QUIET=false)
+    TS="block", obj="eigen", partition=0, constraint=nothing, merge=false, md=3, solve=true, Gram=false, solver="Mosek", QUIET=false)
     println("********************************** NCTSSOS **********************************")
     println("Version 0.2.0, developed by Jie Wang, 2020--2022")
     println("NCTSSOS is launching...")
@@ -109,7 +109,7 @@ function nctssos_first(supp::Vector{Vector{UInt16}}, coe, n::Int; order=0, newto
         mb = maximum(maximum.(sb))
         println("Obtained the block structure. The maximal size of blocks is $mb.")
     end
-    opt,ksupp,moment,GramMat = ncblockupop(supp, coe, basis, blocks, cl, blocksize, QUIET=QUIET, obj=obj, partition=partition, constraint=constraint, solve=solve, Gram=Gram)
+    opt,ksupp,moment,GramMat = ncblockupop(supp, coe, basis, blocks, cl, blocksize, QUIET=QUIET, obj=obj, partition=partition, constraint=constraint, solve=solve, Gram=Gram, solver=solver)
     data = ncupop_type(supp, coe, partition, constraint, basis, obj, ksupp, sb, numb, moment, GramMat)
     return opt,data
 end
@@ -138,7 +138,7 @@ end
 Compute higher steps of the NCTSSOS hierarchy.
 Return the optimum and other auxiliary data.
 """
-function nctssos_higher!(data::ncupop_type; TS="block", merge=false, md=3, solve=true, Gram=false, QUIET=false)
+function nctssos_higher!(data::ncupop_type; TS="block", merge=false, md=3, solve=true, solver="Mosek", Gram=false, QUIET=false)
     supp = data.supp
     basis = data.basis
     coe = data.coe
@@ -158,7 +158,7 @@ function nctssos_higher!(data::ncupop_type; TS="block", merge=false, md=3, solve
             mb = maximum(maximum.(sb))
             println("Obtained the block structure. The maximal size of blocks is $mb.")
         end
-        opt,ksupp,moment,GramMat = ncblockupop(supp, coe, basis, blocks, cl, blocksize, QUIET=QUIET, obj=obj, partition=partition, constraint=constraint, solve=solve, Gram=Gram)
+        opt,ksupp,moment,GramMat = ncblockupop(supp, coe, basis, blocks, cl, blocksize, QUIET=QUIET, obj=obj, partition=partition, constraint=constraint, solve=solve, Gram=Gram, solver=solver)
     end
     data.ksupp = ksupp
     data.sb = sb
@@ -440,7 +440,7 @@ function get_ncblocks(ksupp, basis; sb=[], numb=[], TS="block", obj="eigen", par
     return blocks,cl,blocksize,nsb,nnumb,status
 end
 
-function ncblockupop(supp, coe, basis, blocks, cl, blocksize; QUIET=true, obj="eigen", partition=0, constraint=nothing, solve=true, Gram=false)
+function ncblockupop(supp, coe, basis, blocks, cl, blocksize; QUIET=true, obj="eigen", partition=0, constraint=nothing, solve=true, Gram=false, solver="Mosek")
     ksupp = Vector{Vector{UInt16}}(undef, Int(sum(Int.(blocksize).^2+blocksize)/2))
     k = 1
     for i = 1:cl, j = 1:blocksize[i], r = j:blocksize[i]
@@ -460,7 +460,14 @@ function ncblockupop(supp, coe, basis, blocks, cl, blocksize; QUIET=true, obj="e
         if QUIET == false
             println("Assembling the SDP...")
         end
-        model = Model(optimizer_with_attributes(Mosek.Optimizer))
+        if solver == "Mosek"
+            model = Model(optimizer_with_attributes(Mosek.Optimizer))
+        elseif solver == "COSMO"
+            model = Model(optimizer_with_attributes(COSMO.Optimizer, "eps_abs" => 1e-4, "eps_rel" => 1e-4, "max_iter" => 10000))
+        else
+            @error "The solver is currently not supported!"
+            return nothing,nothing,nothing,nothing
+        end
         set_optimizer_attribute(model, MOI.Silent(), QUIET)
         cons = [AffExpr(0) for i=1:lksupp]
         pos = Vector{Union{VariableRef,Symmetric{VariableRef}}}(undef, cl)
