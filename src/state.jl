@@ -61,11 +61,14 @@ function res_comm!(a, vargroup)
     return a
 end
 
-function pstateopt_first(st_supp::Vector{Vector{Vector{Int}}}, coe, n, d; scalar=0, vargroup=[n], TS="block", monosquare=false, solver="Mosek", QUIET=false, constraint="unipotent", solve=true, Gram=false, bilocal=false)
-    return pstateopt_first([st_supp], [coe], n, d, scalar=scalar, vargroup=vargroup, TS=TS, monosquare=monosquare, solver=solver, QUIET=QUIET, constraint=constraint, solve=solve, Gram=Gram, bilocal=bilocal)
+function pstateopt_first(st_supp::Vector{Vector{Vector{Int}}}, coe, n, d; scalar=0, vargroup=[n], TS="block", monosquare=false, solver="Mosek", 
+    QUIET=false, constraint="unipotent", solve=true, Gram=false, bilocal=false, cosmo_setting=cosmo_para())
+    return pstateopt_first([st_supp], [coe], n, d, scalar=scalar, vargroup=vargroup, TS=TS, monosquare=monosquare, solver=solver, QUIET=QUIET, 
+    constraint=constraint, solve=solve, Gram=Gram, bilocal=bilocal, cosmo_setting=cosmo_setting)
 end
 
-function pstateopt_first(st_supp::Vector{Vector{Vector{Vector{Int}}}}, coe, n, d; scalar=0, vargroup=[n], TS="block", monosquare=false, solver="Mosek", QUIET=false, constraint="unipotent", solve=true, Gram=false, bilocal=false)
+function pstateopt_first(st_supp::Vector{Vector{Vector{Vector{Int}}}}, coe, n, d; scalar=0, vargroup=[n], TS="block", monosquare=false, solver="Mosek", 
+    QUIET=false, constraint="unipotent", solve=true, Gram=false, bilocal=false, cosmo_setting=cosmo_para())
     println("********************************** NCTSSOS **********************************")
     println("Version 0.2.0, developed by Jie Wang, 2020--2022")
     println("NCTSSOS is launching...")
@@ -141,12 +144,13 @@ function pstateopt_first(st_supp::Vector{Vector{Vector{Vector{Int}}}}, coe, n, d
         mb = maximum(maximum.(sb))
         println("Obtained the block structure in $time seconds. The maximal size of blocks is $mb.")
     end
-    opt,ksupp,moment,GramMat = pstate_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, vargroup, solver=solver, QUIET=QUIET, constraint=constraint, solve=solve, Gram=Gram, bilocal=bilocal)
+    opt,ksupp,moment,GramMat = pstate_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, vargroup, solver=solver, QUIET=QUIET, 
+    constraint=constraint, solve=solve, Gram=Gram, bilocal=bilocal, cosmo_setting=cosmo_setting)
     data = stateopt_type(supp, coe, scalar, vargroup, constraint, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, ksupp, sb, numb, moment, GramMat)
     return opt,data
 end
 
-function pstateopt_higher!(data; TS="block", solver="Mosek", QUIET=false, solve=true, Gram=false, bilocal=false)
+function pstateopt_higher!(data; TS="block", solver="Mosek", QUIET=false, solve=true, Gram=false, bilocal=false, cosmo_setting=cosmo_para())
     supp = data.supp
     coe = data.coe
     constraint = data.constraint
@@ -170,7 +174,8 @@ function pstateopt_higher!(data; TS="block", solver="Mosek", QUIET=false, solve=
             mb = maximum(maximum.(sb))
             println("Obtained the block structure in $time seconds. The maximal size of blocks is $mb.")
         end
-        opt,ksupp,moment,GramMat = pstate_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, vargroup, solver=solver, QUIET=QUIET, constraint=constraint, solve=solve, Gram=Gram, bilocal=bilocal)
+        opt,ksupp,moment,GramMat = pstate_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, vargroup, solver=solver, QUIET=QUIET, 
+        constraint=constraint, solve=solve, Gram=Gram, bilocal=bilocal, cosmo_setting=cosmo_setting)
     end
     data.ksupp = ksupp
     data.blocks = blocks
@@ -184,7 +189,8 @@ function pstateopt_higher!(data; TS="block", solver="Mosek", QUIET=false, solve=
     return opt,data
 end
 
-function pstate_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, vargroup; solver="Mosek", QUIET=false, constraint="unipotent", solve=true, Gram=false, bilocal=false)
+function pstate_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, vargroup; solver="Mosek", QUIET=false, constraint="unipotent", 
+    solve=true, Gram=false, bilocal=false, cosmo_setting=cosmo_para())
     m = length(supp) - 1
     # ksupp = Vector{Vector{UInt32}}(undef, Int(sum(Int.(blocksize[1]).^2+blocksize[1])/2))
     # k = 1
@@ -226,8 +232,7 @@ function pstate_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocks
             println("Assembling the SDP...")
         end
         if solver == "COSMO"
-            model = Model(optimizer_with_attributes(COSMO.Optimizer))
-            set_optimizer_attributes(model, "eps_abs" => 1e-4, "eps_rel" => 1e-4, "max_iter" => 100000)
+            model = Model(optimizer_with_attributes(COSMO.Optimizer, "eps_abs" => cosmo_setting.eps_abs, "eps_rel" => cosmo_setting.eps_rel, "max_iter" => cosmo_setting.max_iter))
         else
             model = Model(optimizer_with_attributes(Mosek.Optimizer))
         end

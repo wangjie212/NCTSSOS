@@ -12,6 +12,14 @@ mutable struct ncupop_type
     GramMat # Gram matrix
 end
 
+mutable struct cosmo_para
+    eps_abs::Float64
+    eps_rel::Float64
+    max_iter::Int64
+end
+
+cosmo_para() = cosmo_para(1e-5, 1e-5, 1e4)
+
 """
     opt,data = nctssos_first(f::Polynomial{false, T} where T<:Number, x::Vector{PolyVar{false}};
         newton=true, reducebasis=true, TS="block", obj="eigen", merge=false, md=3, solve=true, Gram=false, QUIET=false)
@@ -28,16 +36,16 @@ If `merge=true`, perform the PSD block merging. Return the optimum and other aux
 - `x`: the set of noncommuting variables.
 - `md`: the tunable parameter for merging blocks.
 """
-function nctssos_first(f::Polynomial{false, T} where T<:Number, x::Vector{PolyVar{false}}; order=0, newton=true, reducebasis=true,
-    monosquare=true, TS="block", obj="eigen", partition=0, constraint=nothing, merge=false, md=3, solve=true, Gram=false, solver="Mosek", QUIET=false)
+function nctssos_first(f::Polynomial{false, T} where T<:Number, x::Vector{PolyVar{false}}; order=0, newton=true, reducebasis=true, monosquare=true, 
+    TS="block", obj="eigen", partition=0, constraint=nothing, merge=false, md=3, solve=true, Gram=false, solver="Mosek", QUIET=false, cosmo_setting=cosmo_para())
     n,supp,coe = poly_info(f, x)
     opt,data = nctssos_first(supp, coe, n, order=order, newton=newton, reducebasis=reducebasis, monosquare=monosquare, TS=TS, obj=obj,
-    partition=partition, constraint=constraint, merge=merge, md=md, solve=solve, Gram=Gram, solver=solver, QUIET=QUIET)
+    partition=partition, constraint=constraint, merge=merge, md=md, solve=solve, Gram=Gram, solver=solver, QUIET=QUIET, cosmo_setting=cosmo_setting)
     return opt,data
 end
 
-function nctssos_first(supp::Vector{Vector{UInt16}}, coe, n::Int; order=0, newton=true, reducebasis=true, monosquare=true,
-    TS="block", obj="eigen", partition=0, constraint=nothing, merge=false, md=3, solve=true, Gram=false, solver="Mosek", QUIET=false)
+function nctssos_first(supp::Vector{Vector{UInt16}}, coe, n::Int; order=0, newton=true, reducebasis=true, monosquare=true, TS="block", 
+    obj="eigen", partition=0, constraint=nothing, merge=false, md=3, solve=true, Gram=false, solver="Mosek", QUIET=false, cosmo_setting=cosmo_para())
     println("********************************** NCTSSOS **********************************")
     println("Version 0.2.0, developed by Jie Wang, 2020--2022")
     println("NCTSSOS is launching...")
@@ -109,7 +117,8 @@ function nctssos_first(supp::Vector{Vector{UInt16}}, coe, n::Int; order=0, newto
         mb = maximum(maximum.(sb))
         println("Obtained the block structure. The maximal size of blocks is $mb.")
     end
-    opt,ksupp,moment,GramMat = ncblockupop(supp, coe, basis, blocks, cl, blocksize, QUIET=QUIET, obj=obj, partition=partition, constraint=constraint, solve=solve, Gram=Gram, solver=solver)
+    opt,ksupp,moment,GramMat = ncblockupop(supp, coe, basis, blocks, cl, blocksize, QUIET=QUIET, obj=obj, partition=partition, constraint=constraint, solve=solve, 
+    Gram=Gram, solver=solver, cosmo_setting=cosmo_setting)
     data = ncupop_type(supp, coe, partition, constraint, basis, obj, ksupp, sb, numb, moment, GramMat)
     return opt,data
 end
@@ -158,7 +167,8 @@ function nctssos_higher!(data::ncupop_type; TS="block", merge=false, md=3, solve
             mb = maximum(maximum.(sb))
             println("Obtained the block structure. The maximal size of blocks is $mb.")
         end
-        opt,ksupp,moment,GramMat = ncblockupop(supp, coe, basis, blocks, cl, blocksize, QUIET=QUIET, obj=obj, partition=partition, constraint=constraint, solve=solve, Gram=Gram, solver=solver)
+        opt,ksupp,moment,GramMat = ncblockupop(supp, coe, basis, blocks, cl, blocksize, QUIET=QUIET, obj=obj, partition=partition, constraint=constraint, solve=solve, 
+        Gram=Gram, solver=solver, cosmo_setting=cosmo_setting)
     end
     data.ksupp = ksupp
     data.sb = sb
@@ -440,7 +450,8 @@ function get_ncblocks(ksupp, basis; sb=[], numb=[], TS="block", obj="eigen", par
     return blocks,cl,blocksize,nsb,nnumb,status
 end
 
-function ncblockupop(supp, coe, basis, blocks, cl, blocksize; QUIET=true, obj="eigen", partition=0, constraint=nothing, solve=true, Gram=false, solver="Mosek")
+function ncblockupop(supp, coe, basis, blocks, cl, blocksize; QUIET=true, obj="eigen", partition=0, constraint=nothing, solve=true, Gram=false, 
+    solver="Mosek", cosmo_setting=cosmo_para())
     ksupp = Vector{Vector{UInt16}}(undef, Int(sum(Int.(blocksize).^2+blocksize)/2))
     k = 1
     for i = 1:cl, j = 1:blocksize[i], r = j:blocksize[i]
@@ -463,7 +474,7 @@ function ncblockupop(supp, coe, basis, blocks, cl, blocksize; QUIET=true, obj="e
         if solver == "Mosek"
             model = Model(optimizer_with_attributes(Mosek.Optimizer))
         elseif solver == "COSMO"
-            model = Model(optimizer_with_attributes(COSMO.Optimizer, "eps_abs" => 1e-4, "eps_rel" => 1e-4, "max_iter" => 10000))
+            model = Model(optimizer_with_attributes(COSMO.Optimizer, "eps_abs" => cosmo_setting.eps_abs, "eps_rel" => cosmo_setting.eps_rel, "max_iter" => cosmo_setting.max_iter))
         else
             @error "The solver is currently not supported!"
             return nothing,nothing,nothing,nothing

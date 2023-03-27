@@ -24,8 +24,8 @@ mutable struct ncmpop_data
     GramMat # Gram matrix
 end
 
-function cs_nctssos_first(f, x; d=0, CS="MF", minimize=false, TS="block", merge=false, md=3,
-    QUIET=false, obj="eigen", solve=true, Gram=false, partition=0, constraint=nothing, solver="Mosek")
+function cs_nctssos_first(f, x; d=0, CS="MF", minimize=false, TS="block", merge=false, md=3, QUIET=false, obj="eigen", 
+    solve=true, Gram=false, partition=0, constraint=nothing, solver="Mosek", cosmo_setting=cosmo_para())
     println("********************************** NCTSSOS **********************************")
     println("Version 0.2.0, developed by Jie Wang, 2020--2022")
     println("NCTSSOS is launching...")
@@ -33,13 +33,13 @@ function cs_nctssos_first(f, x; d=0, CS="MF", minimize=false, TS="block", merge=
     if d == 0
         d = ceil(Int, maxdegree(f)/2)
     end
-    opt,data = cs_nctssos_first(supp, coe, n, d=d, CS=CS, minimize=minimize, TS=TS, merge=merge,
-    md=md, QUIET=QUIET, obj=obj, solve=solve, solver=solver, Gram=Gram, partition=partition, constraint=constraint)
+    opt,data = cs_nctssos_first(supp, coe, n, d=d, CS=CS, minimize=minimize, TS=TS, merge=merge, md=md, QUIET=QUIET, 
+    obj=obj, solve=solve, solver=solver, Gram=Gram, partition=partition, constraint=constraint, cosmo_setting=cosmo_setting)
     return opt,data
 end
 
-function cs_nctssos_first(supp::Vector{Vector{UInt16}}, coe, n::Int; d=0, CS="MF", minimize=false, solver="Mosek",
-    TS="block", merge=false, md=3, QUIET=false, obj="eigen", solve=true, Gram=false, partition=0, constraint=nothing)
+function cs_nctssos_first(supp::Vector{Vector{UInt16}}, coe, n::Int; d=0, CS="MF", minimize=false, solver="Mosek", TS="block", 
+    merge=false, md=3, QUIET=false, obj="eigen", solve=true, Gram=false, partition=0, constraint=nothing, cosmo_setting=cosmo_para())
     if obj == "trace"
         supp,coe = cyclic_canon(supp, coe)
     else
@@ -64,7 +64,7 @@ function cs_nctssos_first(supp::Vector{Vector{UInt16}}, coe, n::Int; d=0, CS="MF
         println("Obtained the block structure in $time seconds. The maximal size of blocks is $mb.")
     end
     opt,ksupp,moment,GramMat = blockupop_mix(n, supp, coe, basis, cliques, cql, cliquesize, blocks, cl, blocksize, obj=obj,
-    solve=solve, solver=solver, Gram=Gram, QUIET=QUIET, partition=partition, constraint=constraint)
+    solve=solve, solver=solver, Gram=Gram, QUIET=QUIET, partition=partition, constraint=constraint, cosmo_setting=cosmo_setting)
     data = ncmpop_data(n, 0, 0, d, supp, coe, partition, constraint, obj, ksupp, basis, cql, cliques, cliquesize,
     [], [], blocks, cl, blocksize, sb, numb, moment, GramMat)
     return opt,data
@@ -83,11 +83,11 @@ optimization with relaxation order `d`. Return the optimum and other auxiliary d
 - `d`: the relaxation order of the moment-SOHS hierarchy.
 - `numeq`: the number of equality constraints.
 """
-function cs_nctssos_first(pop, x, d; numeq=0, CS="MF", minimize=false, assign="first", TS="block", merge=false,
-    md=3, QUIET=false, obj="eigen", solve=true, Gram=false, partition=0, constraint=nothing, solver="Mosek")
+function cs_nctssos_first(pop, x, d; numeq=0, CS="MF", minimize=false, assign="first", TS="block", merge=false, md=3, 
+    QUIET=false, obj="eigen", solve=true, Gram=false, partition=0, constraint=nothing, solver="Mosek", cosmo_setting=cosmo_para())
     n,supp,coe = polys_info(pop, x)
-    opt,data = cs_nctssos_first(supp, coe, n, d, numeq=numeq, CS=CS, minimize=minimize, assign=assign, TS=TS,
-    QUIET=QUIET, obj=obj, solve=solve, solver=solver, Gram=Gram, partition=partition, constraint=constraint)
+    opt,data = cs_nctssos_first(supp, coe, n, d, numeq=numeq, CS=CS, minimize=minimize, assign=assign, TS=TS, QUIET=QUIET, obj=obj, 
+    solve=solve, solver=solver, Gram=Gram, partition=partition, constraint=constraint, cosmo_setting=cosmo_setting)
     return opt,data
 end
 
@@ -107,7 +107,7 @@ corresponding to the supports and coeffients of `pop` respectively. Return the o
 """
 function cs_nctssos_first(supp::Vector{Vector{Vector{UInt16}}}, coe, n::Int, d::Int; numeq=0, CS="MF", solver="Mosek",
     minimize=false, assign="first", TS="block", merge=false, md=3, QUIET=false, obj="eigen", solve=true, Gram=false,
-    partition=0, constraint=nothing)
+    partition=0, constraint=nothing, cosmo_setting=cosmo_para())
     println("********************************** NCTSSOS **********************************")
     println("Version 0.2.0, developed by Jie Wang, 2020--2022")
     println("NCTSSOS is launching...")
@@ -138,7 +138,7 @@ function cs_nctssos_first(supp::Vector{Vector{Vector{UInt16}}}, coe, n::Int, d::
         println("Obtained the block structure in $time seconds. The maximal size of blocks is $mb.")
     end
     opt,ksupp,moment,GramMat = blockcpop_mix(n, m, supp, coe, basis, cliques, cql, cliquesize, J, ncc, blocks, cl, blocksize,
-    numeq=numeq, QUIET=QUIET, obj=obj, solve=solve, solver=solver, Gram=Gram, partition=partition, constraint=constraint)
+    numeq=numeq, QUIET=QUIET, obj=obj, solve=solve, solver=solver, Gram=Gram, partition=partition, constraint=constraint, cosmo_setting=cosmo_setting)
     data = ncmpop_data(n, m, numeq, d, supp, coe, partition, constraint, obj, ksupp, basis, cql, cliques, cliquesize,
     J, ncc, blocks, cl, blocksize, sb, numb, moment,GramMat)
     return opt,data
@@ -150,7 +150,7 @@ end
 Compute higher steps of the CS-NCTSSOS hierarchy.
 Return the optimum and other auxiliary data.
 """
-function cs_nctssos_higher!(data::ncmpop_data; TS="block", QUIET=false, merge=false, md=3, solve=true, Gram=false, solver="Mosek")
+function cs_nctssos_higher!(data::ncmpop_data; TS="block", QUIET=false, merge=false, md=3, solve=true, Gram=false, solver="Mosek", cosmo_setting=cosmo_para())
     n = data.n
     m = data.m
     numeq = data.numeq
@@ -186,7 +186,7 @@ function cs_nctssos_higher!(data::ncmpop_data; TS="block", QUIET=false, merge=fa
                 println("Obtained the block structure in $time seconds. The maximal size of blocks is $mb.")
             end
             opt,ksupp,moment,GramMat = blockupop_mix(n, supp, coe, basis, cliques, cql, cliquesize, blocks, cl, blocksize, obj=obj, solve=solve, Gram=Gram, QUIET=QUIET,
-            partition=partition, constraint=constraint, solver=solver)
+            partition=partition, constraint=constraint, solver=solver, cosmo_setting=cosmo_setting)
         end
     else
         time = @elapsed begin
@@ -199,7 +199,7 @@ function cs_nctssos_higher!(data::ncmpop_data; TS="block", QUIET=false, merge=fa
                 println("Obtained the block structure in $time seconds. The maximal size of blocks is $mb.")
             end
             opt,ksupp,moment,GramMat = blockcpop_mix(n, m, supp, coe, basis, cliques, cql, cliquesize, J, ncc, blocks, cl, blocksize, numeq=numeq,
-            QUIET=QUIET, obj=obj, solve=solve, Gram=Gram, partition=partition, constraint=constraint, solver=solver)
+            QUIET=QUIET, obj=obj, solve=solve, Gram=Gram, partition=partition, constraint=constraint, solver=solver, cosmo_setting=cosmo_setting)
         end
     end
     if status == 0
@@ -217,8 +217,8 @@ function cs_nctssos_higher!(data::ncmpop_data; TS="block", QUIET=false, merge=fa
     return opt,data
 end
 
-function blockupop_mix(n, supp, coe, basis, cliques, cql, cliquesize, blocks, cl, blocksize; QUIET=false,
-    obj="eigen", solve=true, Gram=false, partition=0, constraint=nothing, solver="Mosek")
+function blockupop_mix(n, supp, coe, basis, cliques, cql, cliquesize, blocks, cl, blocksize; QUIET=false, obj="eigen", solve=true, 
+    Gram=false, partition=0, constraint=nothing, solver="Mosek", cosmo_setting=cosmo_para())
     ksupp = Vector{UInt16}[]
     for i = 1:cql, j = 1:cl[i], k = 1:blocksize[i][j], r = k:blocksize[i][j]
         @inbounds bi = [basis[i][blocks[i][j][k]][end:-1:1]; basis[i][blocks[i][j][r]]]
@@ -239,7 +239,7 @@ function blockupop_mix(n, supp, coe, basis, cliques, cql, cliquesize, blocks, cl
         if solver == "Mosek"
             model = Model(optimizer_with_attributes(Mosek.Optimizer))
         elseif solver == "COSMO"
-            model = Model(optimizer_with_attributes(COSMO.Optimizer, "eps_abs" => 1e-4, "eps_rel" => 1e-4, "max_iter" => 10000))
+            model = Model(optimizer_with_attributes(COSMO.Optimizer, "eps_abs" => cosmo_setting.eps_abs, "eps_rel" => cosmo_setting.eps_rel, "max_iter" => cosmo_setting.max_iter))
         else
             @error "The solver is currently not supported!"
             return nothing,nothing,nothing,nothing
@@ -332,8 +332,8 @@ function blockupop_mix(n, supp, coe, basis, cliques, cql, cliquesize, blocks, cl
     return objv,ksupp,moment,GramMat
 end
 
-function blockcpop_mix(n, m, supp, coe, basis, cliques, cql, cliquesize, J, ncc, blocks, cl, blocksize;
-    numeq=0, QUIET=false, obj="eigen", solve=true, Gram=false, partition=0, constraint=nothing, solver="Mosek")
+function blockcpop_mix(n, m, supp, coe, basis, cliques, cql, cliquesize, J, ncc, blocks, cl, blocksize; numeq=0, QUIET=false, 
+    obj="eigen", solve=true, Gram=false, partition=0, constraint=nothing, solver="Mosek", cosmo_setting=cosmo_para())
     ksupp = Vector{UInt16}[]
     for i = 1:cql
         for j = 1:cl[i][1], k = 1:blocksize[i][1][j], r = k:blocksize[i][1][j]
@@ -367,7 +367,7 @@ function blockcpop_mix(n, m, supp, coe, basis, cliques, cql, cliquesize, J, ncc,
         if solver == "Mosek"
             model = Model(optimizer_with_attributes(Mosek.Optimizer))
         elseif solver == "COSMO"
-            model = Model(optimizer_with_attributes(COSMO.Optimizer, "eps_abs" => 1e-4, "eps_rel" => 1e-4, "max_iter" => 10000))
+            model = Model(optimizer_with_attributes(COSMO.Optimizer, "eps_abs" => cosmo_setting.eps_abs, "eps_rel" => cosmo_setting.eps_rel, "max_iter" => cosmo_setting.max_iter))
         else
             @error "The solver is currently not supported!"
             return nothing,nothing,nothing,nothing

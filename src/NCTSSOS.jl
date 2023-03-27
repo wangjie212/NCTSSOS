@@ -11,8 +11,8 @@ using LinearAlgebra
 using SparseArrays
 using COSMO
 
-export nctssos_first, nctssos_higher!, cs_nctssos_first, cs_nctssos_higher!, ptraceopt_first, 
-ptraceopt_higher!, pstateopt_first, pstateopt_higher!, Werner_witness_first, Werner_witness_higher!
+export nctssos_first, nctssos_higher!, cs_nctssos_first, cs_nctssos_higher!, ptraceopt_first, ptraceopt_higher!, 
+pstateopt_first, pstateopt_higher!, Werner_witness_first, Werner_witness_higher!, cosmo_para
 
 include("clique_merge.jl")
 include("ncupop.jl")
