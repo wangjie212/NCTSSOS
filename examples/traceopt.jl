@@ -79,4 +79,4 @@ supp[2] = [mixword([1;2], []), mixword([3;4], []), mixword([], [])]
 supp[3] = [mixword([], [[1], [2]]), mixword([], [[3], [4]]), mixword([], [])]
 coe = [[-1; -1; -2; -1; -1; 2], [1; 1; -1], [1; 1; -1]]
 d = 2
-opt,data = traceopt_first(supp, coe, n, d, TS=false, solve=true, constraint="unipotent")
+opt,data = traceopt_first(supp, coe, n, d, numeq=1, TS=false, solve=true, constraint="unipotent")

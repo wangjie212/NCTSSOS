@@ -1,6 +1,7 @@
 mutable struct traceopt_type
     supp # support data
     coe # coefficient data
+    numeq # number of equality constraints
     constraint # "projection" or "unipotent"
     ptsupp # pure trace support
     wbasis # word basis
@@ -134,7 +135,7 @@ function sym_cyclic(word)
     return min(_cyclic_canon(word), _cyclic_canon(reverse(word)))
 end
 
-function traceopt_first(tr_supp::Vector{Vector{Union{Vector{Vector{Int}}, mixword}}}, coe, n, d; TS="block", monosquare=false, QUIET=false, constraint="unipotent", solve=true, Gram=false, 
+function traceopt_first(tr_supp::Vector{Vector{Union{Vector{Vector{Int}}, mixword}}}, coe, n, d; numeq=0, TS="block", monosquare=false, QUIET=false, constraint="unipotent", solve=true, Gram=false, 
     solver="Mosek", cosmo_setting=cosmo_para())
     println("********************************** NCTSSOS **********************************")
     println("Version 0.2.0, developed by Jie Wang, 2020--2022")
@@ -203,15 +204,16 @@ function traceopt_first(tr_supp::Vector{Vector{Union{Vector{Vector{Int}}, mixwor
         mb = maximum(maximum.(sb))
         println("Obtained the block structure in $time seconds. The maximal size of blocks is $mb.")
     end
-    opt,ksupp,moment,GramMat = ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, QUIET=QUIET, constraint=constraint, 
+    opt,ksupp,moment,GramMat = ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, numeq=numeq, QUIET=QUIET, constraint=constraint, 
     solve=solve, Gram=Gram, solver=solver, cosmo_setting=cosmo_setting)
-    data = traceopt_type(supp, coe, constraint, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, ksupp, sb, numb, moment, GramMat)
+    data = traceopt_type(supp, coe, numeq, constraint, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, ksupp, sb, numb, moment, GramMat)
     return opt,data
 end
 
 function traceopt_higher!(data; TS="block", QUIET=false, solve=true, solver="Mosek", Gram=false, cosmo_setting=cosmo_para())
     supp = data.supp
     coe = data.coe
+    numeq = data.numeq
     constraint = data.constraint
     ptsupp = data.ptsupp
     wbasis = data.wbasis
@@ -232,7 +234,7 @@ function traceopt_higher!(data; TS="block", QUIET=false, solve=true, solver="Mos
             mb = maximum(maximum.(sb))
             println("Obtained the block structure in $time seconds. The maximal size of blocks is $mb.")
         end
-        opt,ksupp,moment,GramMat = ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, QUIET=QUIET, constraint=constraint, 
+        opt,ksupp,moment,GramMat = ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, numeq=numeq, QUIET=QUIET, constraint=constraint, 
         solve=solve, Gram=Gram, solver=solver, cosmo_setting=cosmo_setting)
     end
     data.ksupp = ksupp
@@ -246,13 +248,13 @@ function traceopt_higher!(data; TS="block", QUIET=false, solve=true, solver="Mos
     return opt,data
 end
 
-function ptraceopt_first(tr_supp::Vector{Vector{Vector{Int}}}, coe, n, d; TS="block", monosquare=false, solver="Mosek", 
+function ptraceopt_first(tr_supp::Vector{Vector{Vector{Int}}}, coe, n, d; numeq=0, TS="block", monosquare=false, solver="Mosek", 
     QUIET=false, constraint="unipotent", solve=true, Gram=false, cosmo_setting=cosmo_para())
-    return pstateopt_first([tr_supp], [coe], n, d, TS=TS, monosquare=monosquare, solver=solver, QUIET=QUIET, 
+    return ptraceopt_first([tr_supp], [coe], n, d, numeq=numeq, TS=TS, monosquare=monosquare, solver=solver, QUIET=QUIET, 
     constraint=constraint, solve=solve, Gram=Gram, cosmo_setting=cosmo_setting)
 end
 
-function ptraceopt_first(tr_supp::Vector{Vector{Union{Vector{Vector{Int}}, mixword}}}, coe, n, d; TS="block", monosquare=false, QUIET=false, constraint="unipotent", solve=true, Gram=false, 
+function ptraceopt_first(tr_supp::Vector{Vector{Vector{Vector{Int}}}}, coe, n, d; numeq=0, TS="block", monosquare=false, QUIET=false, constraint="unipotent", solve=true, Gram=false, 
     solver="Mosek", cosmo_setting=cosmo_para())
     println("********************************** NCTSSOS **********************************")
     println("Version 0.2.0, developed by Jie Wang, 2020--2022")
@@ -321,15 +323,16 @@ function ptraceopt_first(tr_supp::Vector{Vector{Union{Vector{Vector{Int}}, mixwo
         mb = maximum(maximum.(sb))
         println("Obtained the block structure in $time seconds. The maximal size of blocks is $mb.")
     end
-    opt,ksupp,moment,GramMat = ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, QUIET=QUIET, constraint=constraint, 
+    opt,ksupp,moment,GramMat = ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, numeq=numeq, QUIET=QUIET, constraint=constraint, 
     solve=solve, Gram=Gram, solver=solver, cosmo_setting=cosmo_setting)
-    data = traceopt_type(supp, coe, constraint, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, ksupp, sb, numb, moment, GramMat)
+    data = traceopt_type(supp, coe, numeq, constraint, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, ksupp, sb, numb, moment, GramMat)
     return opt,data
 end
 
 function ptraceopt_higher!(data; TS="block", QUIET=false, solve=true, solver="Mosek", Gram=false, cosmo_setting=cosmo_para())
     supp = data.supp
     coe = data.coe
+    numeq = data.numeq
     constraint = data.constraint
     ptsupp = data.ptsupp
     wbasis = data.wbasis
@@ -350,7 +353,7 @@ function ptraceopt_higher!(data; TS="block", QUIET=false, solve=true, solver="Mo
             mb = maximum(maximum.(sb))
             println("Obtained the block structure in $time seconds. The maximal size of blocks is $mb.")
         end
-        opt,ksupp,moment,GramMat = ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, QUIET=QUIET, constraint=constraint, 
+        opt,ksupp,moment,GramMat = ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, numeq=numeq, QUIET=QUIET, constraint=constraint, 
         solve=solve, Gram=Gram, solver=solver, cosmo_setting=cosmo_setting)
     end
     data.ksupp = ksupp
@@ -364,7 +367,7 @@ function ptraceopt_higher!(data; TS="block", QUIET=false, solve=true, solver="Mo
     return opt,data
 end
 
-function ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize; QUIET=false, constraint="unipotent", solve=true, 
+function ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize; numeq=0, QUIET=false, constraint="unipotent", solve=true, 
     Gram=false, solver="Mosek", cosmo_setting=cosmo_para())
     m = length(supp) - 1
     # ksupp = Vector{Vector{UInt16}}(undef, Int(sum(Int.(blocksize).^2+blocksize)/2))
@@ -466,7 +469,11 @@ function ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocks
         for k = 1:m, i = 1:cl[k+1]
             bs = blocksize[k+1][i]
             if bs == 1
-                gpos = @variable(model, lower_bound=0)
+                if k <= m-numeq
+                    gpos = @variable(model, lower_bound=0)
+                else
+                    gpos = @variable(model)
+                end
                 for s = 1:length(supp[k+1])
                     @inbounds bi1 = sort([tbasis[k+1][wbasis[k+1][blocks[k+1][i][1]][1]]; supp[k+1][s][2]; tbasis[k+1][wbasis[k+1][blocks[k+1][i][1]][1]]])
                     temp = supp[k+1][s][1] != 0 ? ptsupp[supp[k+1][s][1]] : UInt16[]
@@ -484,7 +491,11 @@ function ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocks
                     @inbounds add_to_expression!(cons[Locb], coe[k+1][s], gpos)
                 end
             else
-                @inbounds gpos = @variable(model, [1:bs, 1:bs], PSD)
+                if k <= m-numeq
+                    @inbounds gpos = @variable(model, [1:bs, 1:bs], PSD)
+                else
+                    @inbounds gpos = @variable(model, [1:bs, 1:bs], Symmetric)
+                end
                 for j = 1:blocksize[k+1][i], r = j:blocksize[k+1][i], s = 1:length(supp[k+1])
                     @inbounds bi1 = sort([tbasis[k+1][wbasis[k+1][blocks[k+1][i][j]][1]]; supp[k+1][s][2]; tbasis[k+1][wbasis[k+1][blocks[k+1][i][r]][1]]])
                     temp = supp[k+1][s][1] != 0 ? ptsupp[supp[k+1][s][1]] : UInt16[]
