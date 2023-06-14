@@ -379,12 +379,16 @@ function state_reduce(word1, word2, ptsupp, vargroup; bilocal=false)
     if isempty(word2)
         ind = UInt32[]
     elseif bilocal == false
-        ind = UInt32(bfind(ptsupp, length(ptsupp), sym(word2, vargroup), lt=isless_td))
+        temp = bfind(ptsupp, length(ptsupp), sym(word2, vargroup), lt=isless_td)
+        ind = UInt32(temp !== nothing ? temp : 0)
     else
         wx,wz,flag = bilocal_reduce(word2)
         if flag == true
-            ind = UInt32[bfind(ptsupp, length(ptsupp), sym(wx, vargroup), lt=isless_td);
-            bfind(ptsupp, length(ptsupp), sym(wz, vargroup), lt=isless_td)]
+            temp1 = bfind(ptsupp, length(ptsupp), sym(wx, vargroup), lt=isless_td)
+            temp1 = temp1 !== nothing ? temp1 : 0
+            temp2 = bfind(ptsupp, length(ptsupp), sym(wz, vargroup), lt=isless_td)
+            temp2 = temp2 !== nothing ? temp2 : 0
+            ind = UInt32[temp1; temp2]
         else
             temp = bfind(ptsupp, length(ptsupp), sym(word2, vargroup), lt=isless_td)
             ind = UInt32(temp !== nothing ? temp : 0)
