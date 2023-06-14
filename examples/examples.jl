@@ -1,17 +1,23 @@
 using DynamicPolynomials
 using DelimitedFiles
 using Plots
-
-include("D:\\Programs\\NCTSSOS\\src\\NCTSSOS.jl")
-using .NCTSSOS
+using NCTSSOS
 
 n = 3
 @ncpolyvar x[1:3]
 f = x[1]^2-x[1]*x[2]-x[2]*x[1]+3x[2]^2-2x[1]*x[2]*x[1]+2x[1]*x[2]^2*x[1]-x[2]*x[3]-x[3]*x[2]+
 6x[3]^2+9x[2]^2*x[3]+9x[3]*x[2]^2-54x[3]*x[2]*x[3]+142x[3]*x[2]^2*x[3]
 
+pop = [f]
+for i = 1:n
+    push!(pop, 1 - x[i]^2)
+    push!(pop, x[i] - 1/3)
+end
 @time begin
-opt,data = nctssos_first(f, x, newton=true, reducebasis=false, TS=false, QUIET=true, obj="eigen")
+opt,data = cs_nctssos_first(pop, x, 3, TS=false, QUIET=true, obj="eigen")
+end
+@time begin
+opt,data = cs_nctssos_first(pop, x, 3, TS="MD", QUIET=true, obj="eigen")
 end
 
 f = 3+x[1]^2+2x[1]^3+2x[1]^4+x[1]^6-4x[1]^4*x[2]+x[1]^4*x[2]^2+4x[1]^3*x[2]+2x[1]^3*x[2]^2-
@@ -27,14 +33,17 @@ for i = 2:n
 end
 
 @time begin
-opt,data = nctssos_first(supp, coe, n, newton=true, QUIET=true, reducebasis=false, TS="MD", obj="eigen")
+opt,data = nctssos_first(supp, coe, n, newton=true, reducebasis=false, QUIET=true, solve=true, TS=false, obj="eigen")
+end
+@time begin
+opt,data = cs_nctssos_first(supp, coe, n, d=2, QUIET=true, TS=false, obj="eigen")
 end
 
 # @time begin
-# opt,data=nctssos_first(supp,coe,newton=true,reducebasis=false,TS="block",obj="eigen")
+# opt,data = nctssos_first(supp, coe, newton=true, reducebasis=false, TS="block", obj="eigen")
 # end
 @time begin
-opt,data = nctssos_first(supp,coe,n,2,dg,reducebasis=false,TS="MD",obj="eigen")
+opt,data = nctssos_first(supp, coe, n, 2, dg, reducebasis=false, TS="MD", obj="eigen")
 end
 
 @time begin
@@ -127,3 +136,14 @@ end
 @time begin
 opt,data = nctssos_first(supp,coe,n,2,reducebasis=false,TS="MD",obj="eigen")
 end
+
+@ncpolyvar x[1:6]
+f = x[1]*(x[4] + x[5] + x[6]) + x[2]*(x[4] + x[5] - x[6]) + x[3]*(x[4] - x[5]) - x[1] - 2x[4] - x[5]
+@time begin
+opt,data = cs_nctssos_first(-f, x, d=2, partition=3, constraint="projection", TS=false, QUIET=true, obj="eigen")
+end
+println(Int(maximum(maximum.(data.blocksize))))
+@time begin
+opt,data = nctssos_first(-f, x, d=6, partition=3, constraint="projection", TS=false, QUIET=true, obj="eigen")
+end
+println(maximum(data.sb))

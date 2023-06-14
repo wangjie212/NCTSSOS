@@ -1,30 +1,29 @@
 # the Broyden banded polynomial
-n = 20
+n = 100
 @ncpolyvar x[1:n]
-f = 0
+f = 0.
 for i = 1:n
-    jset = max(1,i-5):min(n,i+1)
-    jset = setdiff(jset,i)
-    global f += (2x[i]+5*x[i]^3+1)^2
-    global f -= sum([4x[i]*x[j]+10x[i]^3*x[j]+2x[j]+4x[i]*x[j]^2+10x[i]^3*x[j]^2+2x[j]^2 for j in jset])
-    global f += sum([x[j]*x[k]+2x[j]^2*x[k]+x[j]^2*x[k]^2 for j in jset for k in jset])
+    jset = max(1, i-5) : min(n, i+1)
+    jset = setdiff(jset, i)
+    g = sum(x[j] + x[j]^2 for j in jset)
+    f += (2*x[i] + 5*x[i]^3 + 1 - g)^2
 end
 
 # the Broyden banded polynomial
-n = 10
-supp[1] = [UInt16[]]
-coe[1] = Float64[n]
+n = 4
+supp = [UInt16[]]
+coe = Float64[n]
 for i = 1:n
     jset = max(1,i-5):min(n,i+1)
     jset = setdiff(jset,i)
-    push!(supp[1], UInt16[i], UInt16[i;i], UInt16[i;i;i], UInt16[i;i;i;i], UInt16[i;i;i;i;i;i])
-    push!(coe[1], 4, 4, 10, 20, 25)
+    push!(supp, [i], [i;i], [i;i;i], [i;i;i;i], [i;i;i;i;i;i])
+    push!(coe, 4, 4, 10, 20, 25)
     for j in jset
-        push!(supp[1], [j], [j;j], [i;j], [i;j;j], [i;i;i;j], [i;i;i;j;j])
-        push!(coe[1], -2, -2, -4, -4, -10, -10)
+        push!(supp, [j], [j;j], [i;j], [i;j;j], [i;i;i;j], [i;i;i;j;j])
+        push!(coe, -2, -2, -4, -4, -10, -10)
         for k in jset
-            push!(supp[1], [j;k], [j;j;k], [j;j;k;k])
-            push!(coe[1], 1, 2, 1)
+            push!(supp, [j;k], [j;j;k], [j;j;k;k])
+            push!(coe, 1, 2, 1)
         end
     end
 end
@@ -34,7 +33,7 @@ n = 4000
 supp[1] = [UInt16[]]
 coe[1] = Float64[n]
 for i = 2:n
-    push!(supp[1], UInt16[i-1;i-1;i-1;i-1], UInt16[i-1;i-1;i], UInt16[i], UInt16[i;i])
+    push!(supp[1], [i-1;i-1;i-1;i-1], [i-1;i-1;i], [i], [i;i])
     push!(coe[1], 100, -200, -2, 101)
 end
 
@@ -43,7 +42,8 @@ n = 600
 supp[1] = [UInt16[]]
 coe[1] = Float64[21*n-41]
 for i = 1:2:n-3
-    push!(supp[1], UInt16[i], UInt16[i;i], UInt16[i;i;i;i], UInt16[i;i;i+1], UInt16[i+1], UInt16[i+1;i+1], UInt16[i+1;i+3], UInt16[i+2], UInt16[i+2;i+2], UInt16[i+2;i+2;i+2;i+2], UInt16[i+2;i+2;i+3], UInt16[i+3], UInt16[i+3;i+3])
+    push!(supp[1], [i], [i;i], [i;i;i;i], [i;i;i+1], [i+1], [i+1;i+1], [i+1;i+3],
+    [i+2], [i+2;i+2], [i+2;i+2;i+2;i+2], [i+2;i+2;i+3], [i+3], [i+3;i+3])
     push!(coe[1], -2, 1, 100, -200, -40, 110.1, 19.8, -2, 1, 90, -180, -40, 100.1)
 end
 
@@ -54,26 +54,34 @@ coe[1] = Float64[n]
 push!(supp[1], [1;1], [1;1;1;1], [2;2], [1;1;1], [1;2], [1], [1;1;2], [2])
 push!(coe[1], 5, 4, 4, -12, -12, 6, 8, -4)
 for i = 2:n-1
-    push!(supp[1], [i;i], [i;i;i;i], [i-1;i-1], [i+1;i+1], [i;i;i], [i-1;i], [i;i+1], [i], [i-1;i;i], [i;i;i+1], [i-1;i+1], [i-1], [i+1])
+    push!(supp[1], [i;i], [i;i;i;i], [i-1;i-1], [i+1;i+1], [i;i;i], [i-1;i],
+    [i;i+1], [i], [i-1;i;i], [i;i;i+1], [i-1;i+1], [i-1], [i+1])
     push!(coe[1], 5, 4, 1, 4, -12, -6, -12, 6, 4, 8, 4, -2, -4)
 end
 push!(supp[1], [n;n], [n;n;n;n], [n-1;n-1], [n;n;n], [n-1;n], [n], [n-1;n;n], [n-1])
 push!(coe[1], 5, 4, 1, -12, -6, 6, 4, -2)
 
 # the Chained singular polynomial
-n = 20
+n = 4
+f = 0
 @ncpolyvar x[1:n]
 for i = 1:2:n-3
-    global f += (x[i]^2+10x[i]*x[i+1]+10x[i+1]*x[i]+100x[i+1]^2)+5*(x[i+2]^2-x[i+2]*x[i+3]-x[i+3]*x[i+2]+x[i+3]^2)+(x[i+1]^4-4x[i+1]*x[i+2]*x[i+1]^2+4x[i+2]^2*x[i+1]^2-4x[i+1]^2*x[i+2]*x[i+1]+16x[i+1]*x[i+2]^2*x[i+1]-16x[i+2]^3*x[i+1]+4x[i+1]^2*x[i+2]^2-16x[i+1]*x[i+2]^3+16x[i+2]^4)+10*(x[i]^4-20x[i]*x[i+3]*x[i]^2+100x[i+3]^2*x[i]^2-20x[i]^2*x[i+3]*x[i]+400x[i]*x[i+3]^2*x[i]-2000x[i+3]^3*x[i]+100x[i]^2*x[i+3]^2-2000x[i]*x[i+3]^3+10000x[i+3]^4)
+    f += (x[i] + 10*x[i+1])^2 + 5*(x[i+2] - x[i+3])^2 + (x[i+1] - 2*x[i+2])^4 + 10*(x[i] - 10*x[i+3])^4
 end
 
 # the Chained singular polynomial
-n = 800
-supp = [UInt16[]]
-coe = Float64[0]
+n = 80
+supp = Vector{UInt16}[]
+coe = Float64[]
 for i = 1:2:n-3
-    push!(supp, [i;i], [i;i+1], [i+1;i+1], [i+2;i+2], [i+3;i+3], [i+2;i+3], [i+1;i+1;i+1;i+1], [i+2;i+1;i+1;i+2], [i+2;i+2;i+2;i+2], [i+1;i+1;i+1;i+2], [i+1;i+1;i+2;i+2], [i+2;i+1;i+2;i+2], [i;i;i;i], [i+3;i;i;i+3], [i+3;i+3;i+3;i+3], [i;i;i;i+3], [i;i;i+3;i+3], [i+3;i;i+3;i+3])
-    push!(coe, 1, 20 ,100, 5, 5, -10, 1, 16, 16, -8, 8, -32, 10, 4000, 100000, -400, 2000, -40000)
+    push!(supp, [i;i;i;i], [i;i;i;i+3], [i;i;i+3;i+3], [i;i;i+3;i], [i;i+3;i+3;i+3], [i;i+3;i+3;i], [i;i+3;i;i],
+    [i;i+3;i;i+3], [i+1;i+1;i+1;i+1], [i+1;i+1;i+1;i+2], [i+1;i+1;i+2;i+2], [i+1;i+1;i+2;i+1], [i+1;i+2;i+2;i+2],
+    [i+1;i+2;i+2;i+1], [i+1;i+2;i+1;i+1], [i+1;i+2;i+1;i+2], [i+2;i+2;i+2;i+2], [i+2;i+2;i+2;i+1], [i+2;i+2;i+1;i+1],
+    [i+2;i+2;i+1;i+2], [i+2;i+1;i+1;i+1], [i+2;i+1;i+1;i+2], [i+2;i+1;i+2;i+2], [i+2;i+1;i+2;i+1],
+    [i+3;i+3;i+3;i+3], [i+3;i+3;i+3;i], [i+3;i+3;i;i], [i+3;i+3;i;i+3], [i+3;i;i;i], [i+3;i;i;i+3], [i+3;i;i+3;i+3],
+    [i+3;i;i+3;i], [i;i], [i;i+1], [i+1;i+1], [i+1;i], [i+2;i+2], [i+2;i+3], [i+3;i+3], [i+3;i+2])
+    append!(coe, [10;-100;1000;-100;-10000;1000;-100;1000;1;-2;4;-2;-8;4;-2;4;16;-8;4;-8;-2;4;-8;4;100000;-10000;
+    1000;-10000;-100;1000;-10000;1000;1;10;100;10;5;-5;5;-5])
 end
 
 supp[1] = [UInt16[]]
