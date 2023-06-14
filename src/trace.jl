@@ -2,7 +2,7 @@ mutable struct traceopt_type
     supp # support data
     coe # coefficient data
     numeq # number of equality constraints
-    constraint # "projection" or "unipotent"
+    constraint # "projection" or "nilpotent"
     ptsupp # pure trace support
     wbasis # word basis
     tbasis # trace basis
@@ -135,7 +135,7 @@ function sym_cyclic(word)
     return min(_cyclic_canon(word), _cyclic_canon(reverse(word)))
 end
 
-function traceopt_first(tr_supp::Vector{Vector{Union{Vector{Vector{Int}}, mixword}}}, coe, n, d; numeq=0, TS="block", monosquare=false, QUIET=false, constraint="unipotent", solve=true, Gram=false, 
+function traceopt_first(tr_supp::Vector{Vector{Union{Vector{Vector{Int}}, mixword}}}, coe, n, d; numeq=0, TS="block", monosquare=false, QUIET=false, constraint="nilpotent", solve=true, Gram=false, 
     solver="Mosek", cosmo_setting=cosmo_para())
     println("********************************** NCTSSOS **********************************")
     println("Version 0.2.0, developed by Jie Wang, 2020--2022")
@@ -186,7 +186,7 @@ function traceopt_first(tr_supp::Vector{Vector{Union{Vector{Vector{Int}}, mixwor
             bi2 = [reverse(basis[1][wbasis[1][i][2]]); basis[1][wbasis[1][i][2]]]
             constraint_reduce!(bi2, constraint=constraint)
             while length(bi2) > 2 && bi2[1] == bi2[end]
-                if constraint == "unipotent"
+                if constraint == "nilpotent"
                     bi2 = bi2[2:end-1]
                 elseif constraint == "projection"
                     bi2 = bi2[1:end-1]
@@ -249,12 +249,12 @@ function traceopt_higher!(data; TS="block", QUIET=false, solve=true, solver="Mos
 end
 
 function ptraceopt_first(tr_supp::Vector{Vector{Vector{Int}}}, coe, n, d; numeq=0, TS="block", monosquare=false, solver="Mosek", 
-    QUIET=false, constraint="unipotent", solve=true, Gram=false, cosmo_setting=cosmo_para())
+    QUIET=false, constraint="nilpotent", solve=true, Gram=false, cosmo_setting=cosmo_para())
     return ptraceopt_first([tr_supp], [coe], n, d, numeq=numeq, TS=TS, monosquare=monosquare, solver=solver, QUIET=QUIET, 
     constraint=constraint, solve=solve, Gram=Gram, cosmo_setting=cosmo_setting)
 end
 
-function ptraceopt_first(tr_supp::Vector{Vector{Vector{Vector{Int}}}}, coe, n, d; numeq=0, TS="block", monosquare=false, QUIET=false, constraint="unipotent", solve=true, Gram=false, 
+function ptraceopt_first(tr_supp::Vector{Vector{Vector{Vector{Int}}}}, coe, n, d; numeq=0, TS="block", monosquare=false, QUIET=false, constraint="nilpotent", solve=true, Gram=false, 
     solver="Mosek", cosmo_setting=cosmo_para())
     println("********************************** NCTSSOS **********************************")
     println("Version 0.2.0, developed by Jie Wang, 2020--2022")
@@ -305,7 +305,7 @@ function ptraceopt_first(tr_supp::Vector{Vector{Vector{Vector{Int}}}}, coe, n, d
             bi2 = [reverse(basis[1][wbasis[1][i][2]]); basis[1][wbasis[1][i][2]]]
             constraint_reduce!(bi2, constraint=constraint)
             while length(bi2) > 2 && bi2[1] == bi2[end]
-                if constraint == "unipotent"
+                if constraint == "nilpotent"
                     bi2 = bi2[2:end-1]
                 elseif constraint == "projection"
                     bi2 = bi2[1:end-1]
@@ -367,7 +367,7 @@ function ptraceopt_higher!(data; TS="block", QUIET=false, solve=true, solver="Mo
     return opt,data
 end
 
-function ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize; numeq=0, QUIET=false, constraint="unipotent", solve=true, 
+function ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize; numeq=0, QUIET=false, constraint="nilpotent", solve=true, 
     Gram=false, solver="Mosek", cosmo_setting=cosmo_para())
     m = length(supp) - 1
     # ksupp = Vector{Vector{UInt16}}(undef, Int(sum(Int.(blocksize).^2+blocksize)/2))
@@ -378,7 +378,7 @@ function ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocks
         @inbounds bi2 = [reverse(basis[1][wbasis[1][blocks[1][i][j]][2]]); basis[1][wbasis[1][blocks[1][i][r]][2]]]
         constraint_reduce!(bi2, constraint=constraint)
         while length(bi2) > 2 && bi2[1] == bi2[end]
-            if constraint == "unipotent"
+            if constraint == "nilpotent"
                 bi2 = bi2[2:end-1]
             elseif constraint == "projection"
                 bi2 = bi2[1:end-1]
@@ -395,7 +395,7 @@ function ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocks
         @inbounds bi2 = [reverse(basis[k+1][wbasis[k+1][blocks[k+1][i][j]][2]]); temp; basis[k+1][wbasis[k+1][blocks[k+1][i][r]][2]]]
         constraint_reduce!(bi2, constraint=constraint)
         while length(bi2) > 2 && bi2[1] == bi2[end]
-            if constraint == "unipotent"
+            if constraint == "nilpotent"
                 bi2 = bi2[2:end-1]
             elseif constraint == "projection"
                 bi2 = bi2[1:end-1]
@@ -434,7 +434,7 @@ function ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocks
                @inbounds bi2 = [reverse(basis[1][wbasis[1][blocks[1][i][1]][2]]); basis[1][wbasis[1][blocks[1][i][1]][2]]]
                constraint_reduce!(bi2, constraint=constraint)
                while length(bi2) > 2 && bi2[1] == bi2[end]
-                   if constraint == "unipotent"
+                   if constraint == "nilpotent"
                        bi2 = bi2[2:end-1]
                    elseif constraint == "projection"
                        bi2 = bi2[1:end-1]
@@ -450,7 +450,7 @@ function ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocks
                    @inbounds bi2 = [reverse(basis[1][wbasis[1][blocks[1][i][j]][2]]); basis[1][wbasis[1][blocks[1][i][r]][2]]]
                    constraint_reduce!(bi2, constraint=constraint)
                    while length(bi2) > 2 && bi2[1] == bi2[end]
-                       if constraint == "unipotent"
+                       if constraint == "nilpotent"
                             bi2 = bi2[2:end-1]
                        elseif constraint == "projection"
                             bi2 = bi2[1:end-1]
@@ -480,7 +480,7 @@ function ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocks
                     @inbounds bi2 = [reverse(basis[k+1][wbasis[k+1][blocks[k+1][i][1]][2]]); temp; basis[k+1][wbasis[k+1][blocks[k+1][i][1]][2]]]
                     constraint_reduce!(bi2, constraint=constraint)
                     while length(bi2) > 2 && bi2[1] == bi2[end]
-                        if constraint == "unipotent"
+                        if constraint == "nilpotent"
                              bi2 = bi2[2:end-1]
                         elseif constraint == "projection"
                              bi2 = bi2[1:end-1]
@@ -502,7 +502,7 @@ function ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocks
                     @inbounds bi2 = [reverse(basis[k+1][wbasis[k+1][blocks[k+1][i][j]][2]]); temp; basis[k+1][wbasis[k+1][blocks[k+1][i][r]][2]]]
                     constraint_reduce!(bi2, constraint=constraint)
                     while length(bi2) > 2 && bi2[1] == bi2[end]
-                        if constraint == "unipotent"
+                        if constraint == "nilpotent"
                              bi2 = bi2[2:end-1]
                         elseif constraint == "projection"
                              bi2 = bi2[1:end-1]
@@ -561,7 +561,7 @@ function ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocks
                 @inbounds bi2 = [reverse(basis[1][wbasis[1][blocks[1][i][j]][2]]); basis[1][wbasis[1][blocks[1][i][k]][2]]]
                 constraint_reduce!(bi2, constraint=constraint)
                 while length(bi2) > 2 && bi2[1] == bi2[end]
-                    if constraint == "unipotent"
+                    if constraint == "nilpotent"
                         bi2 = bi2[2:end-1]
                     elseif constraint == "projection"
                         bi2 = bi2[1:end-1]
@@ -586,12 +586,12 @@ function trace_reduce(word1, word2, ptsupp)
     return sort([word1; ind])
 end
 
-function constraint_reduce!(word; constraint="unipotent")
+function constraint_reduce!(word; constraint="nilpotent")
     i = 1
     while i < length(word)
         if word[i] == word[i+1]
             deleteat!(word, i)
-            if constraint == "unipotent"
+            if constraint == "nilpotent"
                 deleteat!(word, i)
             end
             i = 1
@@ -602,7 +602,7 @@ function constraint_reduce!(word; constraint="unipotent")
     return word
 end
 
-function get_ncgraph(ksupp, ptsupp, wbasis, tbasis, basis; vargroup=nothing, constraint="unipotent", type="trace", bilocal=false)
+function get_ncgraph(ksupp, ptsupp, wbasis, tbasis, basis; vargroup=nothing, constraint="nilpotent", type="trace", bilocal=false)
     lb = length(wbasis)
     G = SimpleGraph(lb)
     lksupp = length(ksupp)
@@ -615,7 +615,7 @@ function get_ncgraph(ksupp, ptsupp, wbasis, tbasis, basis; vargroup=nothing, con
         constraint_reduce!(bi2, constraint=constraint)
         if type == "trace"
             while length(bi2) > 2 && bi2[1] == bi2[end]
-                if constraint == "unipotent"
+                if constraint == "nilpotent"
                     bi2 = bi2[2:end-1]
                 elseif constraint == "projection"
                     bi2 = bi2[1:end-1]
@@ -639,7 +639,7 @@ function get_ncgraph(ksupp, ptsupp, wbasis, tbasis, basis; vargroup=nothing, con
     return G
 end
 
-function get_nccgraph(ksupp, ptsupp, supp, wbasis, tbasis, basis; vargroup=nothing, constraint="unipotent", type="trace", bilocal=false)
+function get_nccgraph(ksupp, ptsupp, supp, wbasis, tbasis, basis; vargroup=nothing, constraint="nilpotent", type="trace", bilocal=false)
     lb = length(wbasis)
     G = SimpleGraph(lb)
     lksupp = length(ksupp)
@@ -652,7 +652,7 @@ function get_nccgraph(ksupp, ptsupp, supp, wbasis, tbasis, basis; vargroup=nothi
                 @inbounds bi2 = [reverse(basis[wbasis[i][2]]); temp; basis[wbasis[j][2]]]
                 constraint_reduce!(bi2, constraint=constraint)
                 while length(bi2) > 2 && bi2[1] == bi2[end]
-                    if constraint == "unipotent"
+                    if constraint == "nilpotent"
                         bi2 = bi2[2:end-1]
                     elseif constraint == "projection"
                         bi2 = bi2[1:end-1]
@@ -681,7 +681,7 @@ function get_nccgraph(ksupp, ptsupp, supp, wbasis, tbasis, basis; vargroup=nothi
     return G
 end
 
-function get_ncblocks(ksupp, ptsupp, wbasis, tbasis, basis; supp=[], vargroup=nothing, sb=[], numb=[], TS="block", QUIET=false, constraint="unipotent", type="trace", bilocal=false)
+function get_ncblocks(ksupp, ptsupp, wbasis, tbasis, basis; supp=[], vargroup=nothing, sb=[], numb=[], TS="block", QUIET=false, constraint="nilpotent", type="trace", bilocal=false)
     m = length(wbasis) - 1
     blocks = Vector{Vector{Vector{UInt16}}}(undef, m+1)
     blocksize = Vector{Vector{Int}}(undef, m+1)

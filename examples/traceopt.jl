@@ -13,7 +13,7 @@ n = 4
 supp = [[[1;3]], [[1;4]], [[2;3]], [[2;4]]]
 coe = [-1; -1; -1; 1]
 d = 1
-opt,data = ptraceopt_first(supp, coe, n, d, TS="block", constraint="unipotent")
+opt,data = ptraceopt_first(supp, coe, n, d, TS="block", constraint="nilpotent")
 # opt,data = ptraceopt_higher!(data, TS="block")
 
 # Example 6.2.1
@@ -21,7 +21,7 @@ n = 4
 supp = [[[1;4], [1;4]], [[2;3], [2;3]], [[1;4], [2;3]], [[1;3], [1;3]], [[2;4], [2;4]], [[1;3], [2;4]]]
 coe = [-1; -1; -2; -1; -1; 2]
 d = 2
-opt,data = ptraceopt_first(supp, coe, n, d, TS=false, constraint="unipotent")
+opt,data = ptraceopt_first(supp, coe, n, d, TS=false, constraint="nilpotent")
 # opt,data = ptraceopt_higher!(data, TS="block")
 
 # Example 6.2.2
@@ -30,7 +30,7 @@ supp = [[[1;4]], [[1], [4]], [[1;5]], [[1], [5]], [[1;6]], [[1], [6]], [[2;4]], 
 [[2;5]], [[2], [5]], [[2;6]], [[2], [6]], [[3;4]], [[3], [4]], [[3;5]], [[3], [5]]]
 coe = [-1; 1; -1; 1; -1; 1; -1; 1; -1; 1; 1; -1; -1; 1; 1; -1]
 d = 2
-opt,data = ptraceopt_first(supp, coe, n, d, TS=false, constraint="unipotent")
+opt,data = ptraceopt_first(supp, coe, n, d, TS=false, constraint="nilpotent")
 # opt,data = ptraceopt_higher!(data, TS="block")
 
 # Example 6.2.3
@@ -79,4 +79,4 @@ supp[2] = [mixword([1;2], []), mixword([3;4], []), mixword([], [])]
 supp[3] = [mixword([], [[1], [2]]), mixword([], [[3], [4]]), mixword([], [])]
 coe = [[-1; -1; -2; -1; -1; 2], [1; 1; -1], [1; 1; -1]]
 d = 2
-opt,data = traceopt_first(supp, coe, n, d, numeq=1, TS=false, solve=true, constraint="unipotent")
+opt,data = traceopt_first(supp, coe, n, d, numeq=1, TS=false, solve=true, constraint="nilpotent")

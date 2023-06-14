@@ -3,7 +3,7 @@ mutable struct stateopt_type
     coe # coefficient data
     scalar # number of scalar variables
     vargroup
-    constraint # "projection" or "unipotent"
+    constraint # "projection" or "nilpotent"
     ptsupp # pure state support
     wbasis # word basis
     tbasis # state basis
@@ -62,13 +62,13 @@ function res_comm!(a, vargroup)
 end
 
 function pstateopt_first(st_supp::Vector{Vector{Vector{Int}}}, coe, n, d; scalar=0, vargroup=[n], TS="block", monosquare=false, solver="Mosek", 
-    QUIET=false, constraint="unipotent", solve=true, Gram=false, bilocal=false, cosmo_setting=cosmo_para())
+    QUIET=false, constraint="nilpotent", solve=true, Gram=false, bilocal=false, cosmo_setting=cosmo_para())
     return pstateopt_first([st_supp], [coe], n, d, scalar=scalar, vargroup=vargroup, TS=TS, monosquare=monosquare, solver=solver, QUIET=QUIET, 
     constraint=constraint, solve=solve, Gram=Gram, bilocal=bilocal, cosmo_setting=cosmo_setting)
 end
 
 function pstateopt_first(st_supp::Vector{Vector{Vector{Vector{Int}}}}, coe, n, d; scalar=0, vargroup=[n], TS="block", monosquare=false, solver="Mosek", 
-    QUIET=false, constraint="unipotent", solve=true, Gram=false, bilocal=false, cosmo_setting=cosmo_para())
+    QUIET=false, constraint="nilpotent", solve=true, Gram=false, bilocal=false, cosmo_setting=cosmo_para())
     println("********************************** NCTSSOS **********************************")
     println("Version 0.2.0, developed by Jie Wang, 2020--2022")
     println("NCTSSOS is launching...")
@@ -189,7 +189,7 @@ function pstateopt_higher!(data; TS="block", solver="Mosek", QUIET=false, solve=
     return opt,data
 end
 
-function pstate_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, vargroup; solver="Mosek", QUIET=false, constraint="unipotent", 
+function pstate_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, vargroup; solver="Mosek", QUIET=false, constraint="nilpotent", 
     solve=true, Gram=false, bilocal=false, cosmo_setting=cosmo_para())
     m = length(supp) - 1
     # ksupp = Vector{Vector{UInt32}}(undef, Int(sum(Int.(blocksize[1]).^2+blocksize[1])/2))
