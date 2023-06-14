@@ -386,7 +386,8 @@ function state_reduce(word1, word2, ptsupp, vargroup; bilocal=false)
             ind = UInt32[bfind(ptsupp, length(ptsupp), sym(wx, vargroup), lt=isless_td);
             bfind(ptsupp, length(ptsupp), sym(wz, vargroup), lt=isless_td)]
         else
-            ind = UInt32(bfind(ptsupp, length(ptsupp), sym(word2, vargroup), lt=isless_td))
+            temp = bfind(ptsupp, length(ptsupp), sym(word2, vargroup), lt=isless_td)
+            ind = UInt32(temp !== nothing ? temp : 0)
         end
     end
     return sort([word1; ind])
