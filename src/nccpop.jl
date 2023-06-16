@@ -5,7 +5,7 @@ mutable struct nccpop_data
     supp # support data
     coe # coefficient data
     partition # the first 'partition' variables commutes with the remaining variables
-    constraint # "projection" or "unipotent"
+    constraint # nothing or "projection" or "unipotent"
     obj # "eigen" or "trace"
     basis # monomial bases
     ksupp # extending support at the k-th step
@@ -64,10 +64,10 @@ function polys_info(pop, x)
     return n,supp,coe
 end
 
-function nctssos_first(supp::Vector{Vector{Vector{UInt16}}}, coe, n::Int64, order::Int64; numeq=0, reducebasis=false, TS="block", 
+function nctssos_first(supp::Vector{Vector{Vector{UInt16}}}, coe, n::Int64, order::Int64; numeq=0, reducebasis=false, TS="block",
     obj="eigen", merge=false, md=3, solve=true, solver="Mosek", Gram=false, QUIET=false, partition=0, constraint=nothing, cosmo_setting=cosmo_para())
     println("********************************** NCTSSOS **********************************")
-    println("Version 0.2.0, developed by Jie Wang, 2020--2022")
+    println("Version 0.2.0, developed by Jie Wang, 2020--2023")
     println("NCTSSOS is launching...")
     m = length(supp)-1
     dg = [maximum(length.(supp[i])) for i=2:m+1]
@@ -77,24 +77,16 @@ function nctssos_first(supp::Vector{Vector{Vector{UInt16}}}, coe, n::Int64, orde
         supp[1],coe[1] = sym_canon(supp[1], coe[1])
     end
     basis = Vector{Vector{Vector{UInt16}}}(undef, m+1)
-    basis[1] = get_ncbasis(n, order)
+    basis[1] = get_ncbasis(n, order, binary=constraint!==nothing)
     if partition > 0
         ind = [_comm(basis[1][i], partition) == basis[1][i] for i=1:length(basis[1])]
         basis[1] = basis[1][ind]
     end
-    if constraint !== nothing
-        ind = [findfirst(j -> basis[1][i][j] == basis[1][i][j+1], 1:length(basis[1][i])-1) === nothing for i=1:length(basis[1])]
-        basis[1] = basis[1][ind]
-    end
     ksupp = copy(supp[1])
     for i = 1:m
-        basis[i+1] = get_ncbasis(n, order-Int(ceil(dg[i]/2)))
+        basis[i+1] = get_ncbasis(n, order-Int(ceil(dg[i]/2)), binary=constraint!==nothing)
         if partition > 0
             ind = [_comm(basis[i+1][k], partition) == basis[i+1][k] for k=1:length(basis[i+1])]
-            basis[i+1] = basis[i+1][ind]
-        end
-        if constraint !== nothing
-            ind = [findfirst(j -> basis[i+1][k][j] == basis[i+1][k][j+1], 1:length(basis[i+1][k])-1) === nothing for k=1:length(basis[i+1])]
             basis[i+1] = basis[i+1][ind]
         end
         if obj == "trace"

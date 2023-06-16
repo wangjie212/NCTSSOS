@@ -2,7 +2,7 @@ mutable struct traceopt_type
     supp # support data
     coe # coefficient data
     numeq # number of equality constraints
-    constraint # "projection" or "nilpotent"
+    constraint # nothing or "projection" or "nilpotent"
     ptsupp # pure trace support
     wbasis # word basis
     tbasis # trace basis
@@ -135,14 +135,18 @@ function sym_cyclic(word)
     return min(_cyclic_canon(word), _cyclic_canon(reverse(word)))
 end
 
-function traceopt_first(tr_supp::Vector{Vector{Union{Vector{Vector{Int}}, mixword}}}, coe, n, d; numeq=0, TS="block", monosquare=false, QUIET=false, constraint="nilpotent", solve=true, Gram=false, 
+function traceopt_first(tr_supp::Vector{Vector{Union{Vector{Vector{Int}}, mixword}}}, coe, n, d; numeq=0, TS="block", monosquare=false, QUIET=false, constraint=nothing, solve=true, Gram=false,
     solver="Mosek", cosmo_setting=cosmo_para())
     println("********************************** NCTSSOS **********************************")
-    println("Version 0.2.0, developed by Jie Wang, 2020--2022")
+    println("Version 0.2.0, developed by Jie Wang, 2020--2023")
     println("NCTSSOS is launching...")
-    bsupp = get_ncbasis(n, d, binary=true)
-    ptsupp = get_ncbasis(n, 2d, binary=true)
-    ind = [length(item) <= 1 || (item[1] != item[end] && sym_cyclic(item)==item) for item in ptsupp]
+    bsupp = get_ncbasis(n, d, binary=constraint!==nothing)
+    ptsupp = get_ncbasis(n, 2d, binary=constraint!==nothing)
+    if constraint !== nothing
+        ind = [length(item) <= 1 || (item[1] != item[end] && sym_cyclic(item)==item) for item in ptsupp]
+    else
+        ind = [length(item) <= 1 || sym_cyclic(item)==item for item in ptsupp]
+    end
     ptsupp = ptsupp[ind]
     ptsupp = ptsupp[2:end]
     sort!(ptsupp, lt=isless_td)
@@ -185,14 +189,7 @@ function traceopt_first(tr_supp::Vector{Vector{Union{Vector{Vector{Int}}, mixwor
             bi1 = sort([tbasis[1][wbasis[1][i][1]]; tbasis[1][wbasis[1][i][1]]])
             bi2 = [reverse(basis[1][wbasis[1][i][2]]); basis[1][wbasis[1][i][2]]]
             constraint_reduce!(bi2, constraint=constraint)
-            while length(bi2) > 2 && bi2[1] == bi2[end]
-                if constraint == "nilpotent"
-                    bi2 = bi2[2:end-1]
-                elseif constraint == "projection"
-                    bi2 = bi2[1:end-1]
-                end
-            end
-            bi = trace_reduce(bi1, bi2, ptsupp)
+            bi = trace_reduce(bi1, bi2, ptsupp, constraint=constraint)
             push!(ksupp, bi)
         end
     end
@@ -204,7 +201,7 @@ function traceopt_first(tr_supp::Vector{Vector{Union{Vector{Vector{Int}}, mixwor
         mb = maximum(maximum.(sb))
         println("Obtained the block structure in $time seconds. The maximal size of blocks is $mb.")
     end
-    opt,ksupp,moment,GramMat = ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, numeq=numeq, QUIET=QUIET, constraint=constraint, 
+    opt,ksupp,moment,GramMat = ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, numeq=numeq, QUIET=QUIET, constraint=constraint,
     solve=solve, Gram=Gram, solver=solver, cosmo_setting=cosmo_setting)
     data = traceopt_type(supp, coe, numeq, constraint, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, ksupp, sb, numb, moment, GramMat)
     return opt,data
@@ -234,7 +231,7 @@ function traceopt_higher!(data; TS="block", QUIET=false, solve=true, solver="Mos
             mb = maximum(maximum.(sb))
             println("Obtained the block structure in $time seconds. The maximal size of blocks is $mb.")
         end
-        opt,ksupp,moment,GramMat = ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, numeq=numeq, QUIET=QUIET, constraint=constraint, 
+        opt,ksupp,moment,GramMat = ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, numeq=numeq, QUIET=QUIET, constraint=constraint,
         solve=solve, Gram=Gram, solver=solver, cosmo_setting=cosmo_setting)
     end
     data.ksupp = ksupp
@@ -248,19 +245,19 @@ function traceopt_higher!(data; TS="block", QUIET=false, solve=true, solver="Mos
     return opt,data
 end
 
-function ptraceopt_first(tr_supp::Vector{Vector{Vector{Int}}}, coe, n, d; numeq=0, TS="block", monosquare=false, solver="Mosek", 
-    QUIET=false, constraint="nilpotent", solve=true, Gram=false, cosmo_setting=cosmo_para())
-    return ptraceopt_first([tr_supp], [coe], n, d, numeq=numeq, TS=TS, monosquare=monosquare, solver=solver, QUIET=QUIET, 
+function ptraceopt_first(tr_supp::Vector{Vector{Vector{Int}}}, coe, n, d; numeq=0, TS="block", monosquare=false, solver="Mosek",
+    QUIET=false, constraint=nothing, solve=true, Gram=false, cosmo_setting=cosmo_para())
+    return ptraceopt_first([tr_supp], [coe], n, d, numeq=numeq, TS=TS, monosquare=monosquare, solver=solver, QUIET=QUIET,
     constraint=constraint, solve=solve, Gram=Gram, cosmo_setting=cosmo_setting)
 end
 
-function ptraceopt_first(tr_supp::Vector{Vector{Vector{Vector{Int}}}}, coe, n, d; numeq=0, TS="block", monosquare=false, QUIET=false, constraint="nilpotent", solve=true, Gram=false, 
+function ptraceopt_first(tr_supp::Vector{Vector{Vector{Vector{Int}}}}, coe, n, d; numeq=0, TS="block", monosquare=false, QUIET=false, constraint=nothing, solve=true, Gram=false,
     solver="Mosek", cosmo_setting=cosmo_para())
     println("********************************** NCTSSOS **********************************")
-    println("Version 0.2.0, developed by Jie Wang, 2020--2022")
+    println("Version 0.2.0, developed by Jie Wang, 2020--2023")
     println("NCTSSOS is launching...")
-    bsupp = get_ncbasis(n, d, binary=true)
-    ptsupp = get_ncbasis(n, 2d, binary=true)
+    bsupp = get_ncbasis(n, d, binary=constraint!==nothing)
+    ptsupp = get_ncbasis(n, 2d, binary=constraint!==nothing)
     ind = [length(item) <= 1 || (item[1] != item[end] && sym_cyclic(item)==item) for item in ptsupp]
     ptsupp = ptsupp[ind]
     ptsupp = ptsupp[2:end]
@@ -304,14 +301,7 @@ function ptraceopt_first(tr_supp::Vector{Vector{Vector{Vector{Int}}}}, coe, n, d
             bi1 = sort([tbasis[1][wbasis[1][i][1]]; tbasis[1][wbasis[1][i][1]]])
             bi2 = [reverse(basis[1][wbasis[1][i][2]]); basis[1][wbasis[1][i][2]]]
             constraint_reduce!(bi2, constraint=constraint)
-            while length(bi2) > 2 && bi2[1] == bi2[end]
-                if constraint == "nilpotent"
-                    bi2 = bi2[2:end-1]
-                elseif constraint == "projection"
-                    bi2 = bi2[1:end-1]
-                end
-            end
-            bi = trace_reduce(bi1, bi2, ptsupp)
+            bi = trace_reduce(bi1, bi2, ptsupp, constraint=constraint)
             push!(ksupp, bi)
         end
     end
@@ -323,7 +313,7 @@ function ptraceopt_first(tr_supp::Vector{Vector{Vector{Vector{Int}}}}, coe, n, d
         mb = maximum(maximum.(sb))
         println("Obtained the block structure in $time seconds. The maximal size of blocks is $mb.")
     end
-    opt,ksupp,moment,GramMat = ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, numeq=numeq, QUIET=QUIET, constraint=constraint, 
+    opt,ksupp,moment,GramMat = ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, numeq=numeq, QUIET=QUIET, constraint=constraint,
     solve=solve, Gram=Gram, solver=solver, cosmo_setting=cosmo_setting)
     data = traceopt_type(supp, coe, numeq, constraint, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, ksupp, sb, numb, moment, GramMat)
     return opt,data
@@ -353,7 +343,7 @@ function ptraceopt_higher!(data; TS="block", QUIET=false, solve=true, solver="Mo
             mb = maximum(maximum.(sb))
             println("Obtained the block structure in $time seconds. The maximal size of blocks is $mb.")
         end
-        opt,ksupp,moment,GramMat = ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, numeq=numeq, QUIET=QUIET, constraint=constraint, 
+        opt,ksupp,moment,GramMat = ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, numeq=numeq, QUIET=QUIET, constraint=constraint,
         solve=solve, Gram=Gram, solver=solver, cosmo_setting=cosmo_setting)
     end
     data.ksupp = ksupp
@@ -367,7 +357,7 @@ function ptraceopt_higher!(data; TS="block", QUIET=false, solve=true, solver="Mo
     return opt,data
 end
 
-function ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize; numeq=0, QUIET=false, constraint="nilpotent", solve=true, 
+function ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize; numeq=0, QUIET=false, constraint=nothing, solve=true,
     Gram=false, solver="Mosek", cosmo_setting=cosmo_para())
     m = length(supp) - 1
     # ksupp = Vector{Vector{UInt16}}(undef, Int(sum(Int.(blocksize).^2+blocksize)/2))
@@ -376,32 +366,22 @@ function ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocks
     for i = 1:cl[1], j = 1:blocksize[1][i], r = j:blocksize[1][i]
         @inbounds bi1 = sort([tbasis[1][wbasis[1][blocks[1][i][j]][1]]; tbasis[1][wbasis[1][blocks[1][i][r]][1]]])
         @inbounds bi2 = [reverse(basis[1][wbasis[1][blocks[1][i][j]][2]]); basis[1][wbasis[1][blocks[1][i][r]][2]]]
-        constraint_reduce!(bi2, constraint=constraint)
-        while length(bi2) > 2 && bi2[1] == bi2[end]
-            if constraint == "nilpotent"
-                bi2 = bi2[2:end-1]
-            elseif constraint == "projection"
-                bi2 = bi2[1:end-1]
-            end
+        if constraint !== nothing
+            constraint_reduce!(bi2, constraint=constraint)
         end
-        bi = trace_reduce(bi1, bi2, ptsupp)
+        bi = trace_reduce(bi1, bi2, ptsupp, constraint=constraint)
         push!(ksupp, bi)
-        # @inbounds ksupp[k] = trace_reduce(bi1, bi2, ptsupp)
+        # @inbounds ksupp[k] = trace_reduce(bi1, bi2, ptsupp, constraint=constraint)
         # k += 1
     end
     for k = 1:m, i = 1:cl[k+1], j = 1:blocksize[k+1][i], r = j:blocksize[k+1][i], s = 1:length(supp[k+1])
         @inbounds bi1 = sort([tbasis[k+1][wbasis[k+1][blocks[k+1][i][j]][1]]; supp[k+1][s][2]; tbasis[k+1][wbasis[k+1][blocks[k+1][i][r]][1]]])
         temp = supp[k+1][s][1] != 0 ? ptsupp[supp[k+1][s][1]] : UInt16[]
         @inbounds bi2 = [reverse(basis[k+1][wbasis[k+1][blocks[k+1][i][j]][2]]); temp; basis[k+1][wbasis[k+1][blocks[k+1][i][r]][2]]]
-        constraint_reduce!(bi2, constraint=constraint)
-        while length(bi2) > 2 && bi2[1] == bi2[end]
-            if constraint == "nilpotent"
-                bi2 = bi2[2:end-1]
-            elseif constraint == "projection"
-                bi2 = bi2[1:end-1]
-            end
+        if constraint !== nothing
+            constraint_reduce!(bi2, constraint=constraint)
         end
-        bi = trace_reduce(bi1, bi2, ptsupp)
+        bi = trace_reduce(bi1, bi2, ptsupp, constraint=constraint)
         push!(ksupp, bi)
     end
     sort!(ksupp)
@@ -432,15 +412,10 @@ function ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocks
                @inbounds pos[i] = @variable(model, lower_bound=0)
                @inbounds bi1 = sort([tbasis[1][wbasis[1][blocks[1][i][1]][1]]; tbasis[1][wbasis[1][blocks[1][i][1]][1]]])
                @inbounds bi2 = [reverse(basis[1][wbasis[1][blocks[1][i][1]][2]]); basis[1][wbasis[1][blocks[1][i][1]][2]]]
-               constraint_reduce!(bi2, constraint=constraint)
-               while length(bi2) > 2 && bi2[1] == bi2[end]
-                   if constraint == "nilpotent"
-                       bi2 = bi2[2:end-1]
-                   elseif constraint == "projection"
-                       bi2 = bi2[1:end-1]
-                   end
+               if constraint !== nothing
+                   constraint_reduce!(bi2, constraint=constraint)
                end
-               bi = trace_reduce(bi1, bi2, ptsupp)
+               bi = trace_reduce(bi1, bi2, ptsupp, constraint=constraint)
                Locb = bfind(ksupp, lksupp, bi)
                @inbounds add_to_expression!(cons[Locb], pos[i])
             else
@@ -448,15 +423,10 @@ function ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocks
                for j = 1:blocksize[1][i], r = j:blocksize[1][i]
                    @inbounds bi1 = sort([tbasis[1][wbasis[1][blocks[1][i][j]][1]]; tbasis[1][wbasis[1][blocks[1][i][r]][1]]])
                    @inbounds bi2 = [reverse(basis[1][wbasis[1][blocks[1][i][j]][2]]); basis[1][wbasis[1][blocks[1][i][r]][2]]]
-                   constraint_reduce!(bi2, constraint=constraint)
-                   while length(bi2) > 2 && bi2[1] == bi2[end]
-                       if constraint == "nilpotent"
-                            bi2 = bi2[2:end-1]
-                       elseif constraint == "projection"
-                            bi2 = bi2[1:end-1]
-                       end
+                   if constraint !== nothing
+                       constraint_reduce!(bi2, constraint=constraint)
                    end
-                   bi = trace_reduce(bi1, bi2, ptsupp)
+                   bi = trace_reduce(bi1, bi2, ptsupp, constraint=constraint)
                    Locb = bfind(ksupp, lksupp, bi)
                    if j == r
                        @inbounds add_to_expression!(cons[Locb], pos[i][j,r])
@@ -478,15 +448,10 @@ function ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocks
                     @inbounds bi1 = sort([tbasis[k+1][wbasis[k+1][blocks[k+1][i][1]][1]]; supp[k+1][s][2]; tbasis[k+1][wbasis[k+1][blocks[k+1][i][1]][1]]])
                     temp = supp[k+1][s][1] != 0 ? ptsupp[supp[k+1][s][1]] : UInt16[]
                     @inbounds bi2 = [reverse(basis[k+1][wbasis[k+1][blocks[k+1][i][1]][2]]); temp; basis[k+1][wbasis[k+1][blocks[k+1][i][1]][2]]]
-                    constraint_reduce!(bi2, constraint=constraint)
-                    while length(bi2) > 2 && bi2[1] == bi2[end]
-                        if constraint == "nilpotent"
-                             bi2 = bi2[2:end-1]
-                        elseif constraint == "projection"
-                             bi2 = bi2[1:end-1]
-                        end
+                    if constraint !== nothing
+                        constraint_reduce!(bi2, constraint=constraint)
                     end
-                    bi = trace_reduce(bi1, bi2, ptsupp)
+                    bi = trace_reduce(bi1, bi2, ptsupp, constraint=constraint)
                     Locb = bfind(ksupp, lksupp, bi)
                     @inbounds add_to_expression!(cons[Locb], coe[k+1][s], gpos)
                 end
@@ -500,15 +465,10 @@ function ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocks
                     @inbounds bi1 = sort([tbasis[k+1][wbasis[k+1][blocks[k+1][i][j]][1]]; supp[k+1][s][2]; tbasis[k+1][wbasis[k+1][blocks[k+1][i][r]][1]]])
                     temp = supp[k+1][s][1] != 0 ? ptsupp[supp[k+1][s][1]] : UInt16[]
                     @inbounds bi2 = [reverse(basis[k+1][wbasis[k+1][blocks[k+1][i][j]][2]]); temp; basis[k+1][wbasis[k+1][blocks[k+1][i][r]][2]]]
-                    constraint_reduce!(bi2, constraint=constraint)
-                    while length(bi2) > 2 && bi2[1] == bi2[end]
-                        if constraint == "nilpotent"
-                             bi2 = bi2[2:end-1]
-                        elseif constraint == "projection"
-                             bi2 = bi2[1:end-1]
-                        end
+                    if constraint !== nothing
+                        constraint_reduce!(bi2, constraint=constraint)
                     end
-                    bi = trace_reduce(bi1, bi2, ptsupp)
+                    bi = trace_reduce(bi1, bi2, ptsupp, constraint=constraint)
                     Locb = bfind(ksupp, lksupp, bi)
                     if j == r
                         @inbounds add_to_expression!(cons[Locb], coe[k+1][s], gpos[j,r])
@@ -559,15 +519,10 @@ function ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocks
             for j = 1:blocksize[1][i], k = j:blocksize[1][i]
                 @inbounds bi1 = sort([tbasis[1][wbasis[1][blocks[1][i][j]][1]]; tbasis[1][wbasis[1][blocks[1][i][k]][1]]])
                 @inbounds bi2 = [reverse(basis[1][wbasis[1][blocks[1][i][j]][2]]); basis[1][wbasis[1][blocks[1][i][k]][2]]]
-                constraint_reduce!(bi2, constraint=constraint)
-                while length(bi2) > 2 && bi2[1] == bi2[end]
-                    if constraint == "nilpotent"
-                        bi2 = bi2[2:end-1]
-                    elseif constraint == "projection"
-                        bi2 = bi2[1:end-1]
-                    end
+                if constraint !== nothing
+                    constraint_reduce!(bi2, constraint=constraint)
                 end
-                bi = trace_reduce(bi1, bi2, ptsupp)
+                bi = trace_reduce(bi1, bi2, ptsupp, constraint=constraint)
                 Locb = bfind(ksupp, lksupp, bi)
                 moment[i][j,k] = dual_var[Locb]
             end
@@ -577,7 +532,16 @@ function ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocks
     return objv,ksupp,moment,GramMat
 end
 
-function trace_reduce(word1, word2, ptsupp)
+function trace_reduce(word1, word2, ptsupp; constraint=nothing)
+    if constraint !== nothing
+        while length(word2) > 2 && word2[1] == word2[end]
+            if constraint == "nilpotent"
+                word2 = word2[2:end-1]
+            elseif constraint == "projection"
+                word2 = word2[1:end-1]
+            end
+        end
+    end
     if isempty(word2)
         ind = UInt16[]
     else
@@ -602,7 +566,7 @@ function constraint_reduce!(word; constraint="nilpotent")
     return word
 end
 
-function get_ncgraph(ksupp, ptsupp, wbasis, tbasis, basis; vargroup=nothing, constraint="nilpotent", type="trace", bilocal=false)
+function get_ncgraph(ksupp, ptsupp, wbasis, tbasis, basis; vargroup=nothing, constraint=nothing, type="trace", bilocal=false)
     lb = length(wbasis)
     G = SimpleGraph(lb)
     lksupp = length(ksupp)
@@ -612,24 +576,20 @@ function get_ncgraph(ksupp, ptsupp, wbasis, tbasis, basis; vargroup=nothing, con
         if vargroup !== nothing
             res_comm!(bi2, vargroup)
         end
-        constraint_reduce!(bi2, constraint=constraint)
+        if constraint !== nothing
+            constraint_reduce!(bi2, constraint=constraint)
+        end
         if type == "trace"
-            while length(bi2) > 2 && bi2[1] == bi2[end]
-                if constraint == "nilpotent"
-                    bi2 = bi2[2:end-1]
-                elseif constraint == "projection"
-                    bi2 = bi2[1:end-1]
-                end
-            end
-            bi = trace_reduce(bi1, bi2, ptsupp)
-        else
-            bi = state_reduce(bi1, bi2, ptsupp, vargroup, bilocal=bilocal)
+            bi = trace_reduce(bi1, bi2, ptsupp, constraint=constraint)
         end
         if bilocal == false || bilocal_zeros(bi2) == false
             if bilocal == true
                 wx,wz,flag = bilocal_reduce(bi2)
             end
             if bilocal == false || flag == false || (bilocal_zeros(wx) == false && bilocal_zeros(wz) == false)
+                if type == "state"
+                    bi = state_reduce(bi1, bi2, ptsupp, vargroup, bilocal=bilocal)
+                end
                 if bfind(ksupp, lksupp, bi) !== nothing
                     add_edge!(G, i, j)
                 end
@@ -639,7 +599,7 @@ function get_ncgraph(ksupp, ptsupp, wbasis, tbasis, basis; vargroup=nothing, con
     return G
 end
 
-function get_nccgraph(ksupp, ptsupp, supp, wbasis, tbasis, basis; vargroup=nothing, constraint="nilpotent", type="trace", bilocal=false)
+function get_nccgraph(ksupp, ptsupp, supp, wbasis, tbasis, basis; vargroup=nothing, constraint=nothing, type="trace", bilocal=false)
     lb = length(wbasis)
     G = SimpleGraph(lb)
     lksupp = length(ksupp)
@@ -650,22 +610,19 @@ function get_nccgraph(ksupp, ptsupp, supp, wbasis, tbasis, basis; vargroup=nothi
                 @inbounds bi1 = sort([tbasis[wbasis[i][1]]; supp[r][2]; tbasis[wbasis[j][1]]])
                 temp = supp[r][1] != 0 ? ptsupp[supp[r][1]] : UInt16[]
                 @inbounds bi2 = [reverse(basis[wbasis[i][2]]); temp; basis[wbasis[j][2]]]
-                constraint_reduce!(bi2, constraint=constraint)
-                while length(bi2) > 2 && bi2[1] == bi2[end]
-                    if constraint == "nilpotent"
-                        bi2 = bi2[2:end-1]
-                    elseif constraint == "projection"
-                        bi2 = bi2[1:end-1]
-                    end
+                if constraint !== nothing
+                    constraint_reduce!(bi2, constraint=constraint)
                 end
-                bi = trace_reduce(bi1, bi2, ptsupp)
+                bi = trace_reduce(bi1, bi2, ptsupp, constraint=constraint)
             else
                 @inbounds bi1 = sort([tbasis[wbasis[i][1]]; supp[r]; tbasis[wbasis[j][1]]])
                 @inbounds bi2 = [reverse(basis[wbasis[i][2]]); basis[wbasis[j][2]]]
                 if vargroup !== nothing
                     res_comm!(bi2, vargroup)
                 end
-                constraint_reduce!(bi2, constraint=constraint)
+                if constraint !== nothing
+                    constraint_reduce!(bi2, constraint=constraint)
+                end
                 bi = state_reduce(bi1, bi2, ptsupp, vargroup, bilocal=bilocal)
             end
             if bfind(ksupp, lksupp, bi) !== nothing
@@ -681,7 +638,7 @@ function get_nccgraph(ksupp, ptsupp, supp, wbasis, tbasis, basis; vargroup=nothi
     return G
 end
 
-function get_ncblocks(ksupp, ptsupp, wbasis, tbasis, basis; supp=[], vargroup=nothing, sb=[], numb=[], TS="block", QUIET=false, constraint="nilpotent", type="trace", bilocal=false)
+function get_ncblocks(ksupp, ptsupp, wbasis, tbasis, basis; supp=[], vargroup=nothing, sb=[], numb=[], TS="block", QUIET=false, constraint=nothing, type="trace", bilocal=false)
     m = length(wbasis) - 1
     blocks = Vector{Vector{Vector{UInt16}}}(undef, m+1)
     blocksize = Vector{Vector{Int}}(undef, m+1)
@@ -731,7 +688,7 @@ end
 
 function Werner_witness_first(dY, sigma, n, d; TS="block", monosquare=false, QUIET=false, solve=true, solver="Mosek", cosmo_setting=cosmo_para())
     println("********************************** NCTSSOS **********************************")
-    println("Version 0.2.0, developed by Jie Wang, 2020--2022")
+    println("Version 0.2.0, developed by Jie Wang, 2020--2023")
     println("NCTSSOS is launching...")
     bsupp = get_ncbasis(n, 2d)
     ind = [findfirst(j -> bsupp[i][j] == bsupp[i][j+1], 1:length(bsupp[i])-1) === nothing for i = 1:length(bsupp)]
@@ -754,11 +711,8 @@ function Werner_witness_first(dY, sigma, n, d; TS="block", monosquare=false, QUI
         for i = 1:length(wbasis)
             bi1 = sort([tbasis[wbasis[i][1]]; tbasis[wbasis[i][1]]])
             bi2 = [reverse(basis[wbasis[i][2]]); basis[wbasis[i][2]]]
-            constraint_reduce!(bi2, constraint="projection")
-            while length(bi2) > 2 && bi2[1] == bi2[end]
-                bi2 = bi2[1:end-1]
-            end
-            bi = trace_reduce(bi1, bi2, ptsupp)
+            constraint_reduce!(bi2, constraint=constraint)
+            bi = trace_reduce(bi1, bi2, ptsupp, constraint=constraint)
             push!(supp, bi)
         end
     end
@@ -811,10 +765,7 @@ function Werner_SDP(dY, sigma, htrace, ptsupp, wbasis, tbasis, basis, blocks, cl
         @inbounds bi1 = sort([tbasis[wbasis[blocks[i][j]][1]]; tbasis[wbasis[blocks[i][r]][1]]])
         @inbounds bi2 = [reverse(basis[wbasis[blocks[i][j]][2]]); basis[wbasis[blocks[i][r]][2]]]
         constraint_reduce!(bi2, constraint="projection")
-        while length(bi2) > 2 && bi2[1] == bi2[end]
-            bi2 = bi2[1:end-1]
-        end
-        @inbounds ksupp[k] = trace_reduce(bi1, bi2, ptsupp)
+        @inbounds ksupp[k] = trace_reduce(bi1, bi2, ptsupp, constraint="projection")
         k += 1
     end
     sort!(ksupp)
@@ -845,10 +796,7 @@ function Werner_SDP(dY, sigma, htrace, ptsupp, wbasis, tbasis, basis, blocks, cl
                @inbounds bi1 = sort([tbasis[wbasis[blocks[i][1]][1]]; tbasis[wbasis[blocks[i][1]][1]]])
                @inbounds bi2 = [reverse(basis[wbasis[blocks[i][1]][2]]); basis[wbasis[blocks[i][1]][2]]]
                constraint_reduce!(bi2, constraint="projection")
-               while length(bi2) > 2 && bi2[1] == bi2[end]
-                     bi2 = bi2[1:end-1]
-               end
-               bi = trace_reduce(bi1, bi2, ptsupp)
+               bi = trace_reduce(bi1, bi2, ptsupp, constraint="projection")
                Locb = bfind(ksupp, lksupp, bi)
                @inbounds add_to_expression!(cons[Locb], pos)
             else
@@ -857,10 +805,7 @@ function Werner_SDP(dY, sigma, htrace, ptsupp, wbasis, tbasis, basis, blocks, cl
                    @inbounds bi1 = sort([tbasis[wbasis[blocks[i][j]][1]]; tbasis[wbasis[blocks[i][r]][1]]])
                    @inbounds bi2 = [reverse(basis[wbasis[blocks[i][j]][2]]); basis[wbasis[blocks[i][r]][2]]]
                    constraint_reduce!(bi2, constraint="projection")
-                   while length(bi2) > 2 && bi2[1] == bi2[end]
-                         bi2 = bi2[1:end-1]
-                   end
-                   bi = trace_reduce(bi1, bi2, ptsupp)
+                   bi = trace_reduce(bi1, bi2, ptsupp, constraint="projection")
                    Locb = bfind(ksupp, lksupp, bi)
                    if j == r
                        @inbounds add_to_expression!(cons[Locb], pos[j,r])

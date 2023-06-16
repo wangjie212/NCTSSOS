@@ -6,7 +6,7 @@ mutable struct ncmpop_data
     supp # support data
     coe # coefficient data
     partition # the first 'partition' variables commutes with the remaining variables
-    constraint # "projection" or "unipotent"
+    constraint # nothing or "projection" or "unipotent"
     obj # "eigen" or "trace"
     ksupp # extending support at the k-th step
     basis # monomial bses
@@ -24,21 +24,21 @@ mutable struct ncmpop_data
     GramMat # Gram matrix
 end
 
-function cs_nctssos_first(f, x; d=0, CS="MF", minimize=false, TS="block", merge=false, md=3, QUIET=false, obj="eigen", 
+function cs_nctssos_first(f, x; d=0, CS="MF", minimize=false, TS="block", merge=false, md=3, QUIET=false, obj="eigen",
     solve=true, Gram=false, partition=0, constraint=nothing, solver="Mosek", cosmo_setting=cosmo_para())
     println("********************************** NCTSSOS **********************************")
-    println("Version 0.2.0, developed by Jie Wang, 2020--2022")
+    println("Version 0.2.0, developed by Jie Wang, 2020--2023")
     println("NCTSSOS is launching...")
     n,supp,coe = poly_info(f, x)
     if d == 0
         d = ceil(Int, maxdegree(f)/2)
     end
-    opt,data = cs_nctssos_first(supp, coe, n, d=d, CS=CS, minimize=minimize, TS=TS, merge=merge, md=md, QUIET=QUIET, 
+    opt,data = cs_nctssos_first(supp, coe, n, d=d, CS=CS, minimize=minimize, TS=TS, merge=merge, md=md, QUIET=QUIET,
     obj=obj, solve=solve, solver=solver, Gram=Gram, partition=partition, constraint=constraint, cosmo_setting=cosmo_setting)
     return opt,data
 end
 
-function cs_nctssos_first(supp::Vector{Vector{UInt16}}, coe, n::Int; d=0, CS="MF", minimize=false, solver="Mosek", TS="block", 
+function cs_nctssos_first(supp::Vector{Vector{UInt16}}, coe, n::Int; d=0, CS="MF", minimize=false, solver="Mosek", TS="block",
     merge=false, md=3, QUIET=false, obj="eigen", solve=true, Gram=false, partition=0, constraint=nothing, cosmo_setting=cosmo_para())
     if obj == "trace"
         supp,coe = cyclic_canon(supp, coe)
@@ -83,10 +83,10 @@ optimization with relaxation order `d`. Return the optimum and other auxiliary d
 - `d`: the relaxation order of the moment-SOHS hierarchy.
 - `numeq`: the number of equality constraints.
 """
-function cs_nctssos_first(pop, x, d; numeq=0, CS="MF", minimize=false, assign="first", TS="block", merge=false, md=3, 
+function cs_nctssos_first(pop, x, d; numeq=0, CS="MF", minimize=false, assign="first", TS="block", merge=false, md=3,
     QUIET=false, obj="eigen", solve=true, Gram=false, partition=0, constraint=nothing, solver="Mosek", cosmo_setting=cosmo_para())
     n,supp,coe = polys_info(pop, x)
-    opt,data = cs_nctssos_first(supp, coe, n, d, numeq=numeq, CS=CS, minimize=minimize, assign=assign, TS=TS, QUIET=QUIET, obj=obj, 
+    opt,data = cs_nctssos_first(supp, coe, n, d, numeq=numeq, CS=CS, minimize=minimize, assign=assign, TS=TS, QUIET=QUIET, obj=obj,
     solve=solve, solver=solver, Gram=Gram, partition=partition, constraint=constraint, cosmo_setting=cosmo_setting)
     return opt,data
 end
@@ -109,7 +109,7 @@ function cs_nctssos_first(supp::Vector{Vector{Vector{UInt16}}}, coe, n::Int, d::
     minimize=false, assign="first", TS="block", merge=false, md=3, QUIET=false, obj="eigen", solve=true, Gram=false,
     partition=0, constraint=nothing, cosmo_setting=cosmo_para())
     println("********************************** NCTSSOS **********************************")
-    println("Version 0.2.0, developed by Jie Wang, 2020--2022")
+    println("Version 0.2.0, developed by Jie Wang, 2020--2023")
     println("NCTSSOS is launching...")
     m = length(supp)-1
     dg = [maximum(length.(supp[i])) for i=2:m+1]
@@ -217,7 +217,7 @@ function cs_nctssos_higher!(data::ncmpop_data; TS="block", QUIET=false, merge=fa
     return opt,data
 end
 
-function blockupop_mix(n, supp, coe, basis, cliques, cql, cliquesize, blocks, cl, blocksize; QUIET=false, obj="eigen", solve=true, 
+function blockupop_mix(n, supp, coe, basis, cliques, cql, cliquesize, blocks, cl, blocksize; QUIET=false, obj="eigen", solve=true,
     Gram=false, partition=0, constraint=nothing, solver="Mosek", cosmo_setting=cosmo_para())
     ksupp = Vector{UInt16}[]
     for i = 1:cql, j = 1:cl[i], k = 1:blocksize[i][j], r = k:blocksize[i][j]
@@ -332,7 +332,7 @@ function blockupop_mix(n, supp, coe, basis, cliques, cql, cliquesize, blocks, cl
     return objv,ksupp,moment,GramMat
 end
 
-function blockcpop_mix(n, m, supp, coe, basis, cliques, cql, cliquesize, J, ncc, blocks, cl, blocksize; numeq=0, QUIET=false, 
+function blockcpop_mix(n, m, supp, coe, basis, cliques, cql, cliquesize, J, ncc, blocks, cl, blocksize; numeq=0, QUIET=false,
     obj="eigen", solve=true, Gram=false, partition=0, constraint=nothing, solver="Mosek", cosmo_setting=cosmo_para())
     ksupp = Vector{UInt16}[]
     for i = 1:cql
@@ -521,13 +521,9 @@ function get_blocks_mix(d, supp, cliques, cql, cliquesize; basis=[], sb=[], numb
         ind = [issubset(supp[j], cliques[i]) for j=1:length(supp)]
         ksupp = copy(supp[ind])
         if flag == 1
-            basis[i] = get_ncbasis(nvar, d, ind=cliques[i])
+            basis[i] = get_ncbasis(nvar, d, ind=cliques[i], binary=constraint!==nothing)
             if partition > 0
                 ind = [_comm(basis[i][j], partition) == basis[i][j] for j=1:length(basis[i])]
-                basis[i] = basis[i][ind]
-            end
-            if constraint !== nothing
-                ind = [findfirst(j -> basis[i][k][j] == basis[i][k][j+1], 1:length(basis[i][k])-1) === nothing for k=1:length(basis[i])]
                 basis[i] = basis[i][ind]
             end
             if obj == "trace"
@@ -580,23 +576,15 @@ function get_cblocks_mix(d, dg, J, m, supp, cliques, cql, cliquesize; ksupp=[], 
         fsupp = copy(ksupp[ind])
         if flag == 1
             basis[i] = Vector{Vector{Vector{UInt16}}}(undef, lc+1)
-            basis[i][1] = get_ncbasis(cliquesize[i], d, ind=cliques[i])
+            basis[i][1] = get_ncbasis(cliquesize[i], d, ind=cliques[i], binary=constraint!==nothing)
             if partition > 0
                 ind = [_comm(basis[i][1][k], partition) == basis[i][1][k] for i=1:length(basis[i][1])]
                 basis[i][1] = basis[i][1][ind]
             end
-            if constraint !== nothing
-                ind = [findfirst(j -> basis[i][1][k][j] == basis[i][1][k][j+1], 1:length(basis[i][1][k])-1) === nothing for i=1:length(basis[i][1])]
-                basis[i][1] = basis[i][1][ind]
-            end
             for s = 1:lc
-                basis[i][s+1] = get_ncbasis(nvar, d-ceil(Int, dg[J[i][s]]/2), ind=cliques[i])
+                basis[i][s+1] = get_ncbasis(nvar, d-ceil(Int, dg[J[i][s]]/2), ind=cliques[i], binary=constraint!==nothing)
                 if partition > 0
                     ind = [_comm(basis[i][s+1][k], partition) == basis[i][s+1][k] for i=1:length(basis[i][s+1])]
-                    basis[i][s+1] = basis[i][s+1][ind]
-                end
-                if constraint !== nothing
-                    ind = [findfirst(j -> basis[i][s+1][k][j] == basis[i][s+1][k][j+1], 1:length(basis[i][s+1][k])-1) === nothing for i=1:length(basis[i][s+1])]
                     basis[i][s+1] = basis[i][s+1][ind]
                 end
             end
