@@ -258,7 +258,11 @@ function ptraceopt_first(tr_supp::Vector{Vector{Vector{Vector{Int}}}}, coe, n, d
     println("NCTSSOS is launching...")
     bsupp = get_ncbasis(n, d, binary=constraint!==nothing)
     ptsupp = get_ncbasis(n, 2d, binary=constraint!==nothing)
-    ind = [length(item) <= 1 || (item[1] != item[end] && sym_cyclic(item)==item) for item in ptsupp]
+    if constraint !== nothing
+        ind = [length(item) <= 1 || (item[1] != item[end] && sym_cyclic(item)==item) for item in ptsupp]
+    else
+        ind = [length(item) <= 1 || sym_cyclic(item)==item for item in ptsupp]
+    end
     ptsupp = ptsupp[ind]
     ptsupp = ptsupp[2:end]
     sort!(ptsupp, lt=isless_td)
@@ -345,6 +349,8 @@ function ptraceopt_higher!(data; TS="block", QUIET=false, solve=true, solver="Mo
         end
         opt,ksupp,moment,GramMat = ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, numeq=numeq, QUIET=QUIET, constraint=constraint,
         solve=solve, Gram=Gram, solver=solver, cosmo_setting=cosmo_setting)
+        data.moment = moment
+        data.GramMat = GramMat
     end
     data.ksupp = ksupp
     data.blocks = blocks
@@ -352,8 +358,6 @@ function ptraceopt_higher!(data; TS="block", QUIET=false, solve=true, solver="Mo
     data.blocksize = blocksize
     data.sb = sb
     data.numb = numb
-    data.moment = moment
-    data.GramMat = GramMat
     return opt,data
 end
 

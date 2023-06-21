@@ -174,6 +174,8 @@ function nctssos_higher!(data::nccpop_data; TS="block", merge=false, md=3, solve
         end
         opt,ksupp,moment,GramMat = ncblockcpop(m, supp, coe, basis, blocks, cl, blocksize, numeq=numeq, QUIET=QUIET, obj=obj,
         solve=solve, solver=solver, Gram=Gram, partition=partition, constraint=constraint, cosmo_setting=cosmo_setting)
+        data.moment = moment
+        data.GramMat = GramMat
     end
     data.ksupp = ksupp
     data.sb = sb
@@ -181,8 +183,6 @@ function nctssos_higher!(data::nccpop_data; TS="block", merge=false, md=3, solve
     data.blocks = blocks
     data.cl = cl
     data.blocksize = blocksize
-    data.moment = moment
-    data.GramMat = GramMat
     return opt,data
 end
 

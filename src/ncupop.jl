@@ -165,12 +165,12 @@ function nctssos_higher!(data::ncupop_type; TS="block", merge=false, md=3, solve
         end
         opt,ksupp,moment,GramMat = ncblockupop(supp, coe, basis, blocks, cl, blocksize, QUIET=QUIET, obj=obj, partition=partition, constraint=constraint, solve=solve,
         Gram=Gram, solver=solver, cosmo_setting=cosmo_setting)
+        data.moment=moment
+        data.GramMat = GramMat
     end
     data.ksupp = ksupp
     data.sb = sb
     data.numb = numb
-    data.moment=moment
-    data.GramMat = GramMat
     return opt,data
 end
 

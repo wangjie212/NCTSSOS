@@ -187,6 +187,8 @@ function cs_nctssos_higher!(data::ncmpop_data; TS="block", QUIET=false, merge=fa
             end
             opt,ksupp,moment,GramMat = blockupop_mix(n, supp, coe, basis, cliques, cql, cliquesize, blocks, cl, blocksize, obj=obj, solve=solve, Gram=Gram, QUIET=QUIET,
             partition=partition, constraint=constraint, solver=solver, cosmo_setting=cosmo_setting)
+            data.moment = moment
+            data.GramMat = GramMat
         end
     else
         time = @elapsed begin
@@ -200,6 +202,8 @@ function cs_nctssos_higher!(data::ncmpop_data; TS="block", QUIET=false, merge=fa
             end
             opt,ksupp,moment,GramMat = blockcpop_mix(n, m, supp, coe, basis, cliques, cql, cliquesize, J, ncc, blocks, cl, blocksize, numeq=numeq,
             QUIET=QUIET, obj=obj, solve=solve, Gram=Gram, partition=partition, constraint=constraint, solver=solver, cosmo_setting=cosmo_setting)
+            data.moment = moment
+            data.GramMat = GramMat
         end
     end
     if status == 0
@@ -212,8 +216,6 @@ function cs_nctssos_higher!(data::ncmpop_data; TS="block", QUIET=false, merge=fa
     data.blocksize = blocksize
     data.sb = sb
     data.numb = numb
-    data.moment = moment
-    data.GramMat = GramMat
     return opt,data
 end
 

@@ -178,6 +178,8 @@ function pstateopt_higher!(data; TS="block", solver="Mosek", QUIET=false, solve=
         end
         opt,ksupp,moment,GramMat = pstate_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, vargroup, solver=solver, QUIET=QUIET,
         constraint=constraint, solve=solve, Gram=Gram, bilocal=bilocal, cosmo_setting=cosmo_setting)
+        data.moment = moment
+        data.GramMat = GramMat
     end
     data.ksupp = ksupp
     data.blocks = blocks
@@ -186,8 +188,6 @@ function pstateopt_higher!(data; TS="block", solver="Mosek", QUIET=false, solve=
     data.moment = moment
     data.sb = sb
     data.numb = numb
-    data.moment = moment
-    data.GramMat = GramMat
     return opt,data
 end
 

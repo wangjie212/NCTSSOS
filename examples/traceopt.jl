@@ -80,3 +80,19 @@ supp[2] = [mixword([1;1], []), mixword([2;2], []), mixword([3;3], []), mixword([
 coe = [[-1; -1; -2; -1; -1; 2], [-1; -1; -1; -1; 1]]
 d = 2
 opt,data = traceopt_first(supp, coe, n, d, numeq=1, TS=false)
+
+n = 3
+supp = [[[1;1], [1;1], [2;2], [3;3]], [[1;1], [2;2], [2;2], [3;3]], [[1;1], [2;2], [3;3], [3;3]], 
+[[1;1], [1;2;3;2;1;3]], [[1;2;3;2;1;3], [2;2]], [[1;2;3;2;1;3], [3;3]], 
+[[1;1], [1;2;1;3;2;3]], [[1;2;1;3;2;3], [2;2]], [[1;2;1;3;2;3], [3;3]]]
+coe = [1, 1, 1, -1, -1, -1, 1, 1, 1]
+d = 5
+opt,data = ptraceopt_first(supp, coe, n, d, solve=false, TS="block")
+opt,data = ptraceopt_higher!(data, TS="block")
+
+using LinearAlgebra
+n = 10
+A = rand(n,n)
+B = rand(n,n)
+C = rand(n,n)
+tr(A'*A)*tr(B'*B)*tr(B'*B) - 2*tr(B'*A'*C'*A*B*C) + tr(A'*C'*B'*B*C*A)
