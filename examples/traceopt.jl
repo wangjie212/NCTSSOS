@@ -73,11 +73,12 @@ opt,data = Werner_witness_first(dY, c, n, d, monosquare=true, TS=false)
 opt,data = Werner_witness_higher!(data, TS="block")
 
 n = 4
-supp = Vector{Vector{Union{Vector{Vector{Int}}, mixword}}}(undef, 2)
+supp = Vector{Vector{Union{Vector{Vector{Int}}, mixword}}}(undef, 3)
 supp[1] = [[[1;4], [1;4]], [[2;3], [2;3]], [[1;4], [2;3]], [[1;3], [1;3]], [[2;4], [2;4]], [[1;3], [2;4]]]
 supp[2] = [mixword([1;1], []), mixword([2;2], []), mixword([3;3], []), mixword([4;4], []), mixword([], [])]
 # supp[3] = [mixword([], [[1], [2]]), mixword([], [[3], [4]]), mixword([], [])]
-coe = [[-1; -1; -2; -1; -1; 2], [-1; -1; -1; -1; 1]]
+supp[3] = [mixword([1;2], []), mixword([2;1], [])]
+coe = [[-1; -1; -2; -1; -1; 2], [-1; -1; -1; -1; 1], [1; -1]]
 d = 2
 opt,data = traceopt_first(supp, coe, n, d, numeq=1, TS=false)
 

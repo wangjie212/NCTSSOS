@@ -151,17 +151,13 @@ function traceopt_first(tr_supp::Vector{Vector{Union{Vector{Vector{Int}}, mixwor
     ptsupp = ptsupp[2:end]
     sort!(ptsupp, lt=isless_td)
     m = length(tr_supp) - 1
-    supp = Vector{Vector{Vector{Union{Vector{UInt16}, UInt16}}}}(undef, length(tr_supp))
+    supp = Vector{Vector{Vector{Union{Vector{UInt16},UInt16}}}}(undef, length(tr_supp))
     supp[1] = [sort(UInt16[bfind(ptsupp, length(ptsupp), tr_supp[1][i][j], lt=isless_td) for j=1:length(tr_supp[1][i])])  for i=1:length(tr_supp[1])]
     for k = 1:m
-        supp[k+1] = Vector{Union{Vector{UInt16}, UInt16}}(undef, length(tr_supp[k+1]))
+        supp[k+1] = Vector{Vector{UInt16}}(undef, length(tr_supp[k+1]))
         for i = 1:length(tr_supp[k+1])
-            supp[k+1][i] = Vector{Union{Vector{UInt16}, UInt16}}(undef, 2)
-            if tr_supp[k+1][i].ncword != []
-                supp[k+1][i][1] = UInt16(bfind(ptsupp, length(ptsupp), tr_supp[k+1][i].ncword, lt=isless_td))
-            else
-                supp[k+1][i][1] = UInt16(0)
-            end
+            supp[k+1][i] = Vector{Vector{UInt16}}(undef, 2)
+            supp[k+1][i][1] = convert(Vector{UInt16}, tr_supp[k+1][i].ncword)
             supp[k+1][i][2] = sort(UInt16[bfind(ptsupp, length(ptsupp), tr_supp[k+1][i].cword[j], lt=isless_td) for j=1:length(tr_supp[k+1][i].cword)])
         end
     end
@@ -267,17 +263,13 @@ function ptraceopt_first(tr_supp::Vector{Vector{Vector{Vector{Int}}}}, coe, n, d
     ptsupp = ptsupp[2:end]
     sort!(ptsupp, lt=isless_td)
     m = length(tr_supp) - 1
-    supp = Vector{Vector{Vector{Union{Vector{UInt16}, UInt16}}}}(undef, length(tr_supp))
+    supp = Vector{Vector{Vector{Union{Vector{UInt16},UInt16}}}}(undef, length(tr_supp))
     supp[1] = [sort(UInt16[bfind(ptsupp, length(ptsupp), tr_supp[1][i][j], lt=isless_td) for j=1:length(tr_supp[1][i])])  for i=1:length(tr_supp[1])]
     for k = 1:m
-        supp[k+1] = Vector{Union{Vector{UInt16}, UInt16}}(undef, length(tr_supp[k+1]))
+        supp[k+1] = Vector{Vector{UInt16}}(undef, length(tr_supp[k+1]))
         for i = 1:length(tr_supp[k+1])
-            supp[k+1][i] = Vector{Union{Vector{UInt16}, UInt16}}(undef, 2)
-            if tr_supp[k+1][i].ncword != []
-                supp[k+1][i][1] = UInt16(bfind(ptsupp, length(ptsupp), tr_supp[k+1][i].ncword, lt=isless_td))
-            else
-                supp[k+1][i][1] = UInt16(0)
-            end
+            supp[k+1][i] = Vector{Vector{UInt16}}(undef, 2)
+            supp[k+1][i][1] = convert(Vector{UInt16}, tr_supp[k+1][i].ncword)
             supp[k+1][i][2] = sort(UInt16[bfind(ptsupp, length(ptsupp), tr_supp[k+1][i].cword[j], lt=isless_td) for j=1:length(tr_supp[k+1][i].cword)])
         end
     end
@@ -380,8 +372,7 @@ function ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocks
     end
     for k = 1:m, i = 1:cl[k+1], j = 1:blocksize[k+1][i], r = j:blocksize[k+1][i], s = 1:length(supp[k+1])
         @inbounds bi1 = sort([tbasis[k+1][wbasis[k+1][blocks[k+1][i][j]][1]]; supp[k+1][s][2]; tbasis[k+1][wbasis[k+1][blocks[k+1][i][r]][1]]])
-        temp = supp[k+1][s][1] != 0 ? ptsupp[supp[k+1][s][1]] : UInt16[]
-        @inbounds bi2 = [reverse(basis[k+1][wbasis[k+1][blocks[k+1][i][j]][2]]); temp; basis[k+1][wbasis[k+1][blocks[k+1][i][r]][2]]]
+        @inbounds bi2 = [reverse(basis[k+1][wbasis[k+1][blocks[k+1][i][j]][2]]); supp[k+1][s][1]; basis[k+1][wbasis[k+1][blocks[k+1][i][r]][2]]]
         if constraint !== nothing
             constraint_reduce!(bi2, constraint=constraint)
         end
@@ -450,8 +441,7 @@ function ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocks
                 end
                 for s = 1:length(supp[k+1])
                     @inbounds bi1 = sort([tbasis[k+1][wbasis[k+1][blocks[k+1][i][1]][1]]; supp[k+1][s][2]; tbasis[k+1][wbasis[k+1][blocks[k+1][i][1]][1]]])
-                    temp = supp[k+1][s][1] != 0 ? ptsupp[supp[k+1][s][1]] : UInt16[]
-                    @inbounds bi2 = [reverse(basis[k+1][wbasis[k+1][blocks[k+1][i][1]][2]]); temp; basis[k+1][wbasis[k+1][blocks[k+1][i][1]][2]]]
+                    @inbounds bi2 = [reverse(basis[k+1][wbasis[k+1][blocks[k+1][i][1]][2]]); supp[k+1][s][1]; basis[k+1][wbasis[k+1][blocks[k+1][i][1]][2]]]
                     if constraint !== nothing
                         constraint_reduce!(bi2, constraint=constraint)
                     end
@@ -467,8 +457,7 @@ function ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocks
                 end
                 for j = 1:blocksize[k+1][i], r = j:blocksize[k+1][i], s = 1:length(supp[k+1])
                     @inbounds bi1 = sort([tbasis[k+1][wbasis[k+1][blocks[k+1][i][j]][1]]; supp[k+1][s][2]; tbasis[k+1][wbasis[k+1][blocks[k+1][i][r]][1]]])
-                    temp = supp[k+1][s][1] != 0 ? ptsupp[supp[k+1][s][1]] : UInt16[]
-                    @inbounds bi2 = [reverse(basis[k+1][wbasis[k+1][blocks[k+1][i][j]][2]]); temp; basis[k+1][wbasis[k+1][blocks[k+1][i][r]][2]]]
+                    @inbounds bi2 = [reverse(basis[k+1][wbasis[k+1][blocks[k+1][i][j]][2]]); supp[k+1][s][1]; basis[k+1][wbasis[k+1][blocks[k+1][i][r]][2]]]
                     if constraint !== nothing
                         constraint_reduce!(bi2, constraint=constraint)
                     end
@@ -612,8 +601,7 @@ function get_nccgraph(ksupp, ptsupp, supp, wbasis, tbasis, basis; vargroup=nothi
         while r <= length(supp)
             if type == "trace"
                 @inbounds bi1 = sort([tbasis[wbasis[i][1]]; supp[r][2]; tbasis[wbasis[j][1]]])
-                temp = supp[r][1] != 0 ? ptsupp[supp[r][1]] : UInt16[]
-                @inbounds bi2 = [reverse(basis[wbasis[i][2]]); temp; basis[wbasis[j][2]]]
+                @inbounds bi2 = [reverse(basis[wbasis[i][2]]); supp[r][1]; basis[wbasis[j][2]]]
                 if constraint !== nothing
                     constraint_reduce!(bi2, constraint=constraint)
                 end
