@@ -2,7 +2,7 @@ mutable struct traceopt_type
     supp # support data
     coe # coefficient data
     numeq # number of equality constraints
-    constraint # nothing or "projection" or "nilpotent"
+    constraint # nothing or "projection" or "unipotent"
     ptsupp # pure trace support
     wbasis # word basis
     tbasis # trace basis
@@ -528,7 +528,7 @@ end
 function trace_reduce(word1, word2, ptsupp; constraint=nothing)
     if constraint !== nothing
         while length(word2) > 2 && word2[1] == word2[end]
-            if constraint == "nilpotent"
+            if constraint == "unipotent"
                 word2 = word2[2:end-1]
             elseif constraint == "projection"
                 word2 = word2[1:end-1]
@@ -543,12 +543,12 @@ function trace_reduce(word1, word2, ptsupp; constraint=nothing)
     return sort([word1; ind])
 end
 
-function constraint_reduce!(word; constraint="nilpotent")
+function constraint_reduce!(word; constraint="unipotent")
     i = 1
     while i < length(word)
         if word[i] == word[i+1]
             deleteat!(word, i)
-            if constraint == "nilpotent"
+            if constraint == "unipotent"
                 deleteat!(word, i)
             end
             i = 1

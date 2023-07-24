@@ -3,7 +3,7 @@ mutable struct stateopt_type
     coe # coefficient data
     scalar # number of scalar variables
     vargroup # variables commute across groups
-    constraint # nothing or "projection" or "nilpotent"
+    constraint # nothing or "projection" or "unipotent"
     ptsupp # pure state support
     wbasis # word basis
     tbasis # state basis

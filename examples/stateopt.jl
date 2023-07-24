@@ -1,4 +1,3 @@
-using Revise
 using NCTSSOS
 using LinearAlgebra
 
@@ -7,14 +6,14 @@ n = 4
 supp = [[[1;3]], [[1;4]], [[2;3]], [[2;4]]]
 coe = [-1; -1; -1; 1]
 d = 1
-opt,data = pstateopt_first(supp, coe, n, d, TS="block", constraint="nilpotent")
+opt,data = pstateopt_first(supp, coe, n, d, TS="block", constraint="unipotent")
 
 ## Example 7.2.1
 n = 4
 supp = [[[1;4], [1;4]], [[2;3], [2;3]], [[1;4], [2;3]], [[1;3], [1;3]], [[2;4], [2;4]], [[1;3], [2;4]]]
 coe = [-1; -1; -2; -1; -1; 2]
 d = 3
-opt,data = pstateopt_first(supp, coe, n, d, vargroup=[2;2], TS="block", constraint="nilpotent")
+opt,data = pstateopt_first(supp, coe, n, d, vargroup=[2;2], TS="block", constraint="unipotent")
 # opt,data = pstateopt_higher!(data, TS="block")
 
 ## Example 7.2.2
@@ -23,7 +22,7 @@ supp = [[[1;4]], [[1], [4]], [[1;5]], [[1], [5]], [[1;6]], [[1], [6]], [[2;4]], 
 [[2;5]], [[2], [5]], [[2;6]], [[2], [6]], [[3;4]], [[3], [4]], [[3;5]], [[3], [5]]]
 coe = [-1; 1; -1; 1; -1; 1; -1; 1; -1; 1; 1; -1; -1; 1; 1; -1]
 d = 2
-opt,data = pstateopt_first(supp, coe, n, d, vargroup=[3;3], TS="block", constraint="nilpotent")
+opt,data = pstateopt_first(supp, coe, n, d, vargroup=[3;3], TS="block", constraint="unipotent")
 # opt,data = pstateopt_higher!(data, TS="block")
 
 ## Example 7.2.3
@@ -32,7 +31,7 @@ supp = [[[2]], [[3]], [[4]], [[1;3]], [[2;3]], [[1;4]], [[2;4]], [[1], [3]],
 [[2], [3]], [[2], [4]], [[1], [1]], [[4], [4]]]
 coe = -[1; 1; 1; -1; 1; 1; 1; -1; -1; -1; -1; -1]
 d = 2
-opt,data = pstateopt_first(supp, coe, n, d, vargroup=[2;2], TS=false, constraint="nilpotent")
+opt,data = pstateopt_first(supp, coe, n, d, vargroup=[2;2], TS=false, constraint="unipotent")
 
 # Example 7.2.3
 # n = 8
@@ -58,8 +57,8 @@ supp = [[[4;7]], [[5;8]], [[6;9]], [[1;4]], [[2;5]], [[3;6]], [[1;5;9]], [[1;6;8
 coe = -[1/3;1/3;1/3;-1/3;-1/3;-1/3;-1;-1;-1;-1;-1;-1]
 d = 2
 # time = @elapsed begin
-opt,data = pstateopt_first(supp, coe, n, d, constraint="nilpotent", vargroup=[3;3;3], TS="block", solve=false, bilocal=true)
-opt,data = pstateopt_higher!(data, TS="block", bilocal=true, solve=true, solver="COSMO")
+opt,data = pstateopt_first(supp, coe, n, d, constraint="unipotent", vargroup=[3;3;3], TS="block", solve=false, bilocal=true)
+opt,data = pstateopt_higher!(data, TS="block", bilocal=true)
 # end
 # io = open("/home/jwang/Programs/NCTSSOS/examples/bilocal.txt", "w")
 # write(io, "opt = $opt\n")
