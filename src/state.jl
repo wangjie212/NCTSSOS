@@ -8,10 +8,10 @@ mutable struct stateopt_type
     wbasis # word basis
     tbasis # state basis
     basis # non-state basis
-    blocks # the block structure
-    cl # the number of blocks
-    blocksize # the size of blocks
-    ksupp # extending support at the k-th step
+    blocks # block structure
+    cl # number of blocks
+    blocksize # size of blocks
+    ksupp # extended support at the k-th step
     sb # sizes of different blocks
     numb # numbers of different blocks
     moment # moment matrix
@@ -62,13 +62,13 @@ function res_comm!(a, vargroup)
 end
 
 function pstateopt_first(st_supp::Vector{Vector{Vector{Int}}}, coe, n, d; scalar=0, vargroup=[n], TS="block", monosquare=false, solver="Mosek",
-    QUIET=false, constraint=nothing, solve=true, Gram=false, bilocal=false, cosmo_setting=cosmo_para())
+    QUIET=false, constraint=nothing, solve=true, Gram=false, bilocal=false, cosmo_setting=cosmo_para(), zero_moments=false)
     return pstateopt_first([st_supp], [coe], n, d, scalar=scalar, vargroup=vargroup, TS=TS, monosquare=monosquare, solver=solver, QUIET=QUIET,
-    constraint=constraint, solve=solve, Gram=Gram, bilocal=bilocal, cosmo_setting=cosmo_setting)
+    constraint=constraint, solve=solve, Gram=Gram, bilocal=bilocal, cosmo_setting=cosmo_setting, zero_moments=zero_moments)
 end
 
 function pstateopt_first(st_supp::Vector{Vector{Vector{Vector{Int}}}}, coe, n, d; scalar=0, vargroup=[n], TS="block", monosquare=false, solver="Mosek",
-    QUIET=false, constraint=nothing, solve=true, Gram=false, bilocal=false, cosmo_setting=cosmo_para())
+    QUIET=false, constraint=nothing, solve=true, Gram=false, bilocal=false, cosmo_setting=cosmo_para(), zero_moments=false)
     println("********************************** NCTSSOS **********************************")
     println("Version 0.2.0, developed by Jie Wang, 2020--2023")
     println("NCTSSOS is launching...")
@@ -91,11 +91,11 @@ function pstateopt_first(st_supp::Vector{Vector{Vector{Vector{Int}}}}, coe, n, d
     if bilocal == false
         ind = [sym(item, vargroup)==item for item in ptsupp]
     else
-        ind = [isbilocal(item) && sym(item, vargroup)==item for item in ptsupp]
+        ind = [isbilocal(item, bilocal) && sym(item, vargroup)==item for item in ptsupp]
     end
     ptsupp = ptsupp[ind]
     ptsupp = ptsupp[2:end]
-    if bilocal == true
+    if zero_moments == true
         others = [[1], [2], [3], [4], [5], [6], [7], [8], [9],
          [1;5], [1;6], [2;4], [2;6], [3;4],
          [3;5], [4;8], [4;9], [5;7], [5;9], [6;7], [6;8],
@@ -140,19 +140,19 @@ function pstateopt_first(st_supp::Vector{Vector{Vector{Vector{Int}}}}, coe, n, d
     end
     sort!(ksupp)
     unique!(ksupp)
-    blocks,cl,blocksize,sb,numb,_ = get_ncblocks(ksupp, ptsupp, wbasis, tbasis, basis, supp=supp, vargroup=vargroup, TS=TS, QUIET=QUIET, constraint=constraint, type="state", bilocal=bilocal)
+    blocks,cl,blocksize,sb,numb,_ = get_ncblocks(ksupp, ptsupp, wbasis, tbasis, basis, supp=supp, vargroup=vargroup, TS=TS, QUIET=QUIET, constraint=constraint, type="state", bilocal=bilocal, zero_moments=zero_moments)
     end
     if QUIET == false
         mb = maximum(maximum.(sb))
-        println("Obtained the block structure in $time seconds. The maximal size of blocks is $mb.")
+        println("Obtained the block structure in $time seconds.\nThe maximal size of blocks is $mb.")
     end
     opt,ksupp,moment,GramMat = pstate_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, vargroup, solver=solver, QUIET=QUIET,
-    constraint=constraint, solve=solve, Gram=Gram, bilocal=bilocal, cosmo_setting=cosmo_setting)
+    constraint=constraint, solve=solve, Gram=Gram, bilocal=bilocal, cosmo_setting=cosmo_setting, zero_moments=zero_moments)
     data = stateopt_type(supp, coe, scalar, vargroup, constraint, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, ksupp, sb, numb, moment, GramMat)
     return opt,data
 end
 
-function pstateopt_higher!(data; TS="block", solver="Mosek", QUIET=false, solve=true, Gram=false, bilocal=false, cosmo_setting=cosmo_para())
+function pstateopt_higher!(data; TS="block", solver="Mosek", QUIET=false, solve=true, Gram=false, bilocal=false, cosmo_setting=cosmo_para(), zero_moments=false)
     supp = data.supp
     coe = data.coe
     constraint = data.constraint
@@ -168,16 +168,16 @@ function pstateopt_higher!(data; TS="block", solver="Mosek", QUIET=false, solve=
         println("Starting to compute the block structure...")
     end
     time = @elapsed begin
-    blocks,cl,blocksize,sb,numb,status = get_ncblocks(ksupp, ptsupp, wbasis, tbasis, basis, supp=supp, vargroup=vargroup, sb=sb, numb=numb, TS=TS, QUIET=QUIET, constraint=constraint, type="state", bilocal=bilocal)
+    blocks,cl,blocksize,sb,numb,status = get_ncblocks(ksupp, ptsupp, wbasis, tbasis, basis, supp=supp, vargroup=vargroup, sb=sb, numb=numb, TS=TS, QUIET=QUIET, constraint=constraint, type="state", bilocal=bilocal, zero_moments=zero_moments)
     end
     opt = moment = nothing
     if status == 1
         if QUIET == false
             mb = maximum(maximum.(sb))
-            println("Obtained the block structure in $time seconds. The maximal size of blocks is $mb.")
+            println("Obtained the block structure in $time seconds.\nThe maximal size of blocks is $mb.")
         end
         opt,ksupp,moment,GramMat = pstate_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, vargroup, solver=solver, QUIET=QUIET,
-        constraint=constraint, solve=solve, Gram=Gram, bilocal=bilocal, cosmo_setting=cosmo_setting)
+        constraint=constraint, solve=solve, Gram=Gram, bilocal=bilocal, cosmo_setting=cosmo_setting, zero_moments=zero_moments)
         data.moment = moment
         data.GramMat = GramMat
     end
@@ -192,10 +192,8 @@ function pstateopt_higher!(data; TS="block", solver="Mosek", QUIET=false, solve=
 end
 
 function pstate_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, vargroup; solver="Mosek", QUIET=false, constraint=nothing,
-    solve=true, Gram=false, bilocal=false, cosmo_setting=cosmo_para())
+    solve=true, Gram=false, bilocal=false, cosmo_setting=cosmo_para(), zero_moments=false)
     m = length(supp) - 1
-    # ksupp = Vector{Vector{UInt32}}(undef, Int(sum(Int.(blocksize[1]).^2+blocksize[1])/2))
-    # k = 1
     ksupp = Vector{UInt32}[]
     for i = 1:cl[1], j = 1:blocksize[1][i], r = j:blocksize[1][i]
         @inbounds bi1 = sort([tbasis[1][wbasis[1][blocks[1][i][j]][1]]; tbasis[1][wbasis[1][blocks[1][i][r]][1]]])
@@ -204,13 +202,11 @@ function pstate_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocks
         if constraint !== nothing
             constraint_reduce!(bi2, constraint=constraint)
         end
-        if bilocal == false || bilocal_zeros(bi2) == false
-            # @inbounds ksupp[k] = state_reduce(bi1, bi2, ptsupp, vargroup, bilocal=bilocal)
-            # k += 1
-            if bilocal == true
-                wx,wz,flag = bilocal_reduce(bi2)
+        if zero_moments == false || mom_zeros(bi2) == false
+            if bilocal != false
+                wx,wz,flag = bilocal_reduce(bi2, bilocal)
             end
-            if bilocal == false || flag == false || (bilocal_zeros(wx) == false && bilocal_zeros(wz) == false)
+            if zero_moments == false || flag == false || (mom_zeros(wx) == false && mom_zeros(wz) == false)
                 bi = state_reduce(bi1, bi2, ptsupp, vargroup, bilocal=bilocal)
                 push!(ksupp, bi)
             end
@@ -255,11 +251,11 @@ function pstate_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocks
                if constraint !== nothing
                    constraint_reduce!(bi2, constraint=constraint)
                end
-               if bilocal == false || bilocal_zeros(bi2) == false
-                   if bilocal == true
-                       wx,wz,flag = bilocal_reduce(bi2)
+               if zero_moments == false || mom_zeros(bi2) == false
+                   if bilocal != false
+                       wx,wz,flag = bilocal_reduce(bi2, bilocal)
                    end
-                   if bilocal == false || flag == false || (bilocal_zeros(wx) == false && bilocal_zeros(wz) == false)
+                   if zero_moments == false || flag == false || (mom_zeros(wx) == false && mom_zeros(wz) == false)
                        bi = state_reduce(bi1, bi2, ptsupp, vargroup, bilocal=bilocal)
                        Locb = bfind(ksupp, lksupp, bi)
                        @inbounds add_to_expression!(cons[Locb], pos[i])
@@ -274,11 +270,11 @@ function pstate_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocks
                    if constraint !== nothing
                        constraint_reduce!(bi2, constraint=constraint)
                    end
-                   if bilocal == false || bilocal_zeros(bi2) == false
-                    if bilocal == true
-                        wx,wz,flag = bilocal_reduce(bi2)
+                   if zero_moments == false || mom_zeros(bi2) == false
+                    if bilocal != false
+                        wx,wz,flag = bilocal_reduce(bi2, bilocal)
                     end
-                    if bilocal == false || flag == false || (bilocal_zeros(wx) == false && bilocal_zeros(wz) == false)
+                    if zero_moments == false || flag == false || (mom_zeros(wx) == false && mom_zeros(wz) == false)
                        bi = state_reduce(bi1, bi2, ptsupp, vargroup, bilocal=bilocal)
                        Locb = bfind(ksupp, lksupp, bi)
                        if j == r
@@ -370,11 +366,11 @@ function pstate_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocks
                 if constraint !== nothing
                     constraint_reduce!(bi2, constraint=constraint)
                 end
-                if bilocal == false || bilocal_zeros(bi2) == false
-                    if bilocal == true
-                        wx,wz,flag = bilocal_reduce(bi2)
+                if zero_moments == false || mom_zeros(bi2) == false
+                    if bilocal != false
+                        wx,wz,flag = bilocal_reduce(bi2, bilocal)
                     end
-                    if bilocal == false || flag == false || (bilocal_zeros(wx) == false && bilocal_zeros(wz) == false)
+                    if zero_moments == false || flag == false || (mom_zeros(wx) == false && mom_zeros(wz) == false)
                         bi = state_reduce(bi1, bi2, ptsupp, vargroup, bilocal=bilocal)
                         Locb = bfind(ksupp, lksupp, bi)
                         moment[i][j,k] = dual_var[Locb]
@@ -397,7 +393,7 @@ function state_reduce(word1, word2, ptsupp, vargroup; bilocal=false)
     elseif bilocal == false
         ind = UInt32(bfind(ptsupp, length(ptsupp), sym(word2, vargroup), lt=isless_td))
     else
-        wx,wz,flag = bilocal_reduce(word2)
+        wx,wz,flag = bilocal_reduce(word2, bilocal)
         if flag == true
             temp1 = bfind(ptsupp, length(ptsupp), sym(wx, vargroup), lt=isless_td)
             temp2 = bfind(ptsupp, length(ptsupp), sym(wz, vargroup), lt=isless_td)
@@ -409,7 +405,7 @@ function state_reduce(word1, word2, ptsupp, vargroup; bilocal=false)
     return sort([word1; ind])
 end
 
-function bilocal_zeros(word)
+function mom_zeros(word)
     others = [[1], [2], [3], [4], [5], [6], [7], [8], [9],
          [1;5], [1;6], [2;4], [2;6], [3;4],
          [3;5], [4;8], [4;9], [5;7], [5;9], [6;7], [6;8],
@@ -420,9 +416,9 @@ function bilocal_zeros(word)
     return bfind(others, length(others), word) !== nothing
 end
 
-function bilocal_reduce(word)
-    wx = word[word .<= 3]
-    wz = word[word .>= 7]
+function bilocal_reduce(word, loc)
+    wx = word[word .<= loc[1]]
+    wz = word[word .>= loc[2]]
     # wz = wz[wz .<= 9]
     if length(wx) > 0 && length(wz) > 0 && length(wx) + length(wz) == length(word)
         return wx,wz,true
@@ -431,9 +427,9 @@ function bilocal_reduce(word)
     end
 end
 
-function isbilocal(word)
-    wx = word[word .<= 3]
-    wz = word[word .>= 7]
+function isbilocal(word, loc)
+    wx = word[word .<= loc[1]]
+    wz = word[word .>= loc[2]]
     # wz = wz[wz .<= 9]
     if length(wx) > 0 && length(wz) > 0 && length(wx) + length(wz) == length(word)
         return false

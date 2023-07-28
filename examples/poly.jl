@@ -1,4 +1,4 @@
-# the Broyden banded polynomial
+# Broyden banded polynomial
 n = 100
 @ncpolyvar x[1:n]
 f = 0.
@@ -9,7 +9,7 @@ for i = 1:n
     f += (2*x[i] + 5*x[i]^3 + 1 - g)^2
 end
 
-# the Broyden banded polynomial
+# Broyden banded polynomial
 n = 4
 supp = [UInt16[]]
 coe = Float64[n]
@@ -28,7 +28,7 @@ for i = 1:n
     end
 end
 
-# the generalized Rosenbrock polynomial
+# generalized Rosenbrock polynomial
 n = 4000
 supp[1] = [UInt16[]]
 coe[1] = Float64[n]
@@ -37,7 +37,7 @@ for i = 2:n
     push!(coe[1], 100, -200, -2, 101)
 end
 
-# the chained Wood polynomial
+# chained Wood polynomial
 n = 600
 supp[1] = [UInt16[]]
 coe[1] = Float64[21*n-41]
@@ -47,7 +47,7 @@ for i = 1:2:n-3
     push!(coe[1], -2, 1, 100, -200, -40, 110.1, 19.8, -2, 1, 90, -180, -40, 100.1)
 end
 
-# the Broyden tridiagonal polynomial
+# Broyden tridiagonal polynomial
 n = 20
 supp[1] = [UInt16[]]
 coe[1] = Float64[n]
@@ -61,7 +61,7 @@ end
 push!(supp[1], [n;n], [n;n;n;n], [n-1;n-1], [n;n;n], [n-1;n], [n], [n-1;n;n], [n-1])
 push!(coe[1], 5, 4, 1, -12, -6, 6, 4, -2)
 
-# the Chained singular polynomial
+# Chained singular polynomial
 n = 4
 f = 0
 @ncpolyvar x[1:n]
@@ -69,7 +69,7 @@ for i = 1:2:n-3
     f += (x[i] + 10*x[i+1])^2 + 5*(x[i+2] - x[i+3])^2 + (x[i+1] - 2*x[i+2])^4 + 10*(x[i] - 10*x[i+3])^4
 end
 
-# the Chained singular polynomial
+# Chained singular polynomial
 n = 80
 supp = Vector{UInt16}[]
 coe = Float64[]
@@ -118,10 +118,7 @@ end
 # close(io)
 # coe[1] = temp[:,1]
 
-dg = Vector{Int}(undef, 2*n)
 for i = 1:n
-    dg[i] = 2
-    dg[i+n] = 1
     supp[i+1] = [UInt16[], UInt16[i;i]]
     coe[i+1] = Float64[1, -1]
     supp[i+n+1] = [UInt16[], UInt16[i]]
@@ -154,30 +151,11 @@ for i = 1:nx, j = 1:ny
     end
 end
 
-@time begin
-bell(supp,coe,nx+ny,nx,2,CS=false,TS=false)
-end
-
-yvar=UInt16[nx+i for i=1:ny]
-cliques=Vector{Vector{UInt16}}(undef, nx)
-for i=1:nx
-    cliques[i]=[i;yvar]
-end
-cliquesize=(ny+1)*ones(Int, nx)
-cql=nx
-
-function bell(supp, coe, n, nx, d; CS="MD", TS=false, QUIET=false)
-    cliques,cql,cliquesize=clique_decomp(n,supp,alg=CS)
-    blocks,cl,blocksize,_,_,basis,_=get_blocks_mix(d,supp,cliques,cql,cliquesize,TS=TS,nx=nx)
-    opt,_=blockupop_mix(n,d,supp,coe,basis,cliques,cql,cliquesize,blocks,cl,blocksize,nx=nx)
-    return -opt
-end
-
 supp = Vector{UInt16}[[1;4], [1;5], [1;6], [2;4], [2;5], [2;6], [3;4], [3;5], [1], [4], [5]]
 coe = -[1, 1, 1, 1, 1, -1, 1, -1, -1, -2, -1]
 n = 6
 supp = Vector{UInt16}[[1;4], [1;5], [1;6], [2;4], [2;5], [2;6], [3;4], [3;5], [1], [2], [4], [5], []]
 coe = -[1/4, 1/4, 1/4, 1/4, 1/4, -1/4, 1/4, -1/4, 1/4, 1/4, -1/4, -1/4, -1]
 n = 6
-opt,data = nctssos_first(supp, coe, n, d=3, TS=false, monosquare=false, partition=3, constraint="projection")
+opt,data = nctssos_first(supp, coe, n, d=3, TS=false, partition=3, constraint="projection")
 opt,data = nctssos_higher!(data, TS="block")

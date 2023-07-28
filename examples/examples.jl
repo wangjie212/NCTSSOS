@@ -43,11 +43,11 @@ end
 # opt,data = nctssos_first(supp, coe, newton=true, reducebasis=false, TS="block", obj="eigen")
 # end
 @time begin
-opt,data = nctssos_first(supp, coe, n, 2, dg, reducebasis=false, TS="MD", obj="eigen")
+opt,data = nctssos_first(supp, coe, n, 2, reducebasis=false, TS="MD", obj="eigen")
 end
 
 @time begin
-opt,data = nctssos_higher!(data,TS="MD")
+opt,data = nctssos_higher!(data, TS="MD")
 end
 
 n = 2
@@ -125,16 +125,16 @@ opt,data = cs_nctssos_higher!(data, TS="MD")
 end
 
 # @time begin
-# opt,data = nctssos_first(pop,[x;y],2,reducebasis=false,numeq=length(pop)-10,TS=false,obj="eigen")
+# opt,data = nctssos_first(pop, [x;y], 2, reducebasis=false, numeq=length(pop)-10, TS=false, obj="eigen")
 # end
 @time begin
-opt,data = nctssos_first(supp,coe,n,2,reducebasis=false,TS=false,obj="trace")
+opt,data = nctssos_first(supp, coe, n, 2, reducebasis=false, TS=false, obj="trace")
 end
 @time begin
-opt,data = nctssos_higher!(data,TS="MD")
+opt,data = nctssos_higher!(data, TS="MD")
 end
 @time begin
-opt,data = nctssos_first(supp,coe,n,2,reducebasis=false,TS="MD",obj="eigen")
+opt,data = nctssos_first(supp, coe, n, 2, reducebasis=false, TS="MD", obj="eigen")
 end
 
 @ncpolyvar x[1:6]

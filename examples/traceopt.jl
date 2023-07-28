@@ -1,4 +1,3 @@
-using DelimitedFiles
 using NCTSSOS
 
 # The toy example
@@ -14,7 +13,6 @@ supp = [[[1;3]], [[1;4]], [[2;3]], [[2;4]]]
 coe = [-1; -1; -1; 1]
 d = 1
 opt,data = ptraceopt_first(supp, coe, n, d, TS="block", constraint="unipotent")
-# opt,data = ptraceopt_higher!(data, TS="block")
 
 # Example 6.2.1
 n = 4
@@ -22,7 +20,6 @@ supp = [[[1;4], [1;4]], [[2;3], [2;3]], [[1;4], [2;3]], [[1;3], [1;3]], [[2;4], 
 coe = [-1; -1; -2; -1; -1; 2]
 d = 2
 opt,data = ptraceopt_first(supp, coe, n, d, TS=false, constraint="unipotent")
-# opt,data = ptraceopt_higher!(data, TS="block")
 
 # Example 6.2.2
 n = 6
@@ -31,7 +28,6 @@ supp = [[[1;4]], [[1], [4]], [[1;5]], [[1], [5]], [[1;6]], [[1], [6]], [[2;4]], 
 coe = [-1; 1; -1; 1; -1; 1; -1; 1; -1; 1; 1; -1; -1; 1; 1; -1]
 d = 2
 opt,data = ptraceopt_first(supp, coe, n, d, TS=false, constraint="unipotent")
-# opt,data = ptraceopt_higher!(data, TS="block")
 
 # Example 6.2.3
 n = 8
@@ -50,7 +46,19 @@ coe = -[-1/8*[1; 1; 1; 1; 1; 1; 1; 1; 2; 2; 4; 2; -2; -2; 2; 2; 2; -2; -2; 2; 2;
 d = 4
 opt,data = ptraceopt_first(supp, coe, n, d, TS="block", constraint="projection")
 
+# non-pure trace example
+n = 4
+supp = Vector{Vector{Union{Vector{Vector{Int}}, mixword}}}(undef, 3)
+supp[1] = [[[1;4], [1;4]], [[2;3], [2;3]], [[1;4], [2;3]], [[1;3], [1;3]], [[2;4], [2;4]], [[1;3], [2;4]]]
+supp[2] = [mixword([1;1], []), mixword([2;2], []), mixword([3;3], []), mixword([4;4], []), mixword([], [])]
+# supp[3] = [mixword([], [[1], [2]]), mixword([], [[3], [4]]), mixword([], [])]
+supp[3] = [mixword([1;2], []), mixword([2;1], [])]
+coe = [[-1; -1; -2; -1; -1; 2], [-1; -1; -1; -1; 1], [1; -1]]
+d = 2
+opt,data = traceopt_first(supp, coe, n, d, numeq=1, TS=false)
+
 # Werner witness example
+using DelimitedFiles
 n = 4
 a = [0 -1 1 1 1 -1 1 1 0 0 -1 1 0 1 -1 -1]
 Y = 1/12*a'*a
@@ -69,31 +77,4 @@ for i = 1:52
 end
 
 d = 2
-opt,data = Werner_witness_first(dY, c, n, d, monosquare=true, TS=false)
-opt,data = Werner_witness_higher!(data, TS="block")
-
-n = 4
-supp = Vector{Vector{Union{Vector{Vector{Int}}, mixword}}}(undef, 3)
-supp[1] = [[[1;4], [1;4]], [[2;3], [2;3]], [[1;4], [2;3]], [[1;3], [1;3]], [[2;4], [2;4]], [[1;3], [2;4]]]
-supp[2] = [mixword([1;1], []), mixword([2;2], []), mixword([3;3], []), mixword([4;4], []), mixword([], [])]
-# supp[3] = [mixword([], [[1], [2]]), mixword([], [[3], [4]]), mixword([], [])]
-supp[3] = [mixword([1;2], []), mixword([2;1], [])]
-coe = [[-1; -1; -2; -1; -1; 2], [-1; -1; -1; -1; 1], [1; -1]]
-d = 2
-opt,data = traceopt_first(supp, coe, n, d, numeq=1, TS=false)
-
-n = 3
-supp = [[[1;1], [1;1], [2;2], [3;3]], [[1;1], [2;2], [2;2], [3;3]], [[1;1], [2;2], [3;3], [3;3]], 
-[[1;1], [1;2;3;2;1;3]], [[1;2;3;2;1;3], [2;2]], [[1;2;3;2;1;3], [3;3]], 
-[[1;1], [1;2;1;3;2;3]], [[1;2;1;3;2;3], [2;2]], [[1;2;1;3;2;3], [3;3]]]
-coe = [1, 1, 1, -1, -1, -1, 1, 1, 1]
-d = 5
-opt,data = ptraceopt_first(supp, coe, n, d, solve=false, TS="block")
-opt,data = ptraceopt_higher!(data, TS="block")
-
-using LinearAlgebra
-n = 10
-A = rand(n,n)
-B = rand(n,n)
-C = rand(n,n)
-tr(A'*A)*tr(B'*B)*tr(B'*B) - 2*tr(B'*A'*C'*A*B*C) + tr(A'*C'*B'*B*C*A)
+opt,data = Werner_witness_first(dY, c, n, d, TS=false)

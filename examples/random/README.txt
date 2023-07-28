@@ -1,3 +1,3 @@
-n: the number of varibles
-coe_n: the coefficient vector
-supp_n: the support vector
+n: number of varibles
+coe_n: coefficient vector
+supp_n: support vector

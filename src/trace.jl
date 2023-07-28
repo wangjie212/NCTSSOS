@@ -7,10 +7,10 @@ mutable struct traceopt_type
     wbasis # word basis
     tbasis # trace basis
     basis # non-trace basis
-    blocks # the block structure
-    cl # the number of blocks
+    blocks # block structure
+    cl # number of blocks
     blocksize # the size of blocks
-    ksupp # extending support at the k-th step
+    ksupp # extended support at the k-th step
     sb # sizes of different blocks
     numb # numbers of different blocks
     moment # moment matrix
@@ -24,6 +24,9 @@ end
 
 function get_tbasis(n, d, ptsupp)
     basis = Vector{UInt16}[[]]
+    if isempty(ptsupp)
+        return basis
+    end
     i = 0
     temp = UInt16[]
     while i < d+1
@@ -195,7 +198,7 @@ function traceopt_first(tr_supp::Vector{Vector{Union{Vector{Vector{Int}}, mixwor
     end
     if QUIET == false
         mb = maximum(maximum.(sb))
-        println("Obtained the block structure in $time seconds. The maximal size of blocks is $mb.")
+        println("Obtained the block structure in $time seconds.\nThe maximal size of blocks is $mb.")
     end
     opt,ksupp,moment,GramMat = ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, numeq=numeq, QUIET=QUIET, constraint=constraint,
     solve=solve, Gram=Gram, solver=solver, cosmo_setting=cosmo_setting)
@@ -225,7 +228,7 @@ function traceopt_higher!(data; TS="block", QUIET=false, solve=true, solver="Mos
     if status == 1
         if QUIET == false
             mb = maximum(maximum.(sb))
-            println("Obtained the block structure in $time seconds. The maximal size of blocks is $mb.")
+            println("Obtained the block structure in $time seconds.\nThe maximal size of blocks is $mb.")
         end
         opt,ksupp,moment,GramMat = ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, numeq=numeq, QUIET=QUIET, constraint=constraint,
         solve=solve, Gram=Gram, solver=solver, cosmo_setting=cosmo_setting)
@@ -307,7 +310,7 @@ function ptraceopt_first(tr_supp::Vector{Vector{Vector{Vector{Int}}}}, coe, n, d
     end
     if QUIET == false
         mb = maximum(maximum.(sb))
-        println("Obtained the block structure in $time seconds. The maximal size of blocks is $mb.")
+        println("Obtained the block structure in $time seconds.\nThe maximal size of blocks is $mb.")
     end
     opt,ksupp,moment,GramMat = ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, numeq=numeq, QUIET=QUIET, constraint=constraint,
     solve=solve, Gram=Gram, solver=solver, cosmo_setting=cosmo_setting)
@@ -337,7 +340,7 @@ function ptraceopt_higher!(data; TS="block", QUIET=false, solve=true, solver="Mo
     if status == 1
         if QUIET == false
             mb = maximum(maximum.(sb))
-            println("Obtained the block structure in $time seconds. The maximal size of blocks is $mb.")
+            println("Obtained the block structure in $time seconds.\nThe maximal size of blocks is $mb.")
         end
         opt,ksupp,moment,GramMat = ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, numeq=numeq, QUIET=QUIET, constraint=constraint,
         solve=solve, Gram=Gram, solver=solver, cosmo_setting=cosmo_setting)
@@ -559,7 +562,7 @@ function constraint_reduce!(word; constraint="unipotent")
     return word
 end
 
-function get_ncgraph(ksupp, ptsupp, wbasis, tbasis, basis; vargroup=nothing, constraint=nothing, type="trace", bilocal=false)
+function get_ncgraph(ksupp, ptsupp, wbasis, tbasis, basis; vargroup=nothing, constraint=nothing, type="trace", bilocal=false, zero_moments=false)
     lb = length(wbasis)
     G = SimpleGraph(lb)
     lksupp = length(ksupp)
@@ -575,11 +578,11 @@ function get_ncgraph(ksupp, ptsupp, wbasis, tbasis, basis; vargroup=nothing, con
         if type == "trace"
             bi = trace_reduce(bi1, bi2, ptsupp, constraint=constraint)
         end
-        if bilocal == false || bilocal_zeros(bi2) == false
-            if bilocal == true
-                wx,wz,flag = bilocal_reduce(bi2)
+        if zero_moments == false || mom_zeros(bi2) == false
+            if bilocal != false
+                wx,wz,flag = bilocal_reduce(bi2, bilocal)
             end
-            if bilocal == false || flag == false || (bilocal_zeros(wx) == false && bilocal_zeros(wz) == false)
+            if zero_moments == false || flag == false || (mom_zeros(wx) == false && mom_zeros(wz) == false)
                 if type == "state"
                     bi = state_reduce(bi1, bi2, ptsupp, vargroup, bilocal=bilocal)
                 end
@@ -630,7 +633,7 @@ function get_nccgraph(ksupp, ptsupp, supp, wbasis, tbasis, basis; vargroup=nothi
     return G
 end
 
-function get_ncblocks(ksupp, ptsupp, wbasis, tbasis, basis; supp=[], vargroup=nothing, sb=[], numb=[], TS="block", QUIET=false, constraint=nothing, type="trace", bilocal=false)
+function get_ncblocks(ksupp, ptsupp, wbasis, tbasis, basis; supp=[], vargroup=nothing, sb=[], numb=[], TS="block", QUIET=false, constraint=nothing, type="trace", bilocal=false, zero_moments=false)
     m = length(wbasis) - 1
     blocks = Vector{Vector{Vector{UInt16}}}(undef, m+1)
     blocksize = Vector{Vector{Int}}(undef, m+1)
@@ -643,7 +646,7 @@ function get_ncblocks(ksupp, ptsupp, wbasis, tbasis, basis; supp=[], vargroup=no
         nsb = Int.(blocksize[1])
         nnumb = [1]
     else
-        G = get_ncgraph(ksupp, ptsupp, wbasis[1], tbasis[1], basis[1], vargroup=vargroup, constraint=constraint, type=type, bilocal=bilocal)
+        G = get_ncgraph(ksupp, ptsupp, wbasis[1], tbasis[1], basis[1], vargroup=vargroup, constraint=constraint, type=type, bilocal=bilocal, zero_moments=zero_moments)
         if TS == "block"
             blocks[1] = connected_components(G)
             blocksize[1] = length.(blocks[1])
@@ -703,21 +706,21 @@ function Werner_witness_first(dY, sigma, n, d; TS="block", monosquare=false, QUI
         for i = 1:length(wbasis)
             bi1 = sort([tbasis[wbasis[i][1]]; tbasis[wbasis[i][1]]])
             bi2 = [reverse(basis[wbasis[i][2]]); basis[wbasis[i][2]]]
-            constraint_reduce!(bi2, constraint=constraint)
-            bi = trace_reduce(bi1, bi2, ptsupp, constraint=constraint)
+            constraint_reduce!(bi2, constraint="projection")
+            bi = trace_reduce(bi1, bi2, ptsupp, constraint="projection")
             push!(supp, bi)
         end
     end
     sort!(supp)
     unique!(supp)
-    blocks,cl,blocksize,sb,numb,_ = get_ncblocks(supp, ptsupp, wbasis, tbasis, basis, TS=TS, QUIET=QUIET, constraint="projection")
+    blocks,cl,blocksize,sb,numb,_ = get_ncblocks(supp, ptsupp, [wbasis], [tbasis], [basis], TS=TS, QUIET=QUIET, constraint="projection")
     end
     if QUIET == false
         mb = maximum(maximum.(sb))
-        println("Obtained the block structure in $time seconds. The maximal size of blocks is $mb.")
+        println("Obtained the block structure in $time seconds.\nThe maximal size of blocks is $mb.")
     end
-    opt,ksupp = Werner_SDP(dY, sigma, htrace, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, QUIET=QUIET, solve=solve, solver=solver)
-    data = traceopt_type(htrace, dY, sigma, ptsupp, wbasis, tbasis, basis, ksupp, sb, numb, nothing)
+    opt,ksupp = Werner_SDP(dY, sigma, htrace, ptsupp, wbasis, tbasis, basis, blocks[1], cl[1], blocksize[1], QUIET=QUIET, solve=solve, solver=solver, cosmo_setting=cosmo_setting)
+    data = traceopt_type(htrace, dY, sigma, nothing, ptsupp, wbasis, tbasis, basis, blocks[1], cl[1], blocksize[1], ksupp, sb, numb, nothing, nothing)
     return opt,data
 end
 
@@ -735,14 +738,16 @@ function Werner_witness_higher!(data; TS="block", QUIET=false, solve=true, solve
     if QUIET == false
         println("Starting to compute the block structure...")
     end
-    blocks,cl,blocksize,sb,numb,status = get_ncblocks(ksupp, ptsupp, wbasis, tbasis, basis, sb=sb, numb=numb, TS=TS, QUIET=QUIET, constraint="projection")
+    time = @elapsed begin
+    blocks,cl,blocksize,sb,numb,status = get_ncblocks(ksupp, ptsupp, [wbasis], [tbasis], [basis], sb=sb, numb=numb, TS=TS, QUIET=QUIET, constraint="projection")
+    end
     opt = nothing
     if status == 1
         if QUIET == false
             mb = maximum(maximum.(sb))
-            println("Obtained the block structure. The maximal size of blocks is $mb.")
+            println("Obtained the block structure in $time seconds.\nThe maximal size of blocks is $mb.")
         end
-        opt,ksupp = Werner_SDP(dY, sigma, htrace, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, QUIET=QUIET, solve=solve, solver=solver)
+        opt,ksupp = Werner_SDP(dY, sigma, htrace, ptsupp, wbasis, tbasis, basis, blocks[1], cl[1], blocksize[1], QUIET=QUIET, solve=solve, solver=solver, cosmo_setting=cosmo_setting)
     end
     data.ksupp = ksupp
     data.sb = sb
@@ -777,7 +782,7 @@ function Werner_SDP(dY, sigma, htrace, ptsupp, wbasis, tbasis, basis, blocks, cl
             model = Model(optimizer_with_attributes(COSMO.Optimizer, "eps_abs" => cosmo_setting.eps_abs, "eps_rel" => cosmo_setting.eps_rel, "max_iter" => cosmo_setting.max_iter))
         else
             @error "The solver is currently not supported!"
-            return nothing,nothing,nothing,nothing
+            return nothing,nothing
         end
         set_optimizer_attribute(model, MOI.Silent(), QUIET)
         cons = [AffExpr(0) for i=1:lksupp]

@@ -8,7 +8,7 @@ mutable struct ncmpop_data
     partition # the first 'partition' variables commutes with the remaining variables
     constraint # nothing or "projection" or "unipotent"
     obj # "eigen" or "trace"
-    ksupp # extending support at the k-th step
+    ksupp # extended support at the k-th step
     basis # monomial bses
     cql # number of cliques
     cliques # cliques of variables
@@ -50,7 +50,7 @@ function cs_nctssos_first(supp::Vector{Vector{UInt16}}, coe, n::Int; d=0, CS="MF
     end
     if CS != false && QUIET == false
         mc = maximum(cliquesize)
-        println("Obtained the variable cliques in $time seconds. The maximal size of cliques is $mc.")
+        println("Obtained the variable cliques in $time seconds.\nThe maximal size of cliques is $mc.")
     end
     if TS != false && QUIET == false
         println("Starting to compute the block structure...")
@@ -61,7 +61,7 @@ function cs_nctssos_first(supp::Vector{Vector{UInt16}}, coe, n::Int; d=0, CS="MF
     end
     if TS != false && QUIET == false
         mb = maximum(maximum.(sb))
-        println("Obtained the block structure in $time seconds. The maximal size of blocks is $mb.")
+        println("Obtained the block structure in $time seconds.\nThe maximal size of blocks is $mb.")
     end
     opt,ksupp,moment,GramMat = blockupop_mix(n, supp, coe, basis, cliques, cql, cliquesize, blocks, cl, blocksize, obj=obj,
     solve=solve, solver=solver, Gram=Gram, QUIET=QUIET, partition=partition, constraint=constraint, cosmo_setting=cosmo_setting)
@@ -123,7 +123,7 @@ function cs_nctssos_first(supp::Vector{Vector{Vector{UInt16}}}, coe, n::Int, d::
     end
     if CS != false && QUIET == false
         mc = maximum(cliquesize)
-        println("Obtained the variable cliques in $time seconds. The maximal size of cliques is $mc.")
+        println("Obtained the variable cliques in $time seconds.\nThe maximal size of cliques is $mc.")
     end
     if TS != false && QUIET == false
         println("Starting to compute the block structure...")
@@ -135,7 +135,7 @@ function cs_nctssos_first(supp::Vector{Vector{Vector{UInt16}}}, coe, n::Int, d::
     end
     if TS != false && QUIET == false
         mb = maximum(maximum.(sb))
-        println("Obtained the block structure in $time seconds. The maximal size of blocks is $mb.")
+        println("Obtained the block structure in $time seconds.\nThe maximal size of blocks is $mb.")
     end
     opt,ksupp,moment,GramMat = blockcpop_mix(n, m, supp, coe, basis, cliques, cql, cliquesize, J, ncc, blocks, cl, blocksize,
     numeq=numeq, QUIET=QUIET, obj=obj, solve=solve, solver=solver, Gram=Gram, partition=partition, constraint=constraint, cosmo_setting=cosmo_setting)
@@ -183,7 +183,7 @@ function cs_nctssos_higher!(data::ncmpop_data; TS="block", QUIET=false, merge=fa
         if status == 1
             if QUIET == false
                 mb = maximum(maximum.(sb))
-                println("Obtained the block structure in $time seconds. The maximal size of blocks is $mb.")
+                println("Obtained the block structure in $time seconds.\nThe maximal size of blocks is $mb.")
             end
             opt,ksupp,moment,GramMat = blockupop_mix(n, supp, coe, basis, cliques, cql, cliquesize, blocks, cl, blocksize, obj=obj, solve=solve, Gram=Gram, QUIET=QUIET,
             partition=partition, constraint=constraint, solver=solver, cosmo_setting=cosmo_setting)

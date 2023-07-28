@@ -8,7 +8,7 @@ mutable struct nccpop_data
     constraint # nothing or "projection" or "unipotent"
     obj # "eigen" or "trace"
     basis # monomial bases
-    ksupp # extending support at the k-th step
+    ksupp # extended support at the k-th step
     sb # sizes of different blocks
     numb # numbers of different blocks
     blocks # block structure

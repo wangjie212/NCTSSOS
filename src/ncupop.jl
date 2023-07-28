@@ -5,7 +5,7 @@ mutable struct ncupop_type
     constraint # nothing or "projection" or "unipotent"
     basis # basis
     obj # "eigen" or "trace"
-    ksupp # extending support at the k-th step
+    ksupp # extended support at the k-th step
     sb # sizes of different blocks
     numb # numbers of different blocks
     moment # moment matrix
@@ -111,7 +111,7 @@ function nctssos_first(supp::Vector{Vector{UInt16}}, coe, n::Int; order=0, newto
     end
     if TS != false && QUIET == false
         mb = maximum(maximum.(sb))
-        println("Obtained the block structure. The maximal size of blocks is $mb.")
+        println("Obtained the block structure.\nThe maximal size of blocks is $mb.")
     end
     opt,ksupp,moment,GramMat = ncblockupop(supp, coe, basis, blocks, cl, blocksize, QUIET=QUIET, obj=obj, partition=partition, constraint=constraint, solve=solve,
     Gram=Gram, solver=solver, cosmo_setting=cosmo_setting)
@@ -161,7 +161,7 @@ function nctssos_higher!(data::ncupop_type; TS="block", merge=false, md=3, solve
     if status == 1
         if QUIET == false
             mb = maximum(maximum.(sb))
-            println("Obtained the block structure. The maximal size of blocks is $mb.")
+            println("Obtained the block structure.\nThe maximal size of blocks is $mb.")
         end
         opt,ksupp,moment,GramMat = ncblockupop(supp, coe, basis, blocks, cl, blocksize, QUIET=QUIET, obj=obj, partition=partition, constraint=constraint, solve=solve,
         Gram=Gram, solver=solver, cosmo_setting=cosmo_setting)
