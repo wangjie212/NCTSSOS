@@ -1,12 +1,17 @@
+# This script shows how to solve complex state polynomial optimization problems using NCTSSOS.
+# Examples below are taken from the paper: "State polynomials: positivity, optimization and nonlinear Bell inequalities"
 using NCTSSOS
 using LinearAlgebra
 
 ## Example 7.2.0
-n = 4
+n = 4 # number of variables
+# define the cost: ς^re(x1y1) + ς^re(x1y2) + ς^re(x2y1) − ς^re(x2y2)
 supp = [[[[1;3]], Vector{Int}[]], [[[1;4]], Vector{Int}[]], [[[2;3]], Vector{Int}[]], [[[2;4]], Vector{Int}[]]]
 coe = [-1; -1; -1; 1]
-d = 1
-opt,data = cpstateopt_first(supp, coe, n, d, TS="block", constraint="unipotent")
+d = 1 # relaxation order
+opt,data = cpstateopt_first(supp, coe, n, d, vargroup=[2;2], TS="block", constraint="unipotent")
+# vargroup = [2;2] defines [xi, yj] = 0
+# constraint = "unipotent" defines xi^2 = 1, yj^2 = 1
 
 ## Example 7.2.1
 n = 4
@@ -34,7 +39,7 @@ supp = [[[[2]], Vector{Int}[]], [[[3]], Vector{Int}[]], [[[4]], Vector{Int}[]], 
 [[[1], [1]], Vector{Int}[]], [[[4], [4]], Vector{Int}[]]]
 coe = -[1; 1; 1; -1; 1; 1; 1; -1; -1; -1; -1; -1]
 d = 2
-opt,data = cpstateopt_first(supp, coe, n, d, vargroup=[2;2], TS=false, constraint="unipotent")
+opt,data = cpstateopt_first(supp, coe, n, d, vargroup=[2;2], TS="block", constraint="unipotent")
 
 # quantum bilocal networks
 ## Example 8.1.1
@@ -58,7 +63,6 @@ coe = [1/8*[1; 1; 1; 1; 1; 1; 1; 1; 2; 2; 2; -2; 2; 2; -2; 2; 2; -2; 2; 2; -2; 2
 d = 3
 @time begin
 opt,data = cpstateopt_first(supp, coe, n, d, constraint="unipotent", vargroup=[2;2;2], TS="block", solve=true, bilocal=[2;5])
-# opt,data = cpstateopt_higher!(data, TS="block", bilocal=[2;5])
 end
 
 ## Example 8.1.2

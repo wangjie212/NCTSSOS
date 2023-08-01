@@ -1,35 +1,87 @@
-Example 8.1.1
-*********real*********
-opt: 4
-time: 0.46   
-block: 23
+Example 7.2.1
+**********real***********
+opt: 4 
+max block: 7
+num of cons: 103
 *********complex*********
 opt: 4
-time: 1.50   
-block: 23
+max block: 7×2
+num of cons: 129
+-------------------------------------
+Example 7.2.2
+**********real***********
+opt: 5
+max block: 74
+num of cons: 869
+*********complex*********
+opt: 5
+max block: 74×2
+num of cons: 1259
+-------------------------------------
+Example 7.2.3
+**********real***********
+opt: 3.51148
+max block: 42
+num of cons: 230
+*********complex*********
+opt: 3.51148 
+max block: 42×2
+num of cons: 294
+-------------------------------------
+Example 8.1.1
+**********real***********
+opt: 4
+time: 0.46   
+max block: 23
+num of cons: 292
+*********complex*********
+opt: 4
+time: 1.37  
+max block: 23×2
+num of cons: 376
 -------------------------------------
 Example 8.1.2
-*********real*********
+**********real***********
 opt: 15.6705
 time: 1314   
 block: [714, 681]
+num of cons: 35000
 *********complex*********
-opt: 
-time: 
-block: 
+opt: 15.6705
+time: 2475
+block: [805, 742]×2
+num of cons: 60153
 -------------------------------------
 Example 8.1.3
-*********real*********
+**********real***********
 d = 3
 opt: 4.46613
 time: 1.94
 block: [130, 105, 105, 105]
+num of cons: 3018
+d = 4
+opt: 4.37666
+time: 5346
+block: [678, 646, 646, 646]
+num of cons: 64878
+d = 5
+opt: 4.36605
+time: 566979
+block: [3838, 3838, 3838, 3739]
+num of cons: 1352093
 *********complex*********
 d = 3
 opt: 4.46665
 time: 20
-block: [178, 134, 134, 134]
+block: [178, 134, 134, 134]×2
+num of cons: 7578
 d = 4
+opt: 4.37951
+time: 47138
+block: [1012, 1012, 1012, 958]×2
+num of cons: 210501
+d = 5
 opt: 
 time: 
-block: 
+block: [6498, 6498, 6498, 6244]×2
+num of cons: 5672003

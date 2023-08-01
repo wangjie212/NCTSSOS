@@ -1,12 +1,17 @@
+# This script shows how to solve real state polynomial optimization problems using NCTSSOS.
+# Examples below are taken from the paper: "State polynomials: positivity, optimization and nonlinear Bell inequalities"
 using NCTSSOS
 using LinearAlgebra
 
 ## Example 7.2.0
-n = 4
+n = 4 # number of variables
+# define the cost: ς(x1y1) + ς(x1y2) + ς(x2y1) − ς(x2y2)
 supp = [[[1;3]], [[1;4]], [[2;3]], [[2;4]]]
 coe = [-1; -1; -1; 1]
-d = 1
-opt,data = pstateopt_first(supp, coe, n, d, TS="block", constraint="unipotent")
+d = 1 # relaxation order
+opt,data = pstateopt_first(supp, coe, n, d, vargroup=[2;2], TS="block", constraint="unipotent")
+# vargroup = [2;2] defines [xi, yj] = 0
+# constraint = "unipotent" defines xi^2 = 1, yj^2 = 1
 
 ## Example 7.2.1
 n = 4
@@ -29,7 +34,7 @@ supp = [[[2]], [[3]], [[4]], [[1;3]], [[2;3]], [[1;4]], [[2;4]], [[1], [3]],
 [[2], [3]], [[2], [4]], [[1], [1]], [[4], [4]]]
 coe = -[1; 1; 1; -1; 1; 1; 1; -1; -1; -1; -1; -1]
 d = 2
-opt,data = pstateopt_first(supp, coe, n, d, vargroup=[2;2], TS=false, constraint="unipotent")
+opt,data = pstateopt_first(supp, coe, n, d, vargroup=[2;2], TS="block", constraint="unipotent")
 
 # quantum bilocal networks
 ## Example 8.1.1
@@ -47,7 +52,6 @@ coe = [1/8*[1; 1; 1; 1; 1; 1; 1; 1; 2; 2; 2; -2; 2; 2; -2; 2; 2; -2; 2; 2; -2; 2
 d = 3
 @time begin
 opt,data = pstateopt_first(supp, coe, n, d, constraint="unipotent", vargroup=[2;2;2], TS="block", solve=true, bilocal=[2;5])
-# opt,data = pstateopt_higher!(data, TS="block", bilocal=[2;5])
 end
 
 ## Example 8.1.2
@@ -117,17 +121,23 @@ println(-opt-16)
 n = 9
 supp = [[[4;7]], [[5;8]], [[6;9]], [[1;4]], [[2;5]], [[3;6]], [[1;5;9]], [[1;6;8]], [[2;4;9]], [[2;6;7]], [[3;4;8]], [[3;5;7]]]
 coe = -[1/3;1/3;1/3;-1/3;-1/3;-1/3;-1;-1;-1;-1;-1;-1]
-d = 3
+d = 4
 @time begin
 opt,data = pstateopt_first(supp, coe, n, d, constraint="unipotent", vargroup=[3;3;3], TS="block", solve=false, bilocal=[3;7], zero_moments=true)
 opt,data = pstateopt_higher!(data, TS="block", bilocal=[3;7], zero_moments=true)
 end
 # check flatness
-k = 4
-ind = [sum(length.(data.ptsupp[data.tbasis[1][data.wbasis[1][i][1]]])) + length(data.basis[1][data.wbasis[1][i][2]]) <= 1 for i = 1:length(data.wbasis[1][data.blocks[1][k]])]
-r0 = count(eigvals(data.moment[k][ind,ind]) .> 1e-3)
-r1 = count(eigvals(data.moment[k]) .> 1e-3)
-println([r0, r1])
+for k = 1:4
+ind1 = [data.wbasis[1][data.blocks[1][k][i]][1] == 1 && length(data.basis[1][data.wbasis[1][data.blocks[1][k][i]][2]]) <= 1 for i = 1:data.blocksize[1][k]]
+ind2 = [data.wbasis[1][data.blocks[1][k][i]][1] == 1 && length(data.basis[1][data.wbasis[1][data.blocks[1][k][i]][2]]) <= 2 for i = 1:data.blocksize[1][k]]
+ind3 = [data.wbasis[1][data.blocks[1][k][i]][1] == 1 && length(data.basis[1][data.wbasis[1][data.blocks[1][k][i]][2]]) <= 3 for i = 1:data.blocksize[1][k]]
+ind4 = [data.wbasis[1][data.blocks[1][k][i]][1] == 1 && length(data.basis[1][data.wbasis[1][data.blocks[1][k][i]][2]]) <= 4 for i = 1:data.blocksize[1][k]]
+r1 = count(eigvals(data.moment[k][ind1,ind1]) .> 1e-3)
+r2 = count(eigvals(data.moment[k][ind2,ind2]) .> 1e-3)
+r3 = count(eigvals(data.moment[k][ind3,ind3]) .> 1e-3)
+r4 = count(eigvals(data.moment[k][ind4,ind4]) .> 1e-3)
+println([r1, r2, r3, r4])
+end
 
 # Example 8.1.3+
 n = 10
