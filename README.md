@@ -9,14 +9,14 @@ pkg> add https://github.com/wangjie212/NCTSSOS
  | [![](https://img.shields.io/badge/docs-latest-blue.svg)](https://wangjie212.github.io/NCTSSOS/dev) |
 
 ## Dependencies
-- MultivariatePolynomials
-- ChordalGraph
-- MOSEK
-- JuMP
+- [Julia](https://julialang.org/)
+- [JuMP](https://github.com/jump-dev/JuMP.jl)
+- [Mosek](https://www.mosek.com/) or [COSMO](https://github.com/oxfordcontrol/COSMO.jl)
+- [ChordalGraph](https://github.com/wangjie212/ChordalGraph)
 
-NCTSSOS has been tested on WINDOW 10, Julia 1.2, JuMP 0.21 and MOSEK 8.1.
+NCTSSOS has been tested on WINDOW 10, Julia 1.6, JuMP 1.11.1 and MOSEK 10.0.
 ## Usage
-### Unconstrained nc polynomial optimization problems
+### Unconstrained nc polynomial optimization
 Taking $f=1+x_1^4+x_2^4+x_3^4+x_1x_2+x_2x_1+x_2x_3+x_3x_2$ as an example, to execute the first level of the NCTSSOS hierarchy, run
 ```Julia
 using NCTSSOS
@@ -38,7 +38,7 @@ Options:
 obj: "eigen" (implements eigenvalue minimization), "trace" (implements trace minimization)  
 TS (term sparsity): "block" (using the maxmial chordal extension), "MD" (using approximately smallest chordal extention), false (without term sparsity)  
 
-### Constrained nc polynomial optimization problems
+### Constrained nc polynomial optimization
 Taking the objective $f=2-x_1^2+x_1x_2^2x_1-x_2^2$ and constraints $g_1=4-x_1^2-x_2^2\ge0$, $g_2=x_1x_2+x_2x_1-2=0$ as an example, to execute the first level of the NCTSSOS hierarchy, run
 
 ```Julia
@@ -69,6 +69,12 @@ and
 ```Julia
 opt,data = cs_nctssos_higher!(data, TS="MD")
 ```
+
+### Trace polynomial optimization
+Check out /examples/traceopt.jl.
+
+### State polynomial optimization
+Check out /examples/stateopt.jl for state polynomial optimization over real numbers and /examples/state_complex.jl for state polynomial optimization over complex numbers.
 
 ## References
 [1] [Exploiting Term Sparsity in Noncommutative Polynomial Optimization](https://arxiv.org/abs/2010.06956), 2021.  
