@@ -539,9 +539,9 @@ function trace_reduce(word1, word2, ptsupp; constraint=nothing)
         end
     end
     if isempty(word2)
-        ind = UInt16[]
+        ind = UInt32[]
     else
-        ind = UInt16(bfind(ptsupp, length(ptsupp), sym_cyclic(word2), lt=isless_td))
+        ind = UInt32(bfind(ptsupp, length(ptsupp), sym_cyclic(word2), lt=isless_td))
     end
     return sort([word1; ind])
 end

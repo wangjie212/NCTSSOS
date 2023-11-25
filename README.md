@@ -16,7 +16,7 @@ pkg> add https://github.com/wangjie212/NCTSSOS
 
 NCTSSOS has been tested on WINDOW 10, Julia 1.6, JuMP 1.11.1 and MOSEK 10.0.
 ## Usage
-### Unconstrained nc polynomial optimization
+### Unconstrained non-commutative polynomial optimization
 Taking $f=1+x_1^4+x_2^4+x_3^4+x_1x_2+x_2x_1+x_2x_3+x_3x_2$ as an example, to execute the first level of the NCTSSOS hierarchy, run
 ```Julia
 using NCTSSOS
@@ -34,11 +34,11 @@ To execute higher levels of the NCTSSOS hierarchy, repeatedly run
 opt,data = nctssos_higher!(data, TS="MD")
 ```
 
-Options:   
-obj: "eigen" (implements eigenvalue minimization), "trace" (implements trace minimization)  
-TS (term sparsity): "block" (using the maxmial chordal extension), "MD" (using approximately smallest chordal extention), false (without term sparsity)  
+Options:  
+**obj**: "eigen" (implements eigenvalue minimization), "trace" (implements trace minimization)  
+**TS (term sparsity)**: "block" (using the maxmial chordal extension), "MD" (using approximately smallest chordal extention), false (without term sparsity)  
 
-### Constrained nc polynomial optimization
+### Constrained non-commutative polynomial optimization
 Taking the objective $f=2-x_1^2+x_1x_2^2x_1-x_2^2$ and constraints $g_1=4-x_1^2-x_2^2\ge0$, $g_2=x_1x_2+x_2x_1-2=0$ as an example, to execute the first level of the NCTSSOS hierarchy, run
 
 ```Julia
@@ -58,8 +58,8 @@ opt,data = nctssos_higher!(data, TS="MD")
 ```
 
 Options:  
-obj: "eigen" (implements eigenvalue minimization), "trace" (implements trace minimization)  
-TS: "block" (using the maxmial chordal extension), "MD" (using approximately smallest chordal extention), false (without term sparsity)  
+**obj**: "eigen" (implements eigenvalue minimization), "trace" (implements trace minimization)  
+**TS**: "block" (using the maxmial chordal extension), "MD" (using approximately smallest chordal extention), false (without term sparsity)  
 
 To use correlative-term sparsity, run
 ```Julia
