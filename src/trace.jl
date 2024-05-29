@@ -141,7 +141,6 @@ end
 function traceopt_first(tr_supp::Vector{Vector{Union{Vector{Vector{Int}}, mixword}}}, coe, n, d; numeq=0, TS="block", monosquare=false, QUIET=false, constraint=nothing, solve=true, Gram=false,
     solver="Mosek", cosmo_setting=cosmo_para())
     println("********************************** NCTSSOS **********************************")
-    println("Version 0.2.0, developed by Jie Wang, 2020--2023")
     println("NCTSSOS is launching...")
     bsupp = get_ncbasis(n, d, binary=constraint!==nothing)
     ptsupp = get_ncbasis(n, 2d, binary=constraint!==nothing)
@@ -253,7 +252,6 @@ end
 function ptraceopt_first(tr_supp::Vector{Vector{Vector{Vector{Int}}}}, coe, n, d; numeq=0, TS="block", monosquare=false, QUIET=false, constraint=nothing, solve=true, Gram=false,
     solver="Mosek", cosmo_setting=cosmo_para())
     println("********************************** NCTSSOS **********************************")
-    println("Version 0.2.0, developed by Jie Wang, 2020--2023")
     println("NCTSSOS is launching...")
     bsupp = get_ncbasis(n, d, binary=constraint!==nothing)
     ptsupp = get_ncbasis(n, 2d, binary=constraint!==nothing)
@@ -683,7 +681,6 @@ end
 
 function Werner_witness_first(dY, sigma, n, d; TS="block", monosquare=false, QUIET=false, solve=true, solver="Mosek", cosmo_setting=cosmo_para())
     println("********************************** NCTSSOS **********************************")
-    println("Version 0.2.0, developed by Jie Wang, 2020--2023")
     println("NCTSSOS is launching...")
     bsupp = get_ncbasis(n, 2d)
     ind = [findfirst(j -> bsupp[i][j] == bsupp[i][j+1], 1:length(bsupp[i])-1) === nothing for i = 1:length(bsupp)]

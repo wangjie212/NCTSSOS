@@ -47,7 +47,6 @@ end
 function nctssos_first(supp::Vector{Vector{UInt16}}, coe, n::Int; order=0, newton=true, reducebasis=true, monosquare=true, TS="block",
     obj="eigen", partition=0, constraint=nothing, merge=false, md=3, solve=true, Gram=false, solver="Mosek", QUIET=false, cosmo_setting=cosmo_para())
     println("********************************** NCTSSOS **********************************")
-    println("Version 0.2.0, developed by Jie Wang, 2020--2023")
     println("NCTSSOS is launching...")
     if order == 0
         order = Int(maximum(length.(supp))/2)

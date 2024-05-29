@@ -139,11 +139,6 @@ end
 
 @ncpolyvar x[1:6]
 f = x[1]*(x[4] + x[5] + x[6]) + x[2]*(x[4] + x[5] - x[6]) + x[3]*(x[4] - x[5]) - x[1] - 2x[4] - x[5]
-@time begin
-opt,data = cs_nctssos_first(-f, x, d=2, partition=3, constraint="projection", TS=false, QUIET=true, obj="eigen")
-end
-println(Int(maximum(maximum.(data.blocksize))))
-@time begin
-opt,data = nctssos_first(-f, x, d=6, partition=3, constraint="projection", TS=false, QUIET=true, obj="eigen")
-end
-println(maximum(data.sb))
+@time opt,data = cs_nctssos_first(-f, x, 2, partition=3, constraint="projection", TS=false, QUIET=true, obj="eigen")
+
+@time opt,data = nctssos_first([-f], x, 5, add_soc=true, partition=3, constraint="projection", TS=false, QUIET=true, obj="eigen")

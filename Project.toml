@@ -1,7 +1,7 @@
 name = "NCTSSOS"
 uuid = "74af9cd0-d9b7-11ea-3577-f378dad115d4"
 authors = ["jwang <wangjie212@amss.ac.cn>"]
-version = "0.2.0"
+version = "0.3.0"
 
 [deps]
 COSMO = "1e616198-aa4e-51ec-90a2-23f7fbd31d8d"

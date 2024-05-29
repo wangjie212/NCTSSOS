@@ -70,7 +70,6 @@ end
 function pstateopt_first(st_supp::Vector{Vector{Vector{Vector{Int}}}}, coe, n, d; scalar=0, vargroup=[n], TS="block", monosquare=false, solver="Mosek",
     QUIET=false, constraint=nothing, solve=true, Gram=false, bilocal=false, cosmo_setting=cosmo_para(), zero_moments=false)
     println("********************************** NCTSSOS **********************************")
-    println("Version 0.2.0, developed by Jie Wang, 2020--2023")
     println("NCTSSOS is launching...")
     bsupp = get_ncbasis(n, d, binary=constraint!==nothing)
     ind = [iscomm(item, vargroup) for item in bsupp]

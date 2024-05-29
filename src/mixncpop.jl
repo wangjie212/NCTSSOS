@@ -27,7 +27,6 @@ end
 function cs_nctssos_first(f, x; d=0, CS="MF", minimize=false, TS="block", merge=false, md=3, QUIET=false, obj="eigen",
     solve=true, Gram=false, partition=0, constraint=nothing, solver="Mosek", cosmo_setting=cosmo_para())
     println("********************************** NCTSSOS **********************************")
-    println("Version 0.2.0, developed by Jie Wang, 2020--2023")
     println("NCTSSOS is launching...")
     n,supp,coe = poly_info(f, x)
     if d == 0
@@ -109,7 +108,6 @@ function cs_nctssos_first(supp::Vector{Vector{Vector{UInt16}}}, coe, n::Int, d::
     minimize=false, assign="first", TS="block", merge=false, md=3, QUIET=false, obj="eigen", solve=true, Gram=false,
     partition=0, constraint=nothing, cosmo_setting=cosmo_para())
     println("********************************** NCTSSOS **********************************")
-    println("Version 0.2.0, developed by Jie Wang, 2020--2023")
     println("NCTSSOS is launching...")
     m = length(supp)-1
     dg = [maximum(length.(supp[i])) for i=2:m+1]
