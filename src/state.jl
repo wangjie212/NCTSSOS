@@ -1,6 +1,7 @@
 mutable struct stateopt_type
     supp # support data
     coe # coefficient data
+    numeq # number of equality constraints
     scalar # number of scalar variables
     vargroup # variables commute across groups
     constraint # nothing or "projection" or "unipotent"
@@ -12,62 +13,89 @@ mutable struct stateopt_type
     cl # number of blocks
     blocksize # size of blocks
     ksupp # extended support at the k-th step
-    sb # sizes of different blocks
-    numb # numbers of different blocks
     moment # moment matrix
     GramMat # Gram matrix
 end
 
-function sym(word, vargroup)
-    cword = copy(word)
-    ind = [gind(word[i], vargroup) for i = 1:length(word)]
-    uind = unique(ind)
-    nind = [count(ind .== uind[i]) for i = 1:length(uind)]
-    k = 0
-    for i = 1:length(uind)
-        cword[k+1:k+nind[i]] = reverse(cword[k+1:k+nind[i]])
-        k += nind[i]
-    end
-    return min(word, cword)
-end
-
-function iscomm(a, vargroup)
-    for i = 1:length(a)-1
-        if a[i] > a[i+1] && gind(a[i], vargroup) != gind(a[i+1], vargroup)
-            return false
+function stateopt_first(st_supp::Vector{Vector{Union{Vector{Vector{Int}}, mixword}}}, coe, n, d; numeq=0, vargroup=[n], TS="block", monosquare=false, QUIET=false, constraint=nothing, solve=true, Gram=false,
+    solver="Mosek", cosmo_setting=cosmo_para())
+    println("********************************** NCTSSOS **********************************")
+    println("NCTSSOS is launching...")
+    bsupp = get_ncbasis(n, d, binary=constraint!==nothing)
+    ind = [iscomm(item, vargroup) for item in bsupp]
+    bsupp = bsupp[ind]
+    ptsupp = get_ncbasis(n, 2d, binary=constraint!==nothing)
+    ind = [sym(item, vargroup)==item for item in ptsupp]
+    ptsupp = ptsupp[ind]
+    ptsupp = ptsupp[2:end]
+    sort!(ptsupp, lt=isless_td)
+    m = length(st_supp) - 1
+    supp = Vector{Vector{Vector{Union{Vector{UInt16},UInt16}}}}(undef, length(st_supp))
+    supp[1] = [sort(UInt16[bfind(ptsupp, length(ptsupp), st_supp[1][i][j], lt=isless_td) for j=1:length(st_supp[1][i])])  for i=1:length(st_supp[1])]
+    for k = 1:m
+        supp[k+1] = Vector{Vector{Vector{UInt16}}}(undef, length(st_supp[k+1]))
+        for i = 1:length(st_supp[k+1])
+            supp[k+1][i] = Vector{Vector{UInt16}}(undef, 2)
+            supp[k+1][i][1] = convert(Vector{UInt16}, st_supp[k+1][i].ncword)
+            supp[k+1][i][2] = sort(UInt16[bfind(ptsupp, length(ptsupp), st_supp[k+1][i].cword[j], lt=isless_td) for j=1:length(st_supp[k+1][i].cword)])
         end
     end
-    return true
-end
-
-function gind(k, vargroup)
-    return findfirst(i -> k <= sum(vargroup[1:i]), 1:length(vargroup))
-end
-
-function res_comm!(a, vargroup)
-    i = 1
-    while i < length(a)
-        if a[i] > a[i+1] && gind(a[i], vargroup) != gind(a[i+1], vargroup)
-            temp = a[i]
-            a[i] = a[i+1]
-            a[i+1] = temp
-            if i > 1
-                i -= 1
+    dg = [maximum([length(st_supp[i+1][j].ncword) + sum(length.(st_supp[i+1][j].cword), init=0) for j=1:length(st_supp[i+1])]) for i=1:m]
+    if QUIET == false
+        println("Starting to compute the block structure...")
+    end
+    time = @elapsed begin
+    wbasis = Vector{Vector{Vector{UInt16}}}(undef, m+1)
+    tbasis = Vector{Vector{Vector{UInt16}}}(undef, m+1)
+    basis = Vector{Vector{Vector{UInt16}}}(undef, m+1)
+    wbasis[1],tbasis[1],basis[1] = get_wbasis(n, d, ptsupp, bsupp)
+    ksupp = copy(supp[1])
+    for i = 1:m
+        wbasis[i+1],tbasis[i+1],basis[i+1] = get_wbasis(n, d-Int(ceil(dg[i]/2)), ptsupp, bsupp)
+        for j = 1:length(supp[i+1])
+            bi = sort([supp[i+1][j][1]; supp[i+1][j][2]])
+            if bi != []
+                push!(ksupp, bi)
             end
-        else
-            i += 1
         end
     end
-    return a
+    if monosquare == true
+        for i = 1:length(wbasis[1])
+            bi1 = sort([tbasis[1][wbasis[1][i][1]]; tbasis[1][wbasis[1][i][1]]])
+            bi2 = [reverse(basis[1][wbasis[1][i][2]]); basis[1][wbasis[1][i][2]]]
+            res_comm!(bi2, vargroup)
+            if constraint !== nothing
+                constraint_reduce!(bi2, constraint=constraint)
+            end
+            bi = state_reduce(bi1, bi2, ptsupp, vargroup)
+            push!(ksupp, bi)
+        end
+    end
+    sort!(ksupp)
+    unique!(ksupp)
+    blocks,cl,blocksize = get_blocks(ksupp, ptsupp, wbasis, tbasis, basis, supp=supp, vargroup=vargroup, TS=TS, type="state", QUIET=QUIET, constraint=constraint)
+    end
+    if QUIET == false
+        mb = maximum(maximum.(blocksize))
+        println("Obtained the block structure in $time seconds.\nThe maximal size of blocks is $mb.")
+    end
+    opt,ksupp,moment,GramMat = pstate_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, vargroup, numeq=numeq, QUIET=QUIET, constraint=constraint,
+    solve=solve, Gram=Gram, solver=solver, cosmo_setting=cosmo_setting)
+    data = stateopt_type(supp, coe, numeq, 0, vargroup, constraint, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, ksupp, moment, GramMat)
+    return opt,data
 end
 
-function pstateopt_first(st_supp::Vector{Vector{Vector{Int}}}, coe, n, d; scalar=0, vargroup=[n], TS="block", monosquare=false, solver="Mosek",
+function stateopt_higher!(data; TS="block", solver="Mosek", QUIET=false, solve=true, Gram=false, cosmo_setting=cosmo_para())
+    return pstateopt_higher!(data, TS=TS, solver=solver, QUIET=QUIET, solve=solve, Gram=Gram, cosmo_setting=cosmo_setting)
+end
+
+function pstateopt_first(st_supp::Vector{Vector{Vector{Int}}}, coe, n, d; numeq=0, scalar=0, vargroup=[n], TS="block", monosquare=false, solver="Mosek",
     QUIET=false, constraint=nothing, solve=true, Gram=false, bilocal=false, cosmo_setting=cosmo_para(), zero_moments=false)
-    return pstateopt_first([st_supp], [coe], n, d, scalar=scalar, vargroup=vargroup, TS=TS, monosquare=monosquare, solver=solver, QUIET=QUIET,
+    return pstateopt_first([st_supp], [coe], n, d, numeq=numeq, scalar=scalar, vargroup=vargroup, TS=TS, monosquare=monosquare, solver=solver, QUIET=QUIET,
     constraint=constraint, solve=solve, Gram=Gram, bilocal=bilocal, cosmo_setting=cosmo_setting, zero_moments=zero_moments)
 end
 
-function pstateopt_first(st_supp::Vector{Vector{Vector{Vector{Int}}}}, coe, n, d; scalar=0, vargroup=[n], TS="block", monosquare=false, solver="Mosek",
+function pstateopt_first(st_supp::Vector{Vector{Vector{Vector{Int}}}}, coe, n, d; numeq=0, scalar=0, vargroup=[n], TS="block", monosquare=false, solver="Mosek",
     QUIET=false, constraint=nothing, solve=true, Gram=false, bilocal=false, cosmo_setting=cosmo_para(), zero_moments=false)
     println("********************************** NCTSSOS **********************************")
     println("NCTSSOS is launching...")
@@ -139,21 +167,22 @@ function pstateopt_first(st_supp::Vector{Vector{Vector{Vector{Int}}}}, coe, n, d
     end
     sort!(ksupp)
     unique!(ksupp)
-    blocks,cl,blocksize,sb,numb,_ = get_ncblocks(ksupp, ptsupp, wbasis, tbasis, basis, supp=supp, vargroup=vargroup, TS=TS, QUIET=QUIET, constraint=constraint, type="state", bilocal=bilocal, zero_moments=zero_moments)
+    blocks,cl,blocksize = get_blocks(ksupp, ptsupp, wbasis, tbasis, basis, supp=supp, vargroup=vargroup, TS=TS, QUIET=QUIET, constraint=constraint, type="state", bilocal=bilocal, zero_moments=zero_moments)
     end
     if QUIET == false
-        mb = maximum(maximum.(sb))
+        mb = maximum(maximum.(blocksize))
         println("Obtained the block structure in $time seconds.\nThe maximal size of blocks is $mb.")
     end
-    opt,ksupp,moment,GramMat = pstate_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, vargroup, solver=solver, QUIET=QUIET,
+    opt,ksupp,moment,GramMat = pstate_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, vargroup, numeq=numeq, solver=solver, QUIET=QUIET,
     constraint=constraint, solve=solve, Gram=Gram, bilocal=bilocal, cosmo_setting=cosmo_setting, zero_moments=zero_moments)
-    data = stateopt_type(supp, coe, scalar, vargroup, constraint, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, ksupp, sb, numb, moment, GramMat)
+    data = stateopt_type(supp, coe, numeq, scalar, vargroup, constraint, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, ksupp, moment, GramMat)
     return opt,data
 end
 
 function pstateopt_higher!(data; TS="block", solver="Mosek", QUIET=false, solve=true, Gram=false, bilocal=false, cosmo_setting=cosmo_para(), zero_moments=false)
     supp = data.supp
     coe = data.coe
+    numeq = data.numeq
     constraint = data.constraint
     vargroup = data.vargroup
     ptsupp = data.ptsupp
@@ -161,36 +190,34 @@ function pstateopt_higher!(data; TS="block", solver="Mosek", QUIET=false, solve=
     tbasis = data.tbasis
     basis = data.basis
     ksupp = data.ksupp
-    sb = data.sb
-    numb = data.numb
     if QUIET == false
         println("Starting to compute the block structure...")
     end
+    oblocksize = deepcopy(data.blocksize)
     time = @elapsed begin
-    blocks,cl,blocksize,sb,numb,status = get_ncblocks(ksupp, ptsupp, wbasis, tbasis, basis, supp=supp, vargroup=vargroup, sb=sb, numb=numb, TS=TS, QUIET=QUIET, constraint=constraint, type="state", bilocal=bilocal, zero_moments=zero_moments)
+    blocks,cl,blocksize = get_blocks(ksupp, ptsupp, wbasis, tbasis, basis, supp=supp, vargroup=vargroup, TS=TS, QUIET=QUIET, constraint=constraint, type="state", bilocal=bilocal, zero_moments=zero_moments)
     end
-    opt = moment = nothing
-    if status == 1
+    if blocksize == oblocksize
+        println("No higher TS step of the NCTSSOS hierarchy!")
+        opt = nothing
+    else
         if QUIET == false
-            mb = maximum(maximum.(sb))
+            mb = maximum(maximum.(blocksize))
             println("Obtained the block structure in $time seconds.\nThe maximal size of blocks is $mb.")
         end
-        opt,ksupp,moment,GramMat = pstate_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, vargroup, solver=solver, QUIET=QUIET,
+        opt,ksupp,moment,GramMat = pstate_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, vargroup, numeq=numeq, solver=solver, QUIET=QUIET,
         constraint=constraint, solve=solve, Gram=Gram, bilocal=bilocal, cosmo_setting=cosmo_setting, zero_moments=zero_moments)
         data.moment = moment
         data.GramMat = GramMat
+        data.ksupp = ksupp
+        data.blocks = blocks
+        data.cl = cl
+        data.blocksize = blocksize
     end
-    data.ksupp = ksupp
-    data.blocks = blocks
-    data.cl = cl
-    data.blocksize = blocksize
-    data.moment = moment
-    data.sb = sb
-    data.numb = numb
     return opt,data
 end
 
-function pstate_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, vargroup; solver="Mosek", QUIET=false, constraint=nothing,
+function pstate_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, vargroup; numeq=0, solver="Mosek", QUIET=false, constraint=nothing,
     solve=true, Gram=false, bilocal=false, cosmo_setting=cosmo_para(), zero_moments=false)
     m = length(supp) - 1
     ksupp = Vector{UInt32}[]
@@ -212,8 +239,8 @@ function pstate_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocks
         end
     end
     for k = 1:m, i = 1:cl[k+1], j = 1:blocksize[k+1][i], r = j:blocksize[k+1][i], s = 1:length(supp[k+1])
-        @inbounds bi1 = sort([tbasis[k+1][wbasis[k+1][blocks[k+1][i][j]][1]]; supp[k+1][s]; tbasis[k+1][wbasis[k+1][blocks[k+1][i][r]][1]]])
-        @inbounds bi2 = [reverse(basis[k+1][wbasis[k+1][blocks[k+1][i][j]][2]]); basis[k+1][wbasis[k+1][blocks[k+1][i][r]][2]]]
+        @inbounds bi1 = sort([tbasis[k+1][wbasis[k+1][blocks[k+1][i][j]][1]]; supp[k+1][s][2]; tbasis[k+1][wbasis[k+1][blocks[k+1][i][r]][1]]])
+        @inbounds bi2 = [reverse(basis[k+1][wbasis[k+1][blocks[k+1][i][j]][2]]); supp[k+1][s][1]; basis[k+1][wbasis[k+1][blocks[k+1][i][r]][2]]]
         res_comm!(bi2, vargroup)
         if constraint !== nothing
             constraint_reduce!(bi2, constraint=constraint)
@@ -289,10 +316,14 @@ function pstate_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocks
         for k = 1:m, i = 1:cl[k+1]
             bs = blocksize[k+1][i]
             if bs == 1
-                @inbounds gpos = @variable(model, lower_bound=0)
+                if k <= m-numeq
+                    gpos = @variable(model, lower_bound=0)
+                else
+                    gpos = @variable(model)
+                end
                 for s = 1:length(supp[k+1])
-                    @inbounds bi1 = sort([tbasis[k+1][wbasis[k+1][blocks[k+1][i][1]][1]]; supp[k+1][s]; tbasis[k+1][wbasis[k+1][blocks[k+1][i][1]][1]]])
-                    @inbounds bi2 = [reverse(basis[k+1][wbasis[k+1][blocks[k+1][i][1]][2]]); basis[k+1][wbasis[k+1][blocks[k+1][i][1]][2]]]
+                    @inbounds bi1 = sort([tbasis[k+1][wbasis[k+1][blocks[k+1][i][1]][1]]; supp[k+1][s][2]; tbasis[k+1][wbasis[k+1][blocks[k+1][i][1]][1]]])
+                    @inbounds bi2 = [reverse(basis[k+1][wbasis[k+1][blocks[k+1][i][1]][2]]); supp[k+1][s][1]; basis[k+1][wbasis[k+1][blocks[k+1][i][1]][2]]]
                     res_comm!(bi2, vargroup)
                     if constraint !== nothing
                         constraint_reduce!(bi2, constraint=constraint)
@@ -302,10 +333,14 @@ function pstate_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocks
                     @inbounds add_to_expression!(cons[Locb], coe[k+1][s], gpos)
                 end
             else
-                @inbounds gpos = @variable(model, [1:bs, 1:bs], PSD)
+                if k <= m-numeq
+                    @inbounds gpos = @variable(model, [1:bs, 1:bs], PSD)
+                else
+                    @inbounds gpos = @variable(model, [1:bs, 1:bs], Symmetric)
+                end
                 for j = 1:blocksize[k+1][i], r = j:blocksize[k+1][i], s = 1:length(supp[k+1])
-                    @inbounds bi1 = sort([tbasis[k+1][wbasis[k+1][blocks[k+1][i][j]][1]]; supp[k+1][s]; tbasis[k+1][wbasis[k+1][blocks[k+1][i][r]][1]]])
-                    @inbounds bi2 = [reverse(basis[k+1][wbasis[k+1][blocks[k+1][i][j]][2]]); basis[k+1][wbasis[k+1][blocks[k+1][i][r]][2]]]
+                    @inbounds bi1 = sort([tbasis[k+1][wbasis[k+1][blocks[k+1][i][j]][1]]; supp[k+1][s][2]; tbasis[k+1][wbasis[k+1][blocks[k+1][i][r]][1]]])
+                    @inbounds bi2 = [reverse(basis[k+1][wbasis[k+1][blocks[k+1][i][j]][2]]); supp[k+1][s][1]; basis[k+1][wbasis[k+1][blocks[k+1][i][r]][2]]]
                     res_comm!(bi2, vargroup)
                     if constraint !== nothing
                         constraint_reduce!(bi2, constraint=constraint)

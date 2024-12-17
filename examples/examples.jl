@@ -5,7 +5,7 @@ using NCTSSOS
 
 n = 3
 @ncpolyvar x[1:3]
-f = x[1]^2-x[1]*x[2]-x[2]*x[1]+3x[2]^2-2x[1]*x[2]*x[1]+2x[1]*x[2]^2*x[1]-x[2]*x[3]-x[3]*x[2]+
+f = x[1]^2-x[1]*x[2]-x[2]*x[1]+3.0x[2]^2-2x[1]*x[2]*x[1]+2x[1]*x[2]^2*x[1]-x[2]*x[3]-x[3]*x[2]+
 6x[3]^2+9x[2]^2*x[3]+9x[3]*x[2]^2-54x[3]*x[2]*x[3]+142x[3]*x[2]^2*x[3]
 
 pop = [f]
@@ -36,14 +36,14 @@ end
 opt,data = nctssos_first(supp, coe, n, newton=true, reducebasis=false, QUIET=true, solve=true, TS=false, obj="eigen")
 end
 @time begin
-opt,data = cs_nctssos_first(supp, coe, n, d=2, QUIET=true, TS=false, obj="eigen")
+opt,data = cs_nctssos_first([supp], [coe], n, 2, QUIET=true, TS=false, obj="eigen")
 end
 
 # @time begin
 # opt,data = nctssos_first(supp, coe, newton=true, reducebasis=false, TS="block", obj="eigen")
 # end
 @time begin
-opt,data = nctssos_first(supp, coe, n, 2, reducebasis=false, TS="MD", obj="eigen")
+opt,data = nctssos_first([supp], [coe], n, 2, reducebasis=false, TS="MD", obj="eigen")
 end
 
 @time begin

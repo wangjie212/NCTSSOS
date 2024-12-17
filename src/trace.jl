@@ -9,10 +9,8 @@ mutable struct traceopt_type
     basis # non-trace basis
     blocks # block structure
     cl # number of blocks
-    blocksize # the size of blocks
+    blocksize # size of blocks
     ksupp # extended support at the k-th step
-    sb # sizes of different blocks
-    numb # numbers of different blocks
     moment # moment matrix
     GramMat # Gram matrix
 end
@@ -124,20 +122,6 @@ function get_wbasis(n, d, ptsupp, bsupp; scalar=0)
     return wbasis,tbasis,basis
 end
 
-function isless_td(a, b)
-    if length(a) < length(b)
-        return true
-    elseif length(a) > length(b)
-        return false
-    else
-        return a < b
-    end
-end
-
-function sym_cyclic(word)
-    return min(_cyclic_canon(word), _cyclic_canon(reverse(word)))
-end
-
 function traceopt_first(tr_supp::Vector{Vector{Union{Vector{Vector{Int}}, mixword}}}, coe, n, d; numeq=0, TS="block", monosquare=false, QUIET=false, constraint=nothing, solve=true, Gram=false,
     solver="Mosek", cosmo_setting=cosmo_para())
     println("********************************** NCTSSOS **********************************")
@@ -156,7 +140,7 @@ function traceopt_first(tr_supp::Vector{Vector{Union{Vector{Vector{Int}}, mixwor
     supp = Vector{Vector{Vector{Union{Vector{UInt16},UInt16}}}}(undef, length(tr_supp))
     supp[1] = [sort(UInt16[bfind(ptsupp, length(ptsupp), tr_supp[1][i][j], lt=isless_td) for j=1:length(tr_supp[1][i])])  for i=1:length(tr_supp[1])]
     for k = 1:m
-        supp[k+1] = Vector{Vector{UInt16}}(undef, length(tr_supp[k+1]))
+        supp[k+1] = Vector{Vector{Vector{UInt16}}}(undef, length(tr_supp[k+1]))
         for i = 1:length(tr_supp[k+1])
             supp[k+1][i] = Vector{Vector{UInt16}}(undef, 2)
             supp[k+1][i][1] = convert(Vector{UInt16}, tr_supp[k+1][i].ncword)
@@ -186,22 +170,24 @@ function traceopt_first(tr_supp::Vector{Vector{Union{Vector{Vector{Int}}, mixwor
         for i = 1:length(wbasis[1])
             bi1 = sort([tbasis[1][wbasis[1][i][1]]; tbasis[1][wbasis[1][i][1]]])
             bi2 = [reverse(basis[1][wbasis[1][i][2]]); basis[1][wbasis[1][i][2]]]
-            constraint_reduce!(bi2, constraint=constraint)
+            if constraint !== nothing
+                constraint_reduce!(bi2, constraint=constraint)
+            end
             bi = trace_reduce(bi1, bi2, ptsupp, constraint=constraint)
             push!(ksupp, bi)
         end
     end
     sort!(ksupp)
     unique!(ksupp)
-    blocks,cl,blocksize,sb,numb,_ = get_ncblocks(ksupp, ptsupp, wbasis, tbasis, basis, supp=supp, TS=TS, QUIET=QUIET, constraint=constraint)
+    blocks,cl,blocksize = get_blocks(ksupp, ptsupp, wbasis, tbasis, basis, supp=supp, TS=TS, QUIET=QUIET, constraint=constraint)
     end
     if QUIET == false
-        mb = maximum(maximum.(sb))
+        mb = maximum(maximum.(blocksize))
         println("Obtained the block structure in $time seconds.\nThe maximal size of blocks is $mb.")
     end
     opt,ksupp,moment,GramMat = ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, numeq=numeq, QUIET=QUIET, constraint=constraint,
     solve=solve, Gram=Gram, solver=solver, cosmo_setting=cosmo_setting)
-    data = traceopt_type(supp, coe, numeq, constraint, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, ksupp, sb, numb, moment, GramMat)
+    data = traceopt_type(supp, coe, numeq, constraint, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, ksupp, moment, GramMat)
     return opt,data
 end
 
@@ -215,31 +201,30 @@ function traceopt_higher!(data; TS="block", QUIET=false, solve=true, solver="Mos
     tbasis = data.tbasis
     basis = data.basis
     ksupp = data.ksupp
-    sb = data.sb
-    numb = data.numb
     if QUIET == false
         println("Starting to compute the block structure...")
     end
+    oblocksize = deepcopy(data.blocksize)
     time = @elapsed begin
-    blocks,cl,blocksize,sb,numb,status = get_ncblocks(ksupp, ptsupp, wbasis, tbasis, basis, supp=supp, sb=sb, numb=numb, TS=TS, QUIET=QUIET, constraint=constraint)
+    blocks,cl,blocksize = get_blocks(ksupp, ptsupp, wbasis, tbasis, basis, supp=supp, TS=TS, QUIET=QUIET, constraint=constraint)
     end
-    opt = moment = nothing
-    if status == 1
+    if blocksize == oblocksize
+        println("No higher TS step of the NCTSSOS hierarchy!")
+        opt = nothing
+    else
         if QUIET == false
-            mb = maximum(maximum.(sb))
+            mb = maximum(maximum.(blocksize))
             println("Obtained the block structure in $time seconds.\nThe maximal size of blocks is $mb.")
         end
         opt,ksupp,moment,GramMat = ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, numeq=numeq, QUIET=QUIET, constraint=constraint,
         solve=solve, Gram=Gram, solver=solver, cosmo_setting=cosmo_setting)
+        data.ksupp = ksupp
+        data.blocks = blocks
+        data.cl = cl
+        data.blocksize = blocksize
+        data.moment = moment
+        data.GramMat = GramMat
     end
-    data.ksupp = ksupp
-    data.blocks = blocks
-    data.cl = cl
-    data.blocksize = blocksize
-    data.sb = sb
-    data.numb = numb
-    data.moment = moment
-    data.GramMat = GramMat
     return opt,data
 end
 
@@ -304,15 +289,15 @@ function ptraceopt_first(tr_supp::Vector{Vector{Vector{Vector{Int}}}}, coe, n, d
     end
     sort!(ksupp)
     unique!(ksupp)
-    blocks,cl,blocksize,sb,numb,_ = get_ncblocks(ksupp, ptsupp, wbasis, tbasis, basis, supp=supp, TS=TS, QUIET=QUIET, constraint=constraint)
+    blocks,cl,blocksize = get_blocks(ksupp, ptsupp, wbasis, tbasis, basis, supp=supp, TS=TS, QUIET=QUIET, constraint=constraint)
     end
     if QUIET == false
-        mb = maximum(maximum.(sb))
+        mb = maximum(maximum.(blocksize))
         println("Obtained the block structure in $time seconds.\nThe maximal size of blocks is $mb.")
     end
     opt,ksupp,moment,GramMat = ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, numeq=numeq, QUIET=QUIET, constraint=constraint,
     solve=solve, Gram=Gram, solver=solver, cosmo_setting=cosmo_setting)
-    data = traceopt_type(supp, coe, numeq, constraint, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, ksupp, sb, numb, moment, GramMat)
+    data = traceopt_type(supp, coe, numeq, constraint, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, ksupp, moment, GramMat)
     return opt,data
 end
 
@@ -326,31 +311,30 @@ function ptraceopt_higher!(data; TS="block", QUIET=false, solve=true, solver="Mo
     tbasis = data.tbasis
     basis = data.basis
     ksupp = data.ksupp
-    sb = data.sb
-    numb = data.numb
     if QUIET == false
         println("Starting to compute the block structure...")
     end
+    oblocksize = deepcopy(data.blocksize)
     time = @elapsed begin
-    blocks,cl,blocksize,sb,numb,status = get_ncblocks(ksupp, ptsupp, wbasis, tbasis, basis, supp=supp, sb=sb, numb=numb, TS=TS, QUIET=QUIET, constraint=constraint)
+    blocks,cl,blocksize = get_blocks(ksupp, ptsupp, wbasis, tbasis, basis, supp=supp, TS=TS, QUIET=QUIET, constraint=constraint)
     end
-    opt = moment = nothing
-    if status == 1
+    if blocksize == oblocksize
+        println("No higher TS step of the NCTSSOS hierarchy!")
+        opt = nothing
+    else
         if QUIET == false
-            mb = maximum(maximum.(sb))
+            mb = maximum(maximum.(blocksize))
             println("Obtained the block structure in $time seconds.\nThe maximal size of blocks is $mb.")
         end
         opt,ksupp,moment,GramMat = ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, numeq=numeq, QUIET=QUIET, constraint=constraint,
         solve=solve, Gram=Gram, solver=solver, cosmo_setting=cosmo_setting)
         data.moment = moment
         data.GramMat = GramMat
+        data.ksupp = ksupp
+        data.blocks = blocks
+        data.cl = cl
+        data.blocksize = blocksize
     end
-    data.ksupp = ksupp
-    data.blocks = blocks
-    data.cl = cl
-    data.blocksize = blocksize
-    data.sb = sb
-    data.numb = numb
     return opt,data
 end
 
@@ -560,7 +544,7 @@ function constraint_reduce!(word; constraint="unipotent")
     return word
 end
 
-function get_ncgraph(ksupp, ptsupp, wbasis, tbasis, basis; vargroup=nothing, constraint=nothing, type="trace", bilocal=false, zero_moments=false)
+function get_graph(ksupp, ptsupp, wbasis, tbasis, basis; vargroup=nothing, constraint=nothing, type="trace", bilocal=false, zero_moments=false)
     lb = length(wbasis)
     G = SimpleGraph(lb)
     lksupp = length(ksupp)
@@ -593,7 +577,7 @@ function get_ncgraph(ksupp, ptsupp, wbasis, tbasis, basis; vargroup=nothing, con
     return G
 end
 
-function get_nccgraph(ksupp, ptsupp, supp, wbasis, tbasis, basis; vargroup=nothing, constraint=nothing, type="trace", bilocal=false)
+function get_graph(ksupp, ptsupp, supp, wbasis, tbasis, basis; vargroup=nothing, constraint=nothing, type="trace", bilocal=false)
     lb = length(wbasis)
     G = SimpleGraph(lb)
     lksupp = length(ksupp)
@@ -608,8 +592,8 @@ function get_nccgraph(ksupp, ptsupp, supp, wbasis, tbasis, basis; vargroup=nothi
                 end
                 bi = trace_reduce(bi1, bi2, ptsupp, constraint=constraint)
             else
-                @inbounds bi1 = sort([tbasis[wbasis[i][1]]; supp[r]; tbasis[wbasis[j][1]]])
-                @inbounds bi2 = [reverse(basis[wbasis[i][2]]); basis[wbasis[j][2]]]
+                @inbounds bi1 = sort([tbasis[wbasis[i][1]]; supp[r][2]; tbasis[wbasis[j][1]]])
+                @inbounds bi2 = [reverse(basis[wbasis[i][2]]); supp[r][1]; basis[wbasis[j][2]]]
                 if vargroup !== nothing
                     res_comm!(bi2, vargroup)
                 end
@@ -631,7 +615,7 @@ function get_nccgraph(ksupp, ptsupp, supp, wbasis, tbasis, basis; vargroup=nothi
     return G
 end
 
-function get_ncblocks(ksupp, ptsupp, wbasis, tbasis, basis; supp=[], vargroup=nothing, sb=[], numb=[], TS="block", QUIET=false, constraint=nothing, type="trace", bilocal=false, zero_moments=false)
+function get_blocks(ksupp, ptsupp, wbasis, tbasis, basis; supp=[], vargroup=nothing, TS="block", QUIET=false, constraint=nothing, type="trace", bilocal=false, zero_moments=false)
     m = length(wbasis) - 1
     blocks = Vector{Vector{Vector{UInt16}}}(undef, m+1)
     blocksize = Vector{Vector{Int}}(undef, m+1)
@@ -640,43 +624,30 @@ function get_ncblocks(ksupp, ptsupp, wbasis, tbasis, basis; supp=[], vargroup=no
         blocksize = [[length(wbasis[k])] for k = 1:m+1]
         blocks = [[Vector(1:length(wbasis[k]))] for k = 1:m+1]
         cl = ones(Int, m+1)
-        status = 1
-        nsb = Int.(blocksize[1])
-        nnumb = [1]
     else
-        G = get_ncgraph(ksupp, ptsupp, wbasis[1], tbasis[1], basis[1], vargroup=vargroup, constraint=constraint, type=type, bilocal=bilocal, zero_moments=zero_moments)
-        if TS == "block"
-            blocks[1] = connected_components(G)
-            blocksize[1] = length.(blocks[1])
-            cl[1] = length(blocksize[1])
-        else
-            blocks[1],cl[1],blocksize[1] = chordal_cliques!(G, method=TS)
-        end
-        nsb = sort(unique(blocksize[1]), rev=true)
-        nnumb = [sum(blocksize[1].== i) for i in nsb]
-        if isempty(sb) || nsb != sb || nnumb != numb
-            status = 1
+        for k = 1:m+1
+            if k == 1
+                G = get_graph(ksupp, ptsupp, wbasis[1], tbasis[1], basis[1], vargroup=vargroup, constraint=constraint, type=type, bilocal=bilocal, zero_moments=zero_moments)
+            else
+                G = get_graph(ksupp, ptsupp, supp[k], wbasis[k], tbasis[k], basis[k], vargroup=vargroup, constraint=constraint, type=type, bilocal=bilocal)
+            end
+            if TS == "block"
+                blocks[k] = connected_components(G)
+                blocksize[k] = length.(blocks[k])
+                cl[k] = length(blocksize[k])
+            else
+                blocks[k],cl[k],blocksize[k] = chordal_cliques!(G, method=TS)
+            end
             if QUIET == false
+                sb = sort(Int.(unique(blocksize[k])), rev=true)
+                numb = [sum(blocksize[k].== i) for i in sb]
                 println("-----------------------------------------------------------------------------")
-                println("The sizes of PSD blocks:\n$nsb\n$nnumb")
+                println("The sizes of PSD blocks for the $k-th SOHS multiplier:\n$sb\n$numb")
                 println("-----------------------------------------------------------------------------")
             end
-            for k = 1:m
-                G = get_nccgraph(ksupp, ptsupp, supp[k+1], wbasis[k+1], tbasis[k+1], basis[k+1], vargroup=vargroup, constraint=constraint, type=type, bilocal=bilocal)
-                if TS == "block"
-                    blocks[k+1] = connected_components(G)
-                    blocksize[k+1] = length.(blocks[k+1])
-                    cl[k+1] = length(blocksize[k+1])
-                else
-                    blocks[k+1],cl[k+1],blocksize[k+1] = chordal_cliques!(G, method=TS, minimize=false)
-                end
-            end
-        else
-            status = 0
-            println("No higher TS step of the NCTSSOS hierarchy!")
         end
     end
-    return blocks,cl,blocksize,nsb,nnumb,status
+    return blocks,cl,blocksize
 end
 
 function Werner_witness_first(dY, sigma, n, d; TS="block", monosquare=false, QUIET=false, solve=true, solver="Mosek", cosmo_setting=cosmo_para())
@@ -710,14 +681,14 @@ function Werner_witness_first(dY, sigma, n, d; TS="block", monosquare=false, QUI
     end
     sort!(supp)
     unique!(supp)
-    blocks,cl,blocksize,sb,numb,_ = get_ncblocks(supp, ptsupp, [wbasis], [tbasis], [basis], TS=TS, QUIET=QUIET, constraint="projection")
+    blocks,cl,blocksize = get_blocks(supp, ptsupp, [wbasis], [tbasis], [basis], TS=TS, QUIET=QUIET, constraint="projection")
     end
     if QUIET == false
-        mb = maximum(maximum.(sb))
+        mb = maximum(maximum.(blocksize))
         println("Obtained the block structure in $time seconds.\nThe maximal size of blocks is $mb.")
     end
     opt,ksupp = Werner_SDP(dY, sigma, htrace, ptsupp, wbasis, tbasis, basis, blocks[1], cl[1], blocksize[1], QUIET=QUIET, solve=solve, solver=solver, cosmo_setting=cosmo_setting)
-    data = traceopt_type(htrace, dY, sigma, nothing, ptsupp, wbasis, tbasis, basis, blocks[1], cl[1], blocksize[1], ksupp, sb, numb, nothing, nothing)
+    data = traceopt_type(htrace, dY, sigma, nothing, ptsupp, wbasis, tbasis, basis, blocks[1], cl[1], blocksize[1], ksupp, nothing, nothing)
     return opt,data
 end
 
@@ -730,25 +701,23 @@ function Werner_witness_higher!(data; TS="block", QUIET=false, solve=true, solve
     tbasis = data.tbasis
     basis = data.basis
     ksupp = data.ksupp
-    sb = data.sb
-    numb = data.numb
     if QUIET == false
         println("Starting to compute the block structure...")
     end
+    oblocksize = deepcopy(data.blocksize)
     time = @elapsed begin
-    blocks,cl,blocksize,sb,numb,status = get_ncblocks(ksupp, ptsupp, [wbasis], [tbasis], [basis], sb=sb, numb=numb, TS=TS, QUIET=QUIET, constraint="projection")
+    blocks,cl,blocksize = get_blocks(ksupp, ptsupp, [wbasis], [tbasis], [basis], TS=TS, QUIET=QUIET, constraint="projection")
     end
-    opt = nothing
-    if status == 1
+    if blocksize == oblocksize
+        println("No higher TS step of the NCTSSOS hierarchy!")
+        opt = nothing
+    else
         if QUIET == false
-            mb = maximum(maximum.(sb))
+            mb = maximum(maximum.(blocksize))
             println("Obtained the block structure in $time seconds.\nThe maximal size of blocks is $mb.")
         end
-        opt,ksupp = Werner_SDP(dY, sigma, htrace, ptsupp, wbasis, tbasis, basis, blocks[1], cl[1], blocksize[1], QUIET=QUIET, solve=solve, solver=solver, cosmo_setting=cosmo_setting)
+        opt,data.ksupp = Werner_SDP(dY, sigma, htrace, ptsupp, wbasis, tbasis, basis, blocks[1], cl[1], blocksize[1], QUIET=QUIET, solve=solve, solver=solver, cosmo_setting=cosmo_setting)
     end
-    data.ksupp = ksupp
-    data.sb = sb
-    data.numb = numb
     return opt,data
 end
 
@@ -890,9 +859,4 @@ function _selete(var, d)
         set = [UInt16[]]
     end
     return set
-end
-
-function _cyclic_basis(var)
-    basis = _permutation(var, ones(length(var)))
-    return unique(_cyclic_canon.(basis))
 end

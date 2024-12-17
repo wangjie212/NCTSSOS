@@ -157,5 +157,5 @@ n = 6
 supp = Vector{UInt16}[[1;4], [1;5], [1;6], [2;4], [2;5], [2;6], [3;4], [3;5], [1], [2], [4], [5], []]
 coe = -[1/4, 1/4, 1/4, 1/4, 1/4, -1/4, 1/4, -1/4, 1/4, 1/4, -1/4, -1/4, -1]
 n = 6
-opt,data = nctssos_first(supp, coe, n, d=3, TS=false, partition=3, constraint="projection")
+opt,data = nctssos_first([supp], [coe], n, 3, TS=false, partition=3, constraint="projection")
 opt,data = nctssos_higher!(data, TS="block")

@@ -14,8 +14,6 @@ mutable struct cstateopt_type
     cl # number of blocks
     blocksize # size of blocks
     ksupp # extended support at the k-th step
-    sb # sizes of different blocks
-    numb # numbers of different blocks
     moment # moment matrix
     GramMat # Gram matrix
 end
@@ -42,21 +40,6 @@ function get_cwbasis(n, d, ptsupp, iptsupp, bsupp)
         end
     end
     return wbasis,tbasis,itbasis,basis
-end
-
-function issym(word, vargroup)
-    ind = [gind(word[i], vargroup) for i = 1:length(word)]
-    uind = unique(ind)
-    nind = [count(ind .== uind[i]) for i = 1:length(uind)]
-    k = 0
-    for i = 1:length(uind)
-        temp = word[k+1:k+nind[i]]
-        if reverse(temp) != temp
-            return false
-        end
-        k += nind[i]
-    end
-    return true
 end
 
 function cpstateopt_first(st_supp::Vector{Vector{Vector{Vector{Int}}}}, coe, n, d; vargroup=[n], TS="block", solver="Mosek",
@@ -147,16 +130,16 @@ function cpstateopt_first(st_supp::Vector{Vector{Vector{Vector{Vector{Int}}}}}, 
     end
     sort!(ksupp)
     unique!(ksupp)
-    blocks,cl,blocksize,sb,numb,_ = get_cncblocks(ksupp, ptsupp, iptsupp, wbasis, tbasis, itbasis, basis, supp=supp, vargroup=vargroup, TS=TS, 
+    blocks,cl,blocksize = get_blocks(ksupp, ptsupp, iptsupp, wbasis, tbasis, itbasis, basis, supp=supp, vargroup=vargroup, TS=TS, 
     QUIET=QUIET, constraint=constraint, bilocal=bilocal, zero_moments=zero_moments)
     end
     if QUIET == false
-        mb = maximum(maximum.(sb))
+        mb = maximum(maximum.(blocksize))
         println("Obtained the block structure in $time seconds.\nThe maximal size of blocks is $mb.")
     end
     opt,ksupp,moment,GramMat = cpstate_SDP(supp, coe, ptsupp, iptsupp, wbasis, tbasis, itbasis, basis, blocks, cl, blocksize, vargroup, solver=solver, QUIET=QUIET,
     constraint=constraint, solve=solve, Gram=Gram, bilocal=bilocal, cosmo_setting=cosmo_setting, zero_moments=zero_moments)
-    data = cstateopt_type(supp, coe, 0, vargroup, constraint, ptsupp, iptsupp, wbasis, tbasis, itbasis, basis, blocks, cl, blocksize, ksupp, sb, numb, moment, GramMat)
+    data = cstateopt_type(supp, coe, 0, vargroup, constraint, ptsupp, iptsupp, wbasis, tbasis, itbasis, basis, blocks, cl, blocksize, ksupp, moment, GramMat)
     return opt,data
 end
 
@@ -172,37 +155,35 @@ function cpstateopt_higher!(data; TS="block", solver="Mosek", QUIET=false, solve
     itbasis = data.itbasis
     basis = data.basis
     ksupp = data.ksupp
-    sb = data.sb
-    numb = data.numb
     if QUIET == false
         println("Starting to compute the block structure...")
     end
+    oblocksize = deepcopy(data.blocksize)
     time = @elapsed begin
-    blocks,cl,blocksize,sb,numb,status = get_cncblocks(ksupp, ptsupp, iptsupp, wbasis, tbasis, itbasis, basis, supp=supp, vargroup=vargroup, sb=sb, numb=numb, TS=TS, QUIET=QUIET, 
+    blocks,cl,blocksize = get_blocks(ksupp, ptsupp, iptsupp, wbasis, tbasis, itbasis, basis, supp=supp, vargroup=vargroup, TS=TS, QUIET=QUIET, 
     constraint=constraint, bilocal=bilocal, zero_moments=zero_moments)
     end
-    opt = moment = nothing
-    if status == 1
+    if blocksize == oblocksize
+        println("No higher TS step of the NCTSSOS hierarchy!")
+        opt = nothing
+    else
         if QUIET == false
-            mb = maximum(maximum.(sb))
+            mb = maximum(maximum.(blocksize))
             println("Obtained the block structure in $time seconds.\nThe maximal size of blocks is $mb.")
         end
         opt,ksupp,moment,GramMat = cpstate_SDP(supp, coe, ptsupp, iptsupp, wbasis, tbasis, itbasis, basis, blocks, cl, blocksize, vargroup, solver=solver, QUIET=QUIET,
         constraint=constraint, solve=solve, Gram=Gram, bilocal=bilocal, cosmo_setting=cosmo_setting, zero_moments=zero_moments)
         data.moment = moment
         data.GramMat = GramMat
+        data.ksupp = ksupp
+        data.blocks = blocks
+        data.cl = cl
+        data.blocksize = blocksize
     end
-    data.ksupp = ksupp
-    data.blocks = blocks
-    data.cl = cl
-    data.blocksize = blocksize
-    data.moment = moment
-    data.sb = sb
-    data.numb = numb
     return opt,data
 end
 
-function get_cncgraph(ksupp, ptsupp, iptsupp, wbasis, tbasis, itbasis, basis; vargroup=nothing, constraint=nothing, bilocal=false, zero_moments=false)
+function get_graph(ksupp, ptsupp, iptsupp, wbasis, tbasis, itbasis, basis; vargroup=nothing, constraint=nothing, bilocal=false, zero_moments=false)
     lb = length(wbasis)
     G = SimpleGraph(lb)
     lksupp = length(ksupp)
@@ -243,7 +224,7 @@ function get_cncgraph(ksupp, ptsupp, iptsupp, wbasis, tbasis, itbasis, basis; va
     return G
 end
 
-function get_cnccgraph(ksupp, ptsupp, iptsupp, supp, wbasis, tbasis, itbasis, basis; vargroup=nothing, constraint=nothing, bilocal=false)
+function get_graph(ksupp, ptsupp, iptsupp, supp, wbasis, tbasis, itbasis, basis; vargroup=nothing, constraint=nothing, bilocal=false)
     lb = length(wbasis)
     G = SimpleGraph(lb)
     lksupp = length(ksupp)
@@ -285,7 +266,7 @@ function get_cnccgraph(ksupp, ptsupp, iptsupp, supp, wbasis, tbasis, itbasis, ba
     return G
 end
 
-function get_cncblocks(ksupp, ptsupp, iptsupp, wbasis, tbasis, itbasis, basis; supp=[], vargroup=nothing, sb=[], numb=[], TS="block", QUIET=false, 
+function get_blocks(ksupp, ptsupp, iptsupp, wbasis, tbasis, itbasis, basis; supp=[], vargroup=nothing, TS="block", QUIET=false, 
     constraint=nothing, bilocal=false, zero_moments=false)
     m = length(wbasis) - 1
     blocks = Vector{Vector{Vector{UInt16}}}(undef, m+1)
@@ -295,43 +276,30 @@ function get_cncblocks(ksupp, ptsupp, iptsupp, wbasis, tbasis, itbasis, basis; s
         blocksize = [[length(wbasis[k])] for k = 1:m+1]
         blocks = [[Vector(1:length(wbasis[k]))] for k = 1:m+1]
         cl = ones(Int, m+1)
-        status = 1
-        nsb = Int.(blocksize[1])
-        nnumb = [1]
     else
-        G = get_cncgraph(ksupp, ptsupp, iptsupp, wbasis[1], tbasis[1], itbasis[1], basis[1], vargroup=vargroup, constraint=constraint, bilocal=bilocal, zero_moments=zero_moments)
-        if TS == "block"
-            blocks[1] = connected_components(G)
-            blocksize[1] = length.(blocks[1])
-            cl[1] = length(blocksize[1])
-        else
-            blocks[1],cl[1],blocksize[1] = chordal_cliques!(G, method=TS)
-        end
-        nsb = sort(unique(blocksize[1]), rev=true)
-        nnumb = [sum(blocksize[1].== i) for i in nsb]
-        if isempty(sb) || nsb != sb || nnumb != numb
-            status = 1
+        for k = 1:m+1
+            if k == 1
+                G = get_graph(ksupp, ptsupp, iptsupp, wbasis[1], tbasis[1], itbasis[1], basis[1], vargroup=vargroup, constraint=constraint, bilocal=bilocal, zero_moments=zero_moments)
+            else
+                G = get_graph(ksupp, ptsupp, iptsupp, supp[k], wbasis[k], tbasis[k], itbasis[k], basis[k], vargroup=vargroup, constraint=constraint, bilocal=bilocal)
+            end
+            if TS == "block"
+                blocks[k] = connected_components(G)
+                blocksize[k] = length.(blocks[k])
+                cl[k] = length(blocksize[k])
+            else
+                blocks[k],cl[k],blocksize[k] = chordal_cliques!(G, method=TS)
+            end
             if QUIET == false
+                sb = sort(Int.(unique(blocksize[k])), rev=true)
+                numb = [sum(blocksize[k].== i) for i in sb]
                 println("-----------------------------------------------------------------------------")
-                println("The sizes of PSD blocks:\n$nsb\n$nnumb")
+                println("The sizes of PSD blocks for the $k-th SOHS multiplier:\n$sb\n$numb")
                 println("-----------------------------------------------------------------------------")
             end
-            for k = 1:m
-                G = get_cnccgraph(ksupp, ptsupp, iptsupp, supp[k+1], wbasis[k+1], tbasis[k+1], itbasis[k+1], basis[k+1], vargroup=vargroup, constraint=constraint, bilocal=bilocal)
-                if TS == "block"
-                    blocks[k+1] = connected_components(G)
-                    blocksize[k+1] = length.(blocks[k+1])
-                    cl[k+1] = length(blocksize[k+1])
-                else
-                    blocks[k+1],cl[k+1],blocksize[k+1] = chordal_cliques!(G, method=TS, minimize=false)
-                end
-            end
-        else
-            status = 0
-            println("No higher TS step of the NCTSSOS hierarchy!")
         end
     end
-    return blocks,cl,blocksize,nsb,nnumb,status
+    return blocks,cl,blocksize
 end
 
 function cstate_reduce(word1, word2, ptsupp, iptsupp, vargroup; bilocal=false)

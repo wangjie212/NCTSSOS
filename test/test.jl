@@ -7,29 +7,29 @@ f = x[1]^2-x[1]*x[2]-x[2]*x[1]+3x[2]^2-2x[1]*x[2]*x[1]+2x[1]*x[2]^2*x[1]-x[2]*x[
 6x[3]^2+9x[2]^2*x[3]+9x[3]*x[2]^2-54x[3]*x[2]*x[3]+142x[3]*x[2]^2*x[3]
 
 opt,data = nctssos_first(f, x, newton=true, reducebasis=true, TS="MD", obj="eigen", QUIET=true)
-# optimum = -0.003551284602431855
+# optimum = -0.0035512
 
 opt,data = nctssos_first(f, x, newton=true, TS="MD", obj="trace", QUIET=true)
-# optimum = -0.003551220558660223
+# optimum = -0.0035512
 
 n = 2
 @ncpolyvar x[1:2]
 f = 2-x[1]^2+x[1]*x[2]^2*x[1]-x[2]^2
-g1 = 4-x[1]^2-x[2]^2
-g2 = x[1]*x[2]+x[2]*x[1]-2
-pop = [f, g1, g2]
+g = 4-x[1]^2-x[2]^2
+h = x[1]*x[2]+x[2]*x[1]-2
+pop = [f, g, h]
 
 opt,data = nctssos_first(pop, x, 2, numeq=1, TS="MD", obj="eigen", QUIET=true)
-# optimum = -0.9999999892683991
+# optimum = -0.9999999
 
 opt,data = nctssos_higher!(data, TS="MD", QUIET=true)
-# optimum = -0.9999999673495177
+# optimum = -0.9999999
 
 opt,data = nctssos_first(pop, x, 2, numeq=1, TS="MD", obj="trace", QUIET=true)
-# optimum = -0.9999999992878111
+# optimum = -0.9999999
 
 opt,data = nctssos_higher!(data, TS="MD", QUIET=true)
-# optimum = -0.9999999980730225
+# optimum = -0.9999999
 
 n = 10
 @ncpolyvar x[1:n]
@@ -42,11 +42,11 @@ for i = 1:n
     f += sum([x[j]*x[k]+2x[j]^2*x[k]+x[j]^2*x[k]^2 for j in jset for k in jset])
 end
 
-opt,data = cs_nctssos_first(f, x, TS="MD", obj="trace", QUIET=true)
-# optimum = 6.58871795185132e-8
+opt,data = cs_nctssos_first([f], x, 3, TS="MD", obj="trace", QUIET=true)
+# optimum = 6.5e-8
 
 opt,data = cs_nctssos_higher!(data, TS="MD", QUIET=true)
-# optimum = 6.069573675277303e-8
+# optimum = 6.5e-7
 
 pop = [f]
 for i = 1:n
@@ -55,9 +55,9 @@ for i = 1:n
 end
 
 opt,data = cs_nctssos_first(pop, x, 3, TS="MD", obj="eigen", QUIET=true)
-# optimum = 3.011288257024969
+# optimum = 3.011288
 
 opt,data = cs_nctssos_first(pop, x, 3, TS="MD", obj="trace", QUIET=true)
-# optimum = 3.011288463157983
+# optimum = 3.011288
 
 println("Run successfully!")
