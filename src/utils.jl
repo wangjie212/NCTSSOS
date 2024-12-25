@@ -34,6 +34,18 @@ function _cyclic_canon(a::Vector{UInt16})
     end
 end
 
+function _cyclic_canon(w::Monomial{false})
+    ind = w.z .> 0
+    wz = w.z[ind]
+    wv = w.vars[ind]
+    lw = length(wz)
+    if lw == 0
+        return w
+    else
+        return minimum([prod([wv[i+1:lw]; wv[1:i]] .^ [wz[i+1:lw]; wz[1:i]]) for i=0:lw-1])
+    end
+end
+
 function cyclic_canon(supp, coe; type=Float64)
     nsupp = [min(_cyclic_canon(word), _cyclic_canon(reverse(word))) for word in supp]
     sort!(nsupp)
@@ -60,6 +72,10 @@ function _sym_canon(a::Vector{UInt16})
         end
     end
     return a
+end
+
+function _sym_canon(w::Monomial{false})
+    return min(w, star(w))
 end
 
 function is_sym(a::Vector{UInt16})
@@ -111,7 +127,7 @@ function _get_ncbasis_deg(n, d; ind=Vector{UInt16}(1:n), binary=false)
     end
 end
 
-function reduce_cons!(word; constraint="unipotent")
+function reduce_cons!(word::Vector{UInt16}; constraint="unipotent")
     i = 1
     while i < length(word)
         if word[i] == word[i+1]
@@ -126,7 +142,17 @@ function reduce_cons!(word; constraint="unipotent")
     return word
 end
 
-function reduce!(word; obj="eigen", partition=0, constraint=nothing)
+function reduce_cons(w::Monomial{false}; constraint="unipotent")
+    ind = w.z .> 1
+    if constraint == "unipotent"
+        w.z[ind] .= 0
+    else
+        w.z[ind] .= 1
+    end
+    return prod(w.vars .^ w.z)
+end
+
+function reduce!(word::Vector{UInt16}; obj="eigen", partition=0, constraint=nothing)
     if obj == "trace"
         word = min(_cyclic_canon(word), _cyclic_canon(reverse(word)))
     else
@@ -144,10 +170,33 @@ function reduce!(word; obj="eigen", partition=0, constraint=nothing)
     return word
 end
 
+function reduce(word::Monomial{false}, x; obj="eigen", partition=0, constraint=nothing)
+    if obj == "trace"
+        word = min(_cyclic_canon(word), _cyclic_canon(star(word)))
+    else
+        if partition > 0 && constraint === nothing
+            word = min(_comm(word, x, partition), _comm(star(word), x, partition))
+        elseif partition == 0 && constraint !== nothing
+            word = min(reduce_cons(word, constraint = constraint), reduce_cons(star(word), constraint = constraint))
+        elseif partition > 0 && constraint !== nothing
+            word = min(reduce_cons(_comm(word, x, partition), constraint = constraint), reduce_cons(_comm(star(word), x, partition), constraint = constraint))
+        else
+            word = _sym_canon(word)
+        end
+    end
+    return word
+end
+
 function _comm(word::Vector{UInt16}, partition)
     ind1 = word .<= partition
     ind2 = word .> partition
     return [word[ind1]; word[ind2]]
+end
+
+function _comm(w::Monomial{false}, x, partition)
+    ind1 = w.vars .>= x[partition]
+    ind2 = w.vars .< x[partition]
+    return prod([w.vars[ind1]; w.vars[ind2]] .^ [w.z[ind1]; w.z[ind2]])
 end
 
 function bfind(A, l, a; lt=isless, rev=false)
@@ -318,4 +367,71 @@ function issym(word, vargroup)
         k += nind[i]
     end
     return true
+end
+
+function star(w)
+    return prod(reverse(w.vars).^reverse(w.z))
+end
+
+# generate an SOHS polynomial with variables vars and degree 2d
+function add_SOHS!(model, vars, d; obj="eigen", partition=0, constraint=nothing)
+    basis = vcat([MultivariatePolynomials.monomials(vars, i) for i = 0:d]...)
+    if constraint !== nothing
+        basis = basis[[all(item.z .< 2) for item in basis]]
+    end
+    if partition > 0
+        ind = Int[]
+        for (i,item) in enumerate(basis)
+            vs = item.vars[item.z .> 0]
+            if findfirst(j -> vs[j] < vars[partition] && vs[j+1] >= vars[partition], 1:length(vs)-1) === nothing
+                push!(ind, i)
+            end
+        end
+        basis = basis[ind]
+    end
+    sohs = 0
+    pos = @variable(model, [1:length(basis), 1:length(basis)], PSD)
+    for j = 1:length(basis), k = j:length(basis)
+        word = reduce(star(basis[j])*basis[k], vars, obj=obj, partition=partition, constraint=constraint)
+        if j == k
+            @inbounds sohs += pos[j,k]*word
+        else
+            @inbounds sohs += 2*pos[j,k]*word
+        end
+    end
+    return sohs
+end
+
+# generate a polynomial with variables vars and degree d
+function add_poly!(model, vars, d; obj="eigen", partition=0, constraint=nothing)
+    basis = vcat([MultivariatePolynomials.monomials(vars, i) for i = 0:d]...)
+    if constraint !== nothing
+        basis = basis[[all(item.z .< 2) for item in basis]]
+    end
+    if partition > 0
+        ind = Int[]
+        for (i,item) in enumerate(basis)
+            vs = item.vars[item.z .> 0]
+            if findfirst(j -> vs[j] < vars[partition] && vs[j+1] >= vars[partition], 1:length(vs)-1) === nothing
+                push!(ind, i)
+            end
+        end
+        basis = basis[ind]
+    end
+    free = @variable(model, [1:length(basis)])
+    poly = free'*basis
+    return poly
+end
+
+function arrange(p, vars; obj="eigen", partition=0, constraint=nothing)
+    mons = monomials(p)
+    coe = coefficients(p)
+    mons = [reduce(mon, vars, obj=obj, partition=partition, constraint=constraint) for mon in mons]
+    nmons = unique(sort(mons))
+    ncoe = zeros(typeof(coe[1]), length(nmons))
+    for (i,item) in enumerate(coe)
+        Locb = bfind(nmons, length(nmons), mons[i])
+        ncoe[Locb] += coe[i]
+    end
+    return nmons,ncoe
 end

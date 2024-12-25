@@ -13,7 +13,8 @@ using COSMO
 
 export nctssos_first, nctssos_higher!, cs_nctssos_first, cs_nctssos_higher!, ptraceopt_first, ptraceopt_higher!, 
 pstateopt_first, pstateopt_higher!, Werner_witness_first, Werner_witness_higher!, cosmo_para, mixword, traceopt_first,
-traceopt_higher!, cpstateopt_first, stateopt_first, stateopt_higher!, cpstateopt_higher!, add_psatz!, get_moment_matrix
+traceopt_higher!, cpstateopt_first, stateopt_first, stateopt_higher!, cpstateopt_higher!, add_psatz!, get_moment_matrix,
+add_SOHS!, add_poly!, arrange
 
 include("clique_merge.jl")
 include("ncupop.jl")

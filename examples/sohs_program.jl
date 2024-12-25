@@ -11,10 +11,11 @@ g = 4-x[1]^2-x[2]^2
 h = x[1]*x[2]+x[2]*x[1]-2
 d = 2
 
+# modelling with add_psatz!
 model = Model(optimizer_with_attributes(Mosek.Optimizer))
 set_optimizer_attribute(model, MOI.Silent(), false)
 λ = @variable(model)
-model,info1 = add_psatz!(model, f - λ, x, [g], [h], d, QUIET=true, TS="block", constrs="con1")
+model,info1 = add_psatz!(model, f - λ, x, [g], [h], d, QUIET=true, TS=false, constrs="con1")
 @objective(model, Max, λ)
 optimize!(model)
 status = termination_status(model)
@@ -38,3 +39,23 @@ end
 # retrieve moment matrices
 moment = [-dual(constraint_by_name(model, "con1[$i]")) for i=1:length(info1.tsupp)]
 MomMat = get_moment_matrix(moment, info1.tsupp, info1.cql, info1.basis)
+
+
+# modelling with add_SOHS!
+model = Model(optimizer_with_attributes(Mosek.Optimizer))
+set_optimizer_attribute(model, MOI.Silent(), false)
+λ = @variable(model)
+s0 = add_SOHS!(model, x, 2)
+s1 = add_SOHS!(model, x, 1)
+p = add_poly!(model, x, 2)
+@constraint(model, arrange(f - λ - s0 - s1*g - p*h, x)[2] .== 0)
+@objective(model, Max, λ)
+optimize!(model)
+status = termination_status(model)
+if status != MOI.OPTIMAL
+    println("termination status: $status")
+    status = primal_status(model)
+    println("solution status: $status")
+end
+objv = objective_value(model)
+@show objv
