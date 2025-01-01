@@ -369,8 +369,12 @@ function issym(word, vargroup)
     return true
 end
 
-function star(w)
+function star(w::Monomial{false})
     return prod(reverse(w.vars).^reverse(w.z))
+end
+
+function star(p::Polynomial{false})
+    return coefficients(p)'*star.(monomials(p))
 end
 
 # generate an SOHS polynomial with variables vars and degree 2d

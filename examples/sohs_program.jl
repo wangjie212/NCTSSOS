@@ -6,10 +6,13 @@ using NCTSSOS
 
 n = 2
 @ncpolyvar x[1:2]
-f = 2-x[1]^2+x[1]*x[2]^2*x[1]-x[2]^2
-g = 4-x[1]^2-x[2]^2
-h = x[1]*x[2]+x[2]*x[1]-2
+f = 2 - x[1]^2 + x[1]*x[2]^2*x[1] - x[2]^2
+g = 4 - x[1]^2 - x[2]^2
+h = x[1]*x[2] + x[2]*x[1] - 2
 d = 2
+
+# modelling with nctssos
+opt,data = nctssos_first([f;g;h], x, d, numeq=1, TS=false)
 
 # modelling with add_psatz!
 model = Model(optimizer_with_attributes(Mosek.Optimizer))
@@ -48,7 +51,7 @@ set_optimizer_attribute(model, MOI.Silent(), false)
 s0 = add_SOHS!(model, x, 2)
 s1 = add_SOHS!(model, x, 1)
 p = add_poly!(model, x, 2)
-@constraint(model, arrange(f - λ - s0 - s1*g - p*h, x)[2] .== 0)
+@constraint(model, arrange(f - λ - s0 - s1*g - p*h - h*star(p), x)[2] .== 0)
 @objective(model, Max, λ)
 optimize!(model)
 status = termination_status(model)

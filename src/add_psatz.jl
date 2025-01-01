@@ -182,12 +182,6 @@ function add_psatz!(model, nonneg, vars, ineq_cons, eq_cons, order; obj="eigen",
                     bi = reduce!(bi, obj=obj, partition=partition, constraint=constraint)
                     Locb = bfind(tsupp, ltsupp, bi)
                     @inbounds add_to_expression!(cons[Locb], hcoe[J[t][k]][s], mul[t][k][i])
-                    if !is_sym(basis[t][k+length(I[t])+1][eblocks[t][k][i]])
-                        bi = [basis[t][k+length(I[t])+1][eblocks[t][k][i]][end:-1:1]; item]
-                        bi = reduce!(bi, obj=obj, partition=partition, constraint=constraint)
-                        Locb = bfind(tsupp, ltsupp, bi)
-                        @inbounds add_to_expression!(cons[Locb], hcoe[J[t][k]][s], mul[t][k][i])
-                    end
                 end
             end
         end
