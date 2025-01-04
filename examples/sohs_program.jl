@@ -48,9 +48,9 @@ MomMat = get_moment_matrix(moment, info1.tsupp, info1.cql, info1.basis)
 model = Model(optimizer_with_attributes(Mosek.Optimizer))
 set_optimizer_attribute(model, MOI.Silent(), false)
 λ = @variable(model)
-s0 = add_SOHS!(model, x, 2)
+s0 = add_SOHS!(model, x, 2) # generate an unknown sohs of degree 2d
 s1 = add_SOHS!(model, x, 1)
-p = add_poly!(model, x, 2)
+p = add_poly!(model, x, 2) # generate an unknown nc polynomial of degree d
 @constraint(model, arrange(f - λ - s0 - s1*g - p*h - h*star(p), x)[2] .== 0)
 @objective(model, Max, λ)
 optimize!(model)
