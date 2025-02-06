@@ -34,15 +34,15 @@ Return the optimum and other auxiliary data.
 """
 
 function nctssos_first(pop::Vector{Polynomial{false, T}} where T<:Number, x::Vector{PolyVar{false}}, order::Int; numeq=0, 
-    reducebasis=false, TS="block", add_soc=false, obj="eigen", merge=false, md=3, solve=true, Gram=false, QUIET=false,
+    reducebasis=false, TS="block", soc=false, obj="eigen", merge=false, md=3, solve=true, Gram=false, QUIET=false,
     solver="Mosek", partition=0, constraint=nothing, normality=false, cosmo_setting=cosmo_para())
     n,supp,coe = polys_info(pop, x)
-    opt,data = nctssos_first(supp, coe, n, order, numeq=numeq, reducebasis=reducebasis, TS=TS, obj=obj, merge=merge, add_soc=add_soc,
+    opt,data = nctssos_first(supp, coe, n, order, numeq=numeq, reducebasis=reducebasis, TS=TS, obj=obj, merge=merge, soc=soc,
     md=md, QUIET=QUIET, solve=solve, solver=solver, Gram=Gram, partition=partition, constraint=constraint, normality=normality, cosmo_setting=cosmo_setting)
     return opt,data
 end
 
-function nctssos_first(supp::Vector{Vector{Vector{UInt16}}}, coe, n::Int64, order::Int64; numeq=0, reducebasis=false, TS="block", add_soc=false,
+function nctssos_first(supp::Vector{Vector{Vector{UInt16}}}, coe, n::Int64, order::Int64; numeq=0, reducebasis=false, TS="block", soc=false,
     obj="eigen", merge=false, md=3, solve=true, solver="Mosek", Gram=false, QUIET=false, partition=0, constraint=nothing, normality=false, cosmo_setting=cosmo_para())
     println("********************************** NCTSSOS **********************************")
     println("NCTSSOS is launching...")
@@ -112,13 +112,13 @@ function nctssos_first(supp::Vector{Vector{Vector{UInt16}}}, coe, n::Int64, orde
         mb = maximum(maximum.(blocksize))
         println("Obtained the block structure in $time seconds. The maximal size of blocks is $mb.")
     end
-    opt,ksupp,moment,GramMat = solvesdp(order, n, m, supp, coe, basis, blocks, cl, blocksize, numeq=numeq, QUIET=QUIET, obj=obj, add_soc=add_soc,
+    opt,ksupp,moment,GramMat = solvesdp(order, n, m, supp, coe, basis, blocks, cl, blocksize, numeq=numeq, QUIET=QUIET, obj=obj, soc=soc,
     TS=TS, solve=solve, solver=solver, Gram=Gram, partition=partition, constraint=constraint, normality=normality, cosmo_setting=cosmo_setting)
     data = nccpop_data(n, m, order, numeq, supp, coe, partition, constraint, obj, basis, ksupp, blocks, cl, blocksize, moment, GramMat)
     return opt,data
 end
 
-function nctssos_higher!(data::nccpop_data; TS="block", add_soc=false, merge=false, md=3, solve=true, solver="Mosek", Gram=false, QUIET=false, 
+function nctssos_higher!(data::nccpop_data; TS="block", soc=false, merge=false, md=3, solve=true, solver="Mosek", Gram=false, QUIET=false, 
     normality=false, cosmo_setting=cosmo_para())
     n = data.n
     m = data.m
@@ -149,7 +149,7 @@ function nctssos_higher!(data::nccpop_data; TS="block", add_soc=false, merge=fal
             mb = maximum(maximum.(blocksize))
             println("Obtained the block structure in $time seconds.\nThe maximal size of blocks is $mb.")
         end
-        opt,ksupp,moment,GramMat = solvesdp(data.order, n, m, supp, coe, basis, blocks, cl, blocksize, numeq=numeq, QUIET=QUIET, obj=obj, add_soc=add_soc,
+        opt,ksupp,moment,GramMat = solvesdp(data.order, n, m, supp, coe, basis, blocks, cl, blocksize, numeq=numeq, QUIET=QUIET, obj=obj, soc=soc,
         TS=TS, solve=solve, solver=solver, Gram=Gram, partition=partition, constraint=constraint, normality=normality, cosmo_setting=cosmo_setting)
         data.moment = moment
         data.GramMat = GramMat
@@ -290,7 +290,7 @@ function get_blocks(m, ksupp, gsupp, basis; blocks=[], cl=[], blocksize=[], TS="
 end
 
 function solvesdp(order, n, m, supp, coe, basis, blocks, cl, blocksize; numeq=0, QUIET=true, obj="eigen",
-    solve=true, solver="Mosek", TS="block", Gram=false, add_soc=false, partition=0, constraint=nothing, 
+    solve=true, solver="Mosek", TS="block", Gram=false, soc=false, partition=0, constraint=nothing, 
     normality=false, cosmo_setting=cosmo_para())
     ksupp = Vector{UInt16}[]
     for i = 1:cl[1], j = 1:blocksize[1][i], r = j:blocksize[1][i]
@@ -301,7 +301,7 @@ function solvesdp(order, n, m, supp, coe, basis, blocks, cl, blocksize; numeq=0,
         gsupp = get_gsupp(m, supp, basis[2:end], blocks[2:end], cl[2:end], blocksize[2:end])
         append!(ksupp, gsupp)
     end
-    if add_soc == true
+    if soc == true
         df = maximum(length.(supp[1]))
         slb = basis[1][length.(basis[1]) .<= 2*order-df]
         spb = basis[1][length.(basis[1]) .<= order-Int(ceil(df/2))]
@@ -451,7 +451,7 @@ function solvesdp(order, n, m, supp, coe, basis, blocks, cl, blocksize; numeq=0,
                 end
             end
         end
-        if add_soc == true
+        if soc == true
             fr = @variable(model, [1:length(slb)])
             for (i,item) in enumerate(slb), s = 1:length(supp[1])
                 @inbounds bi = [supp[1][s]; item]

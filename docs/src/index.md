@@ -1,16 +1,14 @@
 # NCTSSOS
 
-[NCTSSOS](https://github.com/wangjie212/NCTSSOS) is a noncommutative polynomial optimization package based on the sparsity adapted moment-SOHS hierarchies.
-
----
+[NCTSSOS](https://github.com/wangjie212/NCTSSOS) aims to provide a user-friendly and efficient tool for solving optimization problems with non-commutative/trace/state polynomials, which is based on the structured moment-SOHS hierarchy.
 
 ### Authors
 
-- [Jie Wang](https://wangjie212.github.io/jiewang),  LAAS-CNRS.
+- [Jie Wang](https://wangjie212.github.io/jiewang), Academy of Mathematics and Systems Science, Chinese Academy of Sciences.
 
 ### Installation
 
-[NCTSSOS](https://github.com/wangjie212/NCTSSOS) is simply installed by running
+[NCTSSOS](https://github.com/wangjie212/NCTSSOS) could be installed by running
 
 ```julia
 pkg> add https://github.com/wangjie212/NCTSSOS
@@ -22,11 +20,10 @@ pkg> add https://github.com/wangjie212/NCTSSOS
 - [MultivariatePolynomials](https://github.com/JuliaAlgebra/MultivariatePolynomials.jl): Polynomials manipulations
 - [TSSOS](https://github.com/wangjie212/TSSOS): Commutative polynomial optimization
 - [ChordalGraph](https://github.com/wangjie212/ChordalGraph): Chordal graphs and chordal extentions
-- [SparseJSR](https://github.com/wangjie212/SparseJSR): Computing joint spetral radius
 
 ### References
 
-1. [Exploiting term sparsity in Noncommutative Polynomial Optimization](https://arxiv.org/abs/2010.06956), Jie Wang and Victor Magron, 2020.
-2. [TSSOS: A Moment-SOS hierarchy that exploits term sparsity](https://arxiv.org/abs/1912.08899), Jie Wang, Victor Magron and Jean B. Lasserre, 2020.
-3. [Chordal-TSSOS: a moment-SOS hierarchy that exploits term sparsity with chordal extension](https://arxiv.org/abs/2003.03210), Jie Wang, Victor Magron and Jean B. Lasserre, 2020.
-4. [CS-TSSOS: Correlative and term sparsity for large-scale polynomial optimization](https://arXiv:2005.02828), Jie Wang, Victor Magron, Jean B. Lasserre and Ngoc H. A. Mai, 2020.
+[1] [Exploiting Term Sparsity in Noncommutative Polynomial Optimization](https://arxiv.org/abs/2010.06956), 2021.  
+[2] [Sparse polynomial optimization: theory and practice](https://arxiv.org/abs/2208.11158), 2023.  
+[3] [Optimization of polynomials in non-commuting variables](https://link.springer.com/content/pdf/10.1007/978-3-319-33338-0.pdf), 2016.  
+[4] [State polynomials: positivity, optimization and nonlinear Bell inequalities](https://arxiv.org/abs/2301.12513), 2023. 

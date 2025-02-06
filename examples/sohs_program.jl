@@ -21,12 +21,6 @@ set_optimizer_attribute(model, MOI.Silent(), false)
 model,info1 = add_psatz!(model, f - λ, x, [g], [h], d, QUIET=true, TS=false, constrs="con1")
 @objective(model, Max, λ)
 optimize!(model)
-status = termination_status(model)
-if status != MOI.OPTIMAL
-    println("termination status: $status")
-    status = primal_status(model)
-    println("solution status: $status")
-end
 objv = objective_value(model)
 @show objv
 
@@ -54,11 +48,5 @@ p = add_poly!(model, x, 2) # generate an unknown nc polynomial of degree d
 @constraint(model, arrange(f - λ - s0 - s1*g - p*h - h*star(p), x)[2] .== 0)
 @objective(model, Max, λ)
 optimize!(model)
-status = termination_status(model)
-if status != MOI.OPTIMAL
-    println("termination status: $status")
-    status = primal_status(model)
-    println("solution status: $status")
-end
 objv = objective_value(model)
 @show objv
