@@ -22,8 +22,7 @@ pkg> add https://github.com/wangjie212/NCTSSOS
 - [ChordalGraph](https://github.com/wangjie212/ChordalGraph): Chordal graphs and chordal extentions
 
 ### References
-
-[1] [Exploiting Term Sparsity in Noncommutative Polynomial Optimization](https://arxiv.org/abs/2010.06956), 2021.  
-[2] [Sparse polynomial optimization: theory and practice](https://arxiv.org/abs/2208.11158), 2023.  
+[1] [Exploiting Term Sparsity in Noncommutative Polynomial Optimization](https://arxiv.org/abs/2010.06956), 2021.    
+[2] [Sparse polynomial optimization: theory and practice](https://arxiv.org/abs/2208.11158), 2023.     
 [3] [Optimization of polynomials in non-commuting variables](https://link.springer.com/content/pdf/10.1007/978-3-319-33338-0.pdf), 2016.  
 [4] [State polynomials: positivity, optimization and nonlinear Bell inequalities](https://arxiv.org/abs/2301.12513), 2023. 
