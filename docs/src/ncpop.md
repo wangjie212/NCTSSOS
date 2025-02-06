@@ -90,6 +90,7 @@ cs_nctssos_higher!
 ```
 
 ### References
-[1] [Exploiting Term Sparsity in Noncommutative Polynomial Optimization](https://arxiv.org/abs/2010.06956), 2021.    
-[2] [Sparse polynomial optimization: theory and practice](https://arxiv.org/abs/2208.11158), 2023.   
-[3] [Optimization of polynomials in non-commuting variables](https://link.springer.com/content/pdf/10.1007/978-3-319-33338-0.pdf), 2016. 
+
+1. [Exploiting Term Sparsity in Noncommutative Polynomial Optimization](https://arxiv.org/abs/2010.06956), 2021.    
+2. [Sparse polynomial optimization: theory and practice](https://arxiv.org/abs/2208.11158), 2023.   
+3. [Optimization of polynomials in non-commuting variables](https://link.springer.com/content/pdf/10.1007/978-3-319-33338-0.pdf), 2016. 
