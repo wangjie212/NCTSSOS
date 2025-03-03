@@ -376,7 +376,7 @@ function assign_constraint(m, supp, cliques, cql)
     J = [UInt16[] for i=1:cql]
     ncc = UInt16[]
     for i = 1:m
-        ind = findall(k->issubset(unique(reduce(vcat, supp[i+1])), cliques[k]), 1:cql)
+        ind = findall(k->issubset(unique(Base.reduce(vcat, supp[i+1])), cliques[k]), 1:cql)
         if isempty(ind)
             push!(ncc, i)
         else
