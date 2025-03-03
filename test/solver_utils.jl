@@ -59,5 +59,18 @@ end
 
     @test coefficients(poly1_sym) ≈ [0.3, 0.3]
     @test monomials(poly1_sym) == [z*y*x^2, 1]
+end
 
+@testset "Get basis" begin
+    @ncpolyvar x y z
+
+    nc_basis_deg2 = get_basis([x,y,z],2)
+
+    @test sort(nc_basis_deg2) == sort([one(x), x, y, z, x^2, y^2, z^2, x * y, x * z, y * z, z * x, z * y, y * x])
+
+    @polyvar x y z
+
+    comm_basis_deg2 = get_basis([x,y,z],2)
+
+    @test sort(comm_basis_deg2) == sort([one(x), x, y, z, x^2, y^2, z^2, x * y, x * z, y * z])
 end

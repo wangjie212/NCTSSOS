@@ -12,6 +12,8 @@ function PolynomialOptimizationProblem(objective::PD, constraints::AbstractVecto
     PolynomialOptimizationProblem{C,N,VV,PD}(objective, ntuple(i -> constraints[i], N), variables)
 end
 
+get_objective(pop::PolynomialOptimizationProblem) = pop.objective
+
 nvariables(pop::PolynomialOptimizationProblem) = length(pop.variables)
 
 nconstraints(::PolynomialOptimizationProblem{C,N,VV,PD}) where {C,N,VV,PD} = N

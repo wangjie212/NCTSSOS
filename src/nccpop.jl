@@ -54,11 +54,15 @@ function nctssos_first(supp::Vector{Vector{Vector{UInt16}}}, coe, n::Int64, orde
         supp[1],coe[1] = sym_canon(supp[1], coe[1])
     end
     basis = Vector{Vector{Vector{UInt16}}}(undef, m+1)
+    
     basis[1] = get_ncbasis(n, order, binary=constraint!==nothing)
+    # TODO: I did not consider some variables are commutative
     if partition > 0
         ind = [_comm(basis[1][i], partition) == basis[1][i] for i=1:length(basis[1])]
         basis[1] = basis[1][ind]
     end
+
+    # FIXME: I am here
     ksupp = copy(supp[1])
     for i = 1:m
         basis[i+1] = get_ncbasis(n, order-Int(ceil(dg[i]/2)), binary=constraint!==nothing)

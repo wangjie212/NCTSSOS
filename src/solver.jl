@@ -10,11 +10,9 @@ get_order(method::MomentSOS) = method.order
 get_clique_func(method::MomentSOS) = method.clique_func
 
 function solve(method::MomentSOS, pop::PolynomialOptimizationProblem)
-	order = method.order
-	clique_func = method.clique_func
-	
-	
+    objective = pop |> symmetric_canonicalize ∘ get_objective
 
+	# get basis for moment matrix and localizing matrices
 end
 
 

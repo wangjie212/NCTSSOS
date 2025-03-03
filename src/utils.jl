@@ -1,5 +1,3 @@
-function
-
 
 function polys_info(pop, x)
     n = length(x)
@@ -22,7 +20,8 @@ function polys_info(pop, x)
     end
     return n,supp,coe
 end
-# TODO:
+
+# TODO: rest of the code has not been refactored yet
 function get_basis(n, d)
     lb = binomial(n+d, d)
     basis = zeros(UInt8, n, lb)
@@ -51,39 +50,6 @@ function get_basis(n, d)
     return basis
 end
 
-function _cyclic_canon(a::Vector{UInt16})
-    if isempty(a)
-        return a
-    else
-        return minimum([[a[i+1:length(a)]; a[1:i]] for i=0:length(a)-1])
-    end
-end
-
-function _cyclic_canon(w::Monomial{false})
-    ind = w.z .> 0
-    wz = w.z[ind]
-    wv = w.vars[ind]
-    lw = length(wz)
-    if lw == 0
-        return w
-    else
-        return minimum([prod([wv[i+1:lw]; wv[1:i]] .^ [wz[i+1:lw]; wz[1:i]]) for i=0:lw-1])
-    end
-end
-
-function cyclic_canon(supp, coe; type=Float64)
-    nsupp = [min(_cyclic_canon(word), _cyclic_canon(reverse(word))) for word in supp]
-    sort!(nsupp)
-    unique!(nsupp)
-    l = length(nsupp)
-    ncoe = zeros(type, l)
-    for (i,item) in enumerate(supp)
-        bi = min(_cyclic_canon(item), _cyclic_canon(reverse(item)))
-        Locb = bfind(nsupp, l, bi)
-        ncoe[Locb] += coe[i]
-    end
-    return nsupp,ncoe
-end
 
 function _sym_canon(a::Vector{UInt16})
     i = 1

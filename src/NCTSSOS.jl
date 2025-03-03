@@ -12,7 +12,7 @@ include("solver.jl")
 
 
 include("solver_utils.jl")
-export remove_zero_degree, star, symmetric_canonicalize
+export remove_zero_degree, star, symmetric_canonicalize, get_basis
 
 
 end
