@@ -1,3 +1,28 @@
+function
+
+
+function polys_info(pop, x)
+    n = length(x)
+    m = length(pop)-1
+    coe = Vector{Vector{Float64}}(undef, m+1)
+    supp = Vector{Vector{Vector{UInt16}}}(undef, m+1)
+    for k = 1:m+1
+        mon = monomials(pop[k])
+        coe[k] = coefficients(pop[k])
+        supp[k] = [UInt16[] for i=1:length(mon)]
+        for i = 1:length(mon)
+            ind = mon[i].z .> 0
+            vars = mon[i].vars[ind]
+            exp = mon[i].z[ind]
+            for j = 1:length(vars)
+                l = bfind(x, n, vars[j], rev=true)
+                append!(supp[k][i], l*ones(UInt16, exp[j]))
+            end
+        end
+    end
+    return n,supp,coe
+end
+# TODO:
 function get_basis(n, d)
     lb = binomial(n+d, d)
     basis = zeros(UInt8, n, lb)
@@ -252,27 +277,6 @@ function _permutation(ua, na)
     end
 end
 
-function polys_info(pop, x)
-    n = length(x)
-    m = length(pop)-1
-    coe = Vector{Vector{Float64}}(undef, m+1)
-    supp = Vector{Vector{Vector{UInt16}}}(undef, m+1)
-    for k = 1:m+1
-        mon = monomials(pop[k])
-        coe[k] = coefficients(pop[k])
-        supp[k] = [UInt16[] for i=1:length(mon)]
-        for i = 1:length(mon)
-            ind = mon[i].z .> 0
-            vars = mon[i].vars[ind]
-            exp = mon[i].z[ind]
-            for j = 1:length(vars)
-                l = bfind(x, n, vars[j], rev=true)
-                append!(supp[k][i], l*ones(UInt16, exp[j]))
-            end
-        end
-    end
-    return n,supp,coe
-end
 
 function poly_info(f, x)
     n = length(x)
