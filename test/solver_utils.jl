@@ -59,6 +59,23 @@ end
 
     @test coefficients(poly1_sym) ≈ [0.3, 0.3]
     @test monomials(poly1_sym) == [z*y*x^2, 1]
+
+    n = 3
+    @ncpolyvar x[1:n]
+    poly3 = x[1]^2 - x[1] * x[2] - x[2] * x[1] + 3x[2]^2 - 2x[1] * x[2] * x[1] + 2x[1] * x[2]^2 * x[1] - x[2] * x[3] - x[3] * x[2] +
+            6x[3]^2 + 9x[2]^2 * x[3] + 9x[3] * x[2]^2 - 54x[3] * x[2] * x[3] + 142x[3] * x[2]^2 * x[3]
+
+    supp = [[1, 2, 2, 1], [3, 2, 2, 3], [1, 2, 1], [3,2, 2],
+        [3, 2, 3], [1, 1], [2, 1], [2, 2],
+        [3, 2], [3, 3]]
+
+    coe = [2, 142, -2, 18,
+        -54, 1, -2, 3,
+        -2, 6]
+    
+    poly3_sym = symmetric_canonicalize(poly3)
+
+    @test poly3_sym == mapreduce(v -> v[1] * reduce(*, x[v[2]]), +, zip(coe, supp))
 end
 
 @testset "Get basis" begin

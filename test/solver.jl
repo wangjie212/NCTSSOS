@@ -1,11 +1,10 @@
 using Test, NCTSSOS
-using MosekTools 
 using DynamicPolynomials
 using JuMP
-using COSMO
+using MosekTools
 
 
-@testset "Moment Method" begin
+@testset "Moment Method Example 1" begin
     n = 3
     @ncpolyvar x[1:n]
     f = x[1]^2 - x[1] * x[2] - x[2] * x[1] + 3x[2]^2 - 2x[1] * x[2] * x[1] + 2x[1] * x[2]^2 * x[1] - x[2] * x[3] - x[3] * x[2] +
@@ -17,16 +16,16 @@ using COSMO
 
     model = make_sdp(mom_method, pop)
 
-	set_optimizer(model, COSMO.Optimizer)
+	set_optimizer(model, Mosek.Optimizer)
 	optimize!(model)
 
-    value.(first(all_constraints(model, include_variable_in_set_constraints=true)))
 	display(value.(all_constraints(model, include_variable_in_set_constraints=true)[2]))
+
 	is_solved_and_feasible(model)
 
-	all_variables(model)
-
-	objective_value(model)
+	# NOTE: differs from original test case value since that one is a relaxed in terms of sparsity
+	# This value here is obtained by running the master branch with no sparsity relaxation
+    @test isapprox(objective_value(model), 4.372259295498716e-10, atol=1e-8)
 end
 
 @testset "Moment Method Example 2" begin
@@ -46,8 +45,32 @@ end
 	optimize!(model)
 	is_solved_and_feasible(model)
 
-	objective_value(model)
+	@test isapprox(objective_value(model), -1.0,atol=1e-6)
+end
 
+@testset "Moment Method Example 3" begin
+	# NOTE: this is not doable in non-sparse case
+    # n = 10
+    # @ncpolyvar x[1:n]
+    # f = 0.0
+    # for i = 1:n
+    #     jset = max(1,i-5):min(n,i+1)
+    #     jset = setdiff(jset,i)
+    #     f += (2x[i]+5*x[i]^3+1)^2
+    #     f -= sum([4x[i]*x[j]+10x[i]^3*x[j]+2x[j]+4x[i]*x[j]^2+10x[i]^3*x[j]^2+2x[j]^2 for j in jset])
+    #     f += sum([x[j]*x[k]+2x[j]^2*x[k]+x[j]^2*x[k]^2 for j in jset for k in jset])
+    # end
+
+	# pop = PolynomialOptimizationProblem(f, x)
+
+	# mom_method = MomentMethod(3, identity)
+
+	# model = make_sdp(mom_method, pop)
+
+	# set_optimizer(model, Mosek.Optimizer)
+	# optimize!(model)
+
+	# @test isapprox(objective_value(model), 0.0, atol=1e-4)
 end
 
 
