@@ -13,4 +13,10 @@ using DynamicPolynomials
 	@test NCTSSOS.nvariables(pop) == nvars
 	@test NCTSSOS.nconstraints(pop) == ncons 
 	@test NCTSSOS.iscommutative(pop) == false
+
+	pop = PolynomialOptimizationProblem(objective, x)
+
+	@test NCTSSOS.nvariables(pop) == nvars
+	@test NCTSSOS.nconstraints(pop) == 0
+	@test NCTSSOS.iscommutative(pop) == false 
 end

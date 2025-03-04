@@ -74,3 +74,12 @@ end
 
     @test sort(comm_basis_deg2) == sort([one(x), x, y, z, x^2, y^2, z^2, x * y, x * z, y * z])
 end
+
+@testset "get support" begin
+
+    @ncpolyvar x y z
+
+    poly = 0.1 * x^2 * y + 0.2 * x - 0.1
+
+    @test sort(support(poly, identity)) == sort([1, x, x^2 * y])
+end
