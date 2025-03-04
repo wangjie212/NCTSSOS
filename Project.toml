@@ -18,7 +18,7 @@ SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 [compat]
 ChordalGraph = "0.4"
 Graphs = "1.5"
-MetaGraphs = "0.7"
+MetaGraphs = "0.7, 0.8"
 MosekTools = "< 0.15.2"
 MultivariatePolynomials = "< 0.5.0"
 julia = "1"
