@@ -3,6 +3,7 @@ module NCTSSOS
 
 using DynamicPolynomials
 const DP = DynamicPolynomials
+using JuMP
 
 
 include("pop.jl")
