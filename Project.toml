@@ -21,8 +21,8 @@ MultivariatePolynomials = "< 0.5.0"
 julia = "1"
 
 [extras]
-MosekTools = "1ec41992-ff65-5c91-ac43-2df89e9693a4"
+Clarabel = "61c947e1-3e6d-4ee4-985a-eec8c727bd6e"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Test", "MosekTools"]
+test = ["Test", "Clarabel"]

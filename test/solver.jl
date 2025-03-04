@@ -1,7 +1,7 @@
 using Test, NCTSSOS
 using DynamicPolynomials
 using JuMP
-using MosekTools
+using Clarabel
 
 
 @testset "Moment Method Example 1" begin
@@ -16,7 +16,8 @@ using MosekTools
 
     model = make_sdp(mom_method, pop)
 
-	set_optimizer(model, Mosek.Optimizer)
+	set_optimizer(model, Clarabel.Optimizer)
+	# set_optimizer(model, Mosek.Optimizer)
 	optimize!(model)
 
 	display(value.(all_constraints(model, include_variable_in_set_constraints=true)[2]))
@@ -25,6 +26,7 @@ using MosekTools
 
 	# NOTE: differs from original test case value since that one is a relaxed in terms of sparsity
 	# This value here is obtained by running the master branch with no sparsity relaxation
+	objective_value(model)
     @test isapprox(objective_value(model), 4.372259295498716e-10, atol=1e-8)
 end
 
@@ -41,7 +43,7 @@ end
 
 	model = make_sdp(mom_method, pop)
 
-	set_optimizer(model, Mosek.Optimizer)
+	set_optimizer(model, Clarabel.Optimizer)
 	optimize!(model)
 	is_solved_and_feasible(model)
 
@@ -67,7 +69,7 @@ end
 
 	# model = make_sdp(mom_method, pop)
 
-	# set_optimizer(model, Mosek.Optimizer)
+	# set_optimizer(model, Clarabel.Optimizer)
 	# optimize!(model)
 
 	# @test isapprox(objective_value(model), 0.0, atol=1e-4)
