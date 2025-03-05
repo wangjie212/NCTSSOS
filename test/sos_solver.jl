@@ -12,50 +12,22 @@ using JuMP
 
     mom_method = MomentMethod(ceil(Int, maxdegree(f) / 2), identity, x)
 
-    pop = PolynomialOptimizationProblem(f, [g,] , x)
+    pop = PolynomialOptimizationProblem(f, x)
 
     model = make_sdp(mom_method, pop)
 
-    dual_model = dualize(mom_method, model)
+    dual_model = dualize(model)
 
     set_optimizer(model, Clarabel.Optimizer)
-
     optimize!(model)
-
-	for (basis, jump_var) in get_total_basis2var_dict(mom_method)
-		@show basis
-		@show jump_var
-	end
-
-	objective_function(model)
-
-
-
-	cmm = constraint_object(cons_mom_mtx)
-
-
-	cmm.func[1]
-
-	mom_mtx_cons_shape = JuMP.shape(constraint_object(cons_mom_mtx))
-
-    cons_loc_mtx = constraint_by_name(model, "localizing_matrix_$(hash(g))")
-
-	clm = constraint_object(cons_loc_mtx)
-
-	aff_expr = clm.func[1]
-
-	aff_expr.terms
-
-	typeof(clm.func[1])
-
-	loc_mtx_cons_shape = JuMP.shape(constraint_object(cons_loc_mtx))
-
-
-	loc_mtx_cons_shape.side_dimension
-
 
 	set_optimizer(dual_model, Clarabel.Optimizer)
 	optimize!(dual_model)
+
+	objective_value(dual_model)
+
+    constraint_object(all_constraints(dual_model, include_variable_in_set_constraints=true)[2]).func[1]
+
 
     @test is_solved_and_feasible(model)
     @test is_solved_and_feasible(dual_model)

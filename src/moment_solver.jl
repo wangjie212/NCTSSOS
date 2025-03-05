@@ -47,7 +47,7 @@ function make_sdp(method::MomentMethod, pop::PolynomialOptimizationProblem)
 
     constraint_matrices = [constrain_moment_matrix!(model, cur_poly, get_basis(get_variables(pop), get_order(method) - ceil(Int, maxdegree(cur_poly) / 2)), total_basis2var_dict) for cur_poly in vcat(get_constraints(pop)..., one(objective))]
 
-	model[:sdp_constraints] = constraint_matrices
+	model[:mtx_constraints] = constraint_matrices
 
 
 	# get support of obj and constriants
