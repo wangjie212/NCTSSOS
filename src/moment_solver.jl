@@ -2,11 +2,11 @@ abstract type AbstractMethod end
 
 mutable struct MomentMethod{B} <: AbstractMethod 
 	order::Int
-    total_basis2var_dict::Dict{Monomial{B},VariableRef}
+    total_basis2var_dict::Dict{DP.Monomial{B},VariableRef}
 	clique_func #function to get clique
 end
 
-MomentMethod(order::Int, clique_func::Function, vars::VV) where {VV<:AbstractVector{<:DP.AbstractVariable}} = MomentMethod(order, Dict{Monomial{DP.iscomm(eltype(vars))},VariableRef}(), clique_func)
+MomentMethod(order::Int, clique_func::Function, vars::VV) where {VV<:AbstractVector{<:DP.AbstractVariable}} = MomentMethod(order, Dict{DP.Monomial{DP.iscomm(eltype(vars))},VariableRef}(), clique_func)
 
 get_order(method::MomentMethod) = method.order
 

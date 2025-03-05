@@ -1,4 +1,4 @@
 Manifest.toml
 old/
-.vscode/
-*/.vscode
+.vscode/*
+*/.vscode/*

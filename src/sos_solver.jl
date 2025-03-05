@@ -14,10 +14,9 @@ function get_C_α_j(basis::VE, localizing_mtx::VectorConstraint) where {VE<:Abst
         row_idx, col_idx = mod1(i, dim), div(i, dim, RoundUp)
         for (α, coeff) in getfield(cur_expr, :terms)
             α_idx = findfirst(isequal(α), basis)
-            isnothing(α_idx) && continue
 			push!(Is[α_idx], row_idx)
 			push!(Js[α_idx], col_idx)
-			push!(Vs[α_idx], coeff * (row_idx == col_idx ? 1.0 : 2.0))
+			push!(Vs[α_idx], coeff)
 		end
 	end
 
@@ -56,11 +55,14 @@ function dualize(model::Model, total_basis2var_dict::Dict{M,VRef}) where {M<:Abs
 
 	f_α_constraints[1] -= b
 
-    
     for (i, sdp_constraint) in enumerate(model[:mtx_constraints])
-        C_α_j = get_C_α_j(symmetric_variables, constraint_object(sdp_constraint))
-        f_α_constraints .-= (map(x -> LinearAlgebra.tr(x * dual_variables[i]), C_α_j))
+        C_α_j = get_C_α_j(getindex.(Ref(total_basis2var_dict), collect(keys(total_basis2var_dict))), constraint_object(sdp_constraint))
+        for (k, α) in enumerate(keys(total_basis2var_dict))
+            l = findfirst(isequal(total_basis2var_dict[symmetric_canonicalize(α)]), symmetric_variables)
+            f_α_constraints[l] -= LinearAlgebra.tr(C_α_j[k] * dual_variables[i])
+        end
     end
+
 
     @constraint(dual_model, f_α_constraints in MOI.Zeros(length(symmetric_basis)))
     return dual_model
