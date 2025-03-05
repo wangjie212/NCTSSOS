@@ -3,6 +3,24 @@ using DynamicPolynomials
 using JuMP
 using Clarabel
 
+@testset "Moment Method Construction" begin
+
+	@ncpolyvar x[1:2]
+
+    mom_method = MomentMethod(2, identity, x)
+
+	model = Model()
+
+	@variable(model, y[1:3])
+
+
+	total_basis2var_dict = Dict([one(x[1])=>y[1],x[1]=>y[2],x[2]=>y[3]])
+
+	set_total_basis2var_dict!(mom_method, total_basis2var_dict)
+
+	@test get_total_basis2var_dict(mom_method) == total_basis2var_dict
+end
+
 
 @testset "Moment Method Example 1" begin
     n = 3
@@ -10,7 +28,7 @@ using Clarabel
     f = x[1]^2 - x[1] * x[2] - x[2] * x[1] + 3x[2]^2 - 2x[1] * x[2] * x[1] + 2x[1] * x[2]^2 * x[1] - x[2] * x[3] - x[3] * x[2] +
         6x[3]^2 + 9x[2]^2 * x[3] + 9x[3] * x[2]^2 - 54x[3] * x[2] * x[3] + 142x[3] * x[2]^2 * x[3]
 
-    mom_method = MomentMethod(ceil(Int, maxdegree(f) / 2), identity)
+    mom_method = MomentMethod(ceil(Int, maxdegree(f) / 2), identity, x)
 
     pop = PolynomialOptimizationProblem(f, x)
 
@@ -39,7 +57,7 @@ end
 	h2 = -h1
     pop = PolynomialOptimizationProblem(f, [g, h1, h2], x)
 
-	mom_method = MomentMethod(2, identity)
+	mom_method = MomentMethod(2, identity, x)
 
 	model = make_sdp(mom_method, pop)
 
@@ -65,7 +83,7 @@ end
 
 	# pop = PolynomialOptimizationProblem(f, x)
 
-	# mom_method = MomentMethod(3, identity)
+	# mom_method = MomentMethod(3, identity, x)
 
 	# model = make_sdp(mom_method, pop)
 

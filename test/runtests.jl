@@ -5,6 +5,7 @@ using Test
 	# include("test.jl")
 	include("pop.jl")
 	include("solver_utils.jl")
-	include("solver.jl")
+	include("moment_solver.jl")
+	include("sos_solver.jl")
 end
 
