@@ -26,5 +26,6 @@ flowchart TD
 
 = Introduced API
 
-- `remove_zero_degree` removes variables with degree $0$ in a monomial. It is required for comparison of two monomials' equality.
+-  `remove_zero_degree` removes variables with degree $0$ in a monomial. It is
+required for comparison of two monomials' equality.
 

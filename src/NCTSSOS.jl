@@ -1,7 +1,7 @@
 module NCTSSOS
 
 using DynamicPolynomials
-using DynamicPolynomials: AbstractVariable, variables
+using DynamicPolynomials: AbstractVariable, variables, coefficient, monomial, terms
 using SparseArrays
 using JuMP
 using LinearAlgebra
