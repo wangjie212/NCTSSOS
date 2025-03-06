@@ -4,15 +4,24 @@
 # monomap: map from monomials in DynamicPolynomials to variables in JuMP
 struct MomentProblem{C,T} <: OptimizationProblem 
     order::Int
-    model::Model
+    model::GenericModel{T}
     monomap::Dict{Monomial{C},GenericVariableRef{T}}
 end
 
-function moment_relax(pop::PolynomialOptimizationProblem, order::Int)
-    # construct model
-    objective = symmetric_canonicalize ∘ (x -> getfield(x, :objective))(pop)
+function replace_variable_with_jump_variables(
+    poly::Polynomial{C,T}, monomap::Dict{Monomial{C},GenericVariableRef{T}}
+) where {C,T}
+    return mapreduce(
+        x -> coefficient(x) * monomap[remove_zero_degree(monomial(x))], +, terms(poly)
+    )
+end
 
-    model = Model() 
+function moment_relax(pop::PolynomialOptimizationProblem{C,T}, order::Int) where {C,T}
+    # construct model
+    objective = (symmetric_canonicalize ∘ (x -> getfield(x, :objective)))(pop)
+
+    T2 = (T == Int) ? Float64 : T
+    model = GenericModel{T2}()
 
     # total_basis that is the union of support of all constraints and objective and moment matrix and localizing matrices
     total_basis = begin
@@ -26,18 +35,17 @@ function moment_relax(pop::PolynomialOptimizationProblem, order::Int)
     end
 
     monomap = init_moment_vector!(model, total_basis)
-
-    set_total_basis2var_dict!(method, total_basis2var_dict)
+    @show typeof(monomap)
 
     constraint_matrices = [
         constrain_moment_matrix!(
             model,
             cur_poly,
             get_basis(
-                get_variables(pop), get_order(method) - ceil(Int, maxdegree(cur_poly) / 2)
+                pop.variables, order - ceil(Int, maxdegree(cur_poly) / 2)
             ),
-            total_basis2var_dict,
-        ) for cur_poly in vcat(get_constraints(pop)..., one(objective))
+            monomap,
+        ) for cur_poly in vcat(pop.constraints..., one(objective))
     ]
 
     model[:mtx_constraints] = constraint_matrices
@@ -51,33 +59,21 @@ function moment_relax(pop::PolynomialOptimizationProblem, order::Int)
     # ksupp should contain support of obj and all constraints + support of moment matrix and localizing matrices
 
     @objective(
-        model, Min, replace_variable_with_jump_variables(objective, total_basis2var_dict)
+        model, Min, replace_variable_with_jump_variables(objective, monomap)
     )
-    return model
-    # record monomap
+
     return MomentProblem(order, model, monomap)
 end
 
 
 function init_moment_vector!(
-    model::Model, basis::VM
-) where {VM<:AbstractVector{<:AbstractMonomialLike}}
+    model::Model, basis::Vector{Monomial{C}}
+) where {C}
     moment_vector = @variable(model, y[1:length(basis)])
     @constraint(model, first(y) - 1 in Zeros())
     return Dict(basis .=> moment_vector)
 end
 
-function replace_variable_with_jump_variables(
-    poly::PD, total_basis2var_dict::Dict{M,VRef}
-) where {
-    PD<:AbstractPolynomialLike{<:Real},M<:AbstractMonomialLike,VRef<:AbstractVariableRef
-}
-    return mapreduce(
-        x -> DP.coefficient(x) * total_basis2var_dict[remove_zero_degree(DP.monomial(x))],
-        +,
-        terms(poly),
-    )
-end
 
 function constrain_moment_matrix!(
     model::Model, poly::PD, local_basis::VM, basis2var_dict::Dict{M,VRef}

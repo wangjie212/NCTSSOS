@@ -4,23 +4,8 @@ using JuMP
 using Clarabel
 using Graphs
 
-@testset "Moment Method Construction" begin
-    @ncpolyvar x[1:2]
-
-    mom_method = MomentMethod(2, identity, x)
-
-    model = Model()
-
-    @variable(model, y[1:3])
-
-    total_basis2var_dict = Dict([one(x[1]) => y[1], x[1] => y[2], x[2] => y[3]])
-
-    set_total_basis2var_dict!(mom_method, total_basis2var_dict)
-
-    @test get_total_basis2var_dict(mom_method) == total_basis2var_dict
-end
-
 @testset "Moment Method Example 1" begin
+    order = 2
     n = 3
     @ncpolyvar x[1:n]
     f =
@@ -30,11 +15,9 @@ end
         9x[2]^2 * x[3] +
         9x[3] * x[2]^2 - 54x[3] * x[2] * x[3] + 142x[3] * x[2]^2 * x[3]
 
-    mom_method = MomentMethod(ceil(Int, maxdegree(f) / 2), identity, x)
-
     pop = PolynomialOptimizationProblem(f, x)
 
-    model = make_sdp(mom_method, pop)
+    model = moment_relax(pop, order)
 
     set_optimizer(model, Clarabel.Optimizer)
     optimize!(model)

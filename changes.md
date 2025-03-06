@@ -1,9 +1,9 @@
 = TODOs
-- [ ] Remove unnecessary exports
-- [ ] Group Exports together in the NCTSSOS.jl file
+- [x] Remove unnecessary exports
+- [x] Group Exports together in the NCTSSOS.jl file
 - [ ] Change some TODOs to NOTEs
-- [ ] Remove clique in MomentMethod
-- [ ] Remove all `DP` usage, just import with `using DynamicPolynomials: foo`
+- [x] Remove clique in MomentMethod
+- [x] Remove all `DP` usage, just import with `using DynamicPolynomials: foo`
 
 - [ ] Verify no un-necessary files in the PR
 
