@@ -1,14 +1,14 @@
 module NCTSSOS
 
 using DynamicPolynomials
-using DynamicPolynomials: AbstractVariable, variables, coefficient, monomial, terms
+using DynamicPolynomials: AbstractVariable, variables, coefficient, monomial, terms, isconstant
 using SparseArrays
 using JuMP
 using LinearAlgebra
 
 export PolynomialOptimizationProblem
 export moment_relax
-export dualize
+export sos_dualize
 
 include("pop.jl")
 

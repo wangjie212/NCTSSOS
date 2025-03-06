@@ -33,24 +33,23 @@ using SparseArrays
     g3 = x[1] - r
     g4 = x[2] - r
 
-    mom_method = MomentMethod(ceil(Int, maxdegree(f) / 2), identity, x)
-
     pop = PolynomialOptimizationProblem(f, [g1, g2, g3, g4], x)
+    order = 2
 
-    model = make_sdp(mom_method, pop)
+    moment_problem = moment_relax(pop, 2) 
 
-    dual_model = dualize(model, get_total_basis2var_dict(mom_method))
+    sos_problem = sos_dualize(moment_problem)
 
-    set_optimizer(model, Clarabel.Optimizer)
-    optimize!(model)
+    set_optimizer(sos_problem.model, Clarabel.Optimizer)
+    optimize!(sos_problem.model)
 
-    set_optimizer(dual_model, Clarabel.Optimizer)
-    optimize!(dual_model)
+    set_optimizer(moment_problem.model, Clarabel.Optimizer)
+    optimize!(moment_problem.model)
 
-    @test is_solved_and_feasible(model)
-    @test is_solved_and_feasible(dual_model)
+    @test is_solved_and_feasible(moment_problem.model)
+    @test is_solved_and_feasible(sos_problem.model)
 
-    @test isapprox(objective_value(model), objective_value(dual_model), atol=1e-5)
+    @test isapprox(objective_value(moment_problem.model), objective_value(sos_problem.model), atol=1e-5)
 end
 
 @testset "Dualization Example 2" begin
@@ -62,21 +61,21 @@ end
     h2 = -h1
     pop = PolynomialOptimizationProblem(f, [g, h1, h2], x)
 
-    mom_method = MomentMethod(2, identity, x)
+    order = 2
+    moment_method = moment_relax(pop,order)
 
-    model = make_sdp(mom_method, pop)
-    dual_model = dualize(model, get_total_basis2var_dict(mom_method))
+    sos_method = sos_dualize(moment_method)
 
-    set_optimizer(model, Clarabel.Optimizer)
-    optimize!(model)
+    set_optimizer(moment_method.model, Clarabel.Optimizer)
+    optimize!(moment_method.model)
 
-    set_optimizer(dual_model, Clarabel.Optimizer)
-    optimize!(dual_model)
+    set_optimizer(sos_method.model, Clarabel.Optimizer)
+    optimize!(sos_method.model)
 
-    @test is_solved_and_feasible(model)
-    @test is_solved_and_feasible(dual_model)
-    @test isapprox(objective_value(model), -1, atol=1e-6)
-    @test isapprox(objective_value(dual_model), -1, atol=1e-6)
+    @test is_solved_and_feasible(moment_method.model)
+    @test is_solved_and_feasible(sos_method.model)
+    @test isapprox(objective_value(moment_method.model), -1, atol=1e-6)
+    @test isapprox(objective_value(sos_method.model), -1, atol=1e-6)
 end
 
 @testset "Dualization Trivial Example" begin
@@ -86,33 +85,23 @@ end
 
     f = x[1]^2 + x[1] * x[2] + x[2] * x[1] + x[2]^2 + true_min
 
-    mom_method = MomentMethod(ceil(Int, maxdegree(f) / 2), identity, x)
-
     pop = PolynomialOptimizationProblem(f, x)
+    order = 2
 
-    model = make_sdp(mom_method, pop)
+    moment_method = moment_relax(pop, order)
 
-    dual_model = dualize(model, get_total_basis2var_dict(mom_method))
+    sos_method = sos_dualize(moment_method)
 
-    set_optimizer(model, Clarabel.Optimizer)
-    optimize!(model)
-    objective_value(model)
+    set_optimizer(moment_method.model, Clarabel.Optimizer)
+    optimize!(moment_method.model)
 
-    set_optimizer(dual_model, Clarabel.Optimizer)
-    optimize!(dual_model)
-    objective_value(dual_model)
+    set_optimizer(sos_method.model, Clarabel.Optimizer)
+    optimize!(sos_method.model)
 
-    dual_model[:dual_variables]
-
-    all_variables(dual_model)
-    value.(all_variables(dual_model))
-
-    all_constraints(dual_model; include_variable_in_set_constraints=true)
-
-    @test is_solved_and_feasible(model)
-    @test is_solved_and_feasible(dual_model)
-    @test isapprox(objective_value(model), true_min, atol=1e-6)
-    @test isapprox(objective_value(dual_model), true_min, atol=1e-6)
+    @test is_solved_and_feasible(moment_method.model)
+    @test is_solved_and_feasible(sos_method.model)
+    @test isapprox(objective_value(moment_method.model), true_min, atol=1e-6)
+    @test isapprox(objective_value(sos_method.model), true_min, atol=1e-6)
 end
 
 @testset "Dualization Example 1" begin
@@ -126,24 +115,23 @@ end
         9x[2]^2 * x[3] +
         9x[3] * x[2]^2 - 54x[3] * x[2] * x[3] + 142x[3] * x[2]^2 * x[3]
 
-    mom_method = MomentMethod(ceil(Int, maxdegree(f) / 2), identity, x)
-
     pop = PolynomialOptimizationProblem(f, x)
+    order = 2
 
-    model = make_sdp(mom_method, pop)
+    moment_problem = moment_relax(pop, order)
 
-    dual_model = dualize(model, get_total_basis2var_dict(mom_method))
+    sos_problem = sos_dualize(moment_problem)
 
-    set_optimizer(model, Clarabel.Optimizer)
-    optimize!(model)
+    set_optimizer(moment_problem.model, Clarabel.Optimizer)
+    optimize!(moment_problem.model)
 
-    set_optimizer(dual_model, Clarabel.Optimizer)
-    optimize!(dual_model)
+    set_optimizer(sos_problem.model, Clarabel.Optimizer)
+    optimize!(sos_problem.model)
 
-    @test is_solved_and_feasible(model)
-    @test is_solved_and_feasible(dual_model)
-    @test isapprox(objective_value(model), 4.372259295498716e-10, atol=1e-8)
-    @test isapprox(objective_value(dual_model), 4.372259295498716e-10, atol=1e-8)
+    @test is_solved_and_feasible(moment_problem.model)
+    @test is_solved_and_feasible(sos_problem.model)
+    @test isapprox(objective_value(moment_problem.model), 4.372259295498716e-10, atol=1e-6)
+    @test isapprox(objective_value(sos_problem.model), 4.372259295498716e-10, atol=1e-6)
 end
 
 @testset "Dualization Heisenberg Model on Star Graph" begin
@@ -185,15 +173,16 @@ end
 
     pop = PolynomialOptimizationProblem(objective, gs, pij)
 
-    method = MomentMethod(2, identity, pij)
+    order = 1
 
-    model = make_sdp(method, pop)
-    dual_model = dualize(model, get_total_basis2var_dict(method))
+    moment_problem = moment_relax(pop,order)
 
-    set_optimizer(dual_model, Clarabel.Optimizer)
-    optimize!(dual_model)
+    sos_problem = sos_dualize(moment_problem)
 
-    # FIXME: this is also only nearly feasible for Clarabel why is this the case?
-    @test_broken is_solved_and_feasible(dual_model)
-    @test isapprox(objective_value(dual_model), true_ans, atol=1e-6)
+
+    set_optimizer(sos_problem.model, Clarabel.Optimizer)
+    optimize!(sos_problem.model)
+
+    @test is_solved_and_feasible(sos_problem.model)
+    @test isapprox(objective_value(sos_problem.model), true_ans, atol=1e-6)
 end

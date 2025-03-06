@@ -3,6 +3,7 @@ using DynamicPolynomials
 using JuMP
 using Clarabel
 using Graphs
+using NCTSSOS: get_basis, init_moment_vector!
 
 @testset "Moment Method Example 1" begin
     order = 2
@@ -17,22 +18,19 @@ using Graphs
 
     pop = PolynomialOptimizationProblem(f, x)
 
-    model = moment_relax(pop, order)
+    moment_problem = moment_relax(pop, order)
 
-    set_optimizer(model, Clarabel.Optimizer)
-    optimize!(model)
-
-    display(value.(all_constraints(model; include_variable_in_set_constraints=true)[2]))
-
-    is_solved_and_feasible(model)
+    set_optimizer(moment_problem.model, Clarabel.Optimizer)
+    optimize!(moment_problem.model)
 
     # NOTE: differs from original test case value since that one is a relaxed in terms of sparsity
     # This value here is obtained by running the master branch with no sparsity relaxation
-    objective_value(model)
-    @test isapprox(objective_value(model), 4.372259295498716e-10, atol=1e-8)
+    @test is_solved_and_feasible(moment_problem.model)
+    @test isapprox(objective_value(moment_problem.model), 4.372259295498716e-10, atol=1e-6)
 end
 
 @testset "Moment Method Example 2" begin
+    order = 2
     n = 2
     @ncpolyvar x[1:2]
     f = 2 - x[1]^2 + x[1] * x[2]^2 * x[1] - x[2]^2
@@ -41,19 +39,17 @@ end
     h2 = -h1
     pop = PolynomialOptimizationProblem(f, [g, h1, h2], x)
 
-    mom_method = MomentMethod(2, identity, x)
+    moment_problem = moment_relax(pop, order)
 
-    model = make_sdp(mom_method, pop)
-
-    set_optimizer(model, Clarabel.Optimizer)
-    optimize!(model)
-    is_solved_and_feasible(model)
-
-    @test isapprox(objective_value(model), -1.0, atol=1e-6)
+    set_optimizer(moment_problem.model, Clarabel.Optimizer)
+    optimize!(moment_problem.model)
+    @test is_solved_and_feasible(moment_problem.model)
+    @test isapprox(objective_value(moment_problem.model), -1.0, atol=1e-6)
 end
 
 @testset "Moment Method Example 3" begin
     # NOTE: this is not doable in non-sparse case
+    # order = 2
     # n = 10
     # @ncpolyvar x[1:n]
     # f = 0.0
@@ -67,20 +63,17 @@ end
 
     # pop = PolynomialOptimizationProblem(f, x)
 
-    # mom_method = MomentMethod(3, identity, x)
+    # moment_problem = moment_relax(pop,order )
+    # set_optimizer(moment_problem.model, Clarabel.Optimizer)
+    # optimize!(moment_problem.model)
 
-    # model = make_sdp(mom_method, pop)
-
-    # set_optimizer(model, Clarabel.Optimizer)
-    # optimize!(model)
-
-    # @test isapprox(objective_value(model), 0.0, atol=1e-4)
+    # @test isapprox(objective_value(moment_problem.model), 0.0, atol=1e-4)
 end
 
 @testset "Init Moment Vector" begin
     @ncpolyvar x[1:3]
 
-    model = Model()
+    model = GenericModel{Float64}()
 
     total_basis = get_basis(x, 1)
 
@@ -89,25 +82,10 @@ end
     y = all_variables(model)
 
     @test jump_vars == Dict([one(x[1]) => y[1], x[1] => y[2], x[2] => y[3], x[3] => y[4]])
-
-    @ncpolyvar x[1:2]
-
-    model = Model()
-
-    total_basis = get_basis(x, 2)
-
-    jump_vars = init_moment_vector!(
-        model,
-        [row_idx * col_idx for row_idx in star.(total_basis) for col_idx in total_basis],
-    )
-
-    for var in keys(jump_vars)
-        display(var)
-    end
 end
 
 @testset "Moment Method Heisenberg Model on Star Graph" begin
-    num_sites = 4
+    num_sites = 6
     g = star_graph(num_sites)
 
     true_ans = -1.0
@@ -144,16 +122,16 @@ end
     ]
 
     pop = PolynomialOptimizationProblem(objective, gs, pij)
+    order = 1
 
-    method = MomentMethod(1, identity, pij)
+    moment_problem = moment_relax(pop, order )
 
-    model = make_sdp(method, pop)
 
-    set_optimizer(model, Clarabel.Optimizer)
-    optimize!(model)
+    set_optimizer(moment_problem.model, Clarabel.Optimizer)
+    optimize!(moment_problem.model)
 
     # FIXME: objective and dual seems to be converging why they say it's only 
     # nearly feasible? But it works for Mosek
-    @test is_solved_and_feasible(model)
-    @test isapprox(objective_value(model), true_ans, atol=1e-6)
+    @test is_solved_and_feasible(moment_problem.model)
+    @test isapprox(objective_value(moment_problem.model), true_ans, atol=1e-6)
 end

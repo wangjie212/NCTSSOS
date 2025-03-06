@@ -9,8 +9,8 @@ struct MomentProblem{C,T} <: OptimizationProblem
 end
 
 function replace_variable_with_jump_variables(
-    poly::Polynomial{C,T}, monomap::Dict{Monomial{C},GenericVariableRef{T}}
-) where {C,T}
+    poly::Polynomial{C,T}, monomap::Dict{Monomial{C},GenericVariableRef{T2}}
+) where {C,T,T2}
     return mapreduce(
         x -> coefficient(x) * monomap[remove_zero_degree(monomial(x))], +, terms(poly)
     )
@@ -20,7 +20,7 @@ function moment_relax(pop::PolynomialOptimizationProblem{C,T}, order::Int) where
     # construct model
     objective = (symmetric_canonicalize ∘ (x -> getfield(x, :objective)))(pop)
 
-    T2 = (T == Int) ? Float64 : T
+    T2 = (T <: Integer) ? Float64 : T
     model = GenericModel{T2}()
 
     # total_basis that is the union of support of all constraints and objective and moment matrix and localizing matrices
@@ -35,7 +35,6 @@ function moment_relax(pop::PolynomialOptimizationProblem{C,T}, order::Int) where
     end
 
     monomap = init_moment_vector!(model, total_basis)
-    @show typeof(monomap)
 
     constraint_matrices = [
         constrain_moment_matrix!(
@@ -50,14 +49,6 @@ function moment_relax(pop::PolynomialOptimizationProblem{C,T}, order::Int) where
 
     model[:mtx_constraints] = constraint_matrices
 
-    # get support of obj and constriants
-    # store in supp
-
-    # get basis for moment matrix and localizing matrices
-    # store in basis a vector of basis monomials
-
-    # ksupp should contain support of obj and all constraints + support of moment matrix and localizing matrices
-
     @objective(
         model, Min, replace_variable_with_jump_variables(objective, monomap)
     )
@@ -67,8 +58,8 @@ end
 
 
 function init_moment_vector!(
-    model::Model, basis::Vector{Monomial{C}}
-) where {C}
+    model::GenericModel{T}, basis::Vector{Monomial{C}}
+) where {C,T}
     moment_vector = @variable(model, y[1:length(basis)])
     @constraint(model, first(y) - 1 in Zeros())
     return Dict(basis .=> moment_vector)
@@ -76,13 +67,11 @@ end
 
 
 function constrain_moment_matrix!(
-    model::Model, poly::PD, local_basis::VM, basis2var_dict::Dict{M,VRef}
-) where {
-    PD<:AbstractPolynomialLike{<:Real},
-    VM<:AbstractVector{<:AbstractMonomialLike},
-    M<:AbstractMonomialLike,
-    VRef<:AbstractVariableRef,
-}
+    model::GenericModel{T},
+    poly::Polynomial{C,T2},
+    local_basis::Vector{Monomial{C}},
+    basis2var_dict::Dict{Monomial{C},GenericVariableRef{T}},
+) where {C,T,T2}
     moment_mtx = [
         replace_variable_with_jump_variables(poly * row_idx * col_idx, basis2var_dict) for
         row_idx in star.(local_basis), col_idx in local_basis
@@ -90,7 +79,6 @@ function constrain_moment_matrix!(
     return @constraint(
         model,
         moment_mtx in PSDCone(),
-        base_name =
-            DP.isconstant(poly) ? "moment_matrix" : "localizing_matrix_$(hash(poly))"
+        base_name = isconstant(poly) ? "moment_matrix" : "localizing_matrix_$(hash(poly))"
     )
 end

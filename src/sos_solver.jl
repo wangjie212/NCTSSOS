@@ -1,7 +1,12 @@
+struct SOSProblem{T} <: OptimizationProblem
+    model::GenericModel{T}
+end
+
+
 function get_C_α_j(
     basis::VE, localizing_mtx::VectorConstraint
 ) where {VE<:AbstractVector{<:JuMP.AbstractVariableRef}}
-    dim = (x -> getfield(x, :side_dimension)) ∘ JuMP.shape(localizing_mtx)
+    dim = ((x -> getfield(x, :side_dimension)) ∘ JuMP.shape)(localizing_mtx)
 
     Is, Js, Vs = [
         [
@@ -26,36 +31,34 @@ function get_C_α_j(
     return [sparse(Is[i], Js[i], Vs[i], dim, dim) for i in eachindex(basis)]
 end
 
-function init_dual_variables(model::Model, dual_model::Model)
+function init_dual_variables!(model::GenericModel{T}, dual_model::GenericModel{T}) where {T}
     return [
         begin
-            G_dim =
-                (x -> getfield(x, :side_dimension)) ∘ JuMP.shape ∘
-                constraint_object(sdp_constraint)
+            G_dim = sdp_constraint |> ((x -> getfield(x, :side_dimension)) ∘ JuMP.shape ∘ constraint_object)
             @variable(dual_model, [1:G_dim, 1:G_dim] in PSDCone())
         end for sdp_constraint in model[:mtx_constraints]
     ]
 end
 
-function dualize(
-    model::Model, total_basis2var_dict::Dict{M,VRef}
-) where {M<:AbstractMonomialLike,VRef<:AbstractVariableRef}
-    dual_model = Model()
+function sos_dualize(
+   moment_problem::MomentProblem{C,T} 
+) where {C,T}
+    dual_model = GenericModel{T}()
 
-    dual_variables = init_dual_variables(model, dual_model)
+    dual_variables = init_dual_variables!(moment_problem.model, dual_model)
 
     dual_model[:dual_variables] = dual_variables
 
     @variable(dual_model, b)
     @objective(dual_model, Max, b)
 
-    primal_objective_terms = (x -> getfield(x, :terms)) ∘ objective_function(model)
+    primal_objective_terms = ((x -> getfield(x, :terms)) ∘ objective_function)(moment_problem.model)
 
     symmetric_basis = sort(
-        unique([symmetric_canonicalize(basis) for basis in keys(total_basis2var_dict)])
+        unique([symmetric_canonicalize(basis) for basis in keys(moment_problem.monomap)])
     )
 
-    symmetric_variables = getindex.(Ref(total_basis2var_dict), symmetric_basis)
+    symmetric_variables = getindex.(Ref(moment_problem.monomap), symmetric_basis)
 
     f_α_constraints = [
         AffExpr(haskey(primal_objective_terms, α) ? primal_objective_terms[α] : 0.0) for
@@ -64,14 +67,14 @@ function dualize(
 
     f_α_constraints[1] -= b
 
-    for (i, sdp_constraint) in enumerate(model[:mtx_constraints])
+    for (i, sdp_constraint) in enumerate(moment_problem.model[:mtx_constraints])
         C_α_j = get_C_α_j(
-            getindex.(Ref(total_basis2var_dict), collect(keys(total_basis2var_dict))),
+            getindex.(Ref(moment_problem.monomap), collect(keys(moment_problem.monomap))),
             constraint_object(sdp_constraint),
         )
-        for (k, α) in enumerate(keys(total_basis2var_dict))
+        for (k, α) in enumerate(keys(moment_problem.monomap))
             l = findfirst(
-                isequal(total_basis2var_dict[symmetric_canonicalize(α)]),
+                isequal(moment_problem.monomap[symmetric_canonicalize(α)]),
                 symmetric_variables,
             )
             f_α_constraints[l] -= LinearAlgebra.tr(C_α_j[k] * dual_variables[i])
@@ -79,5 +82,5 @@ function dualize(
     end
 
     @constraint(dual_model, f_α_constraints in MOI.Zeros(length(symmetric_basis)))
-    return dual_model
+    return SOSProblem(dual_model)
 end
