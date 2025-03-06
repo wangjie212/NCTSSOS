@@ -2,6 +2,7 @@ using Test, NCTSSOS
 using DynamicPolynomials
 using JuMP
 using Clarabel
+using Graphs
 
 @testset "Moment Method Construction" begin
 
@@ -35,7 +36,6 @@ end
     model = make_sdp(mom_method, pop)
 
 	set_optimizer(model, Clarabel.Optimizer)
-	# set_optimizer(model, Mosek.Optimizer)
 	optimize!(model)
 
 	display(value.(all_constraints(model, include_variable_in_set_constraints=true)[2]))
@@ -115,7 +115,43 @@ end
 
     jump_vars = init_moment_vector!(model, [row_idx * col_idx for row_idx in star.(total_basis) for col_idx in total_basis])
 
-    for var in keys(jump_vars)
-		display(var)
-	end
+end
+
+@testset "Moment Method Heisenberg Model on Star Graph" begin
+	num_sites = 4
+	star = star_graph(num_sites)
+
+	true_ans = -1.0
+
+    vec_idx2ij = [(i, j) for i in 1:num_sites for j in (i+1):num_sites]
+
+	findvaridx(i,j) = findfirst(x -> x == (i, j), vec_idx2ij)
+
+	@ncpolyvar pij[1:length(vec_idx2ij)]
+
+    objective = sum(pij[[findvaridx(ee.src, ee.dst) for ee in edges(star)]])
+
+	gs = [
+        [(pij[findvaridx(i, j)]^2 - 1) for i in 1:num_sites for j in (i+1):num_sites];
+        [-(pij[findvaridx(i, j)]^2 - 1) for i in 1:num_sites for j in (i+1):num_sites];
+
+
+        [(pij[findvaridx(sort([i, j])...)] * pij[findvaridx(sort([j, k])...)] + pij[findvaridx(sort([j, k])...)] * pij[findvaridx(sort([i, j])...)]-pij[findvaridx(sort([i,j])...)] - pij[findvaridx(sort([j,k])...)] - pij[findvaridx(sort([i,k])...)] + 1) for i in 1:num_sites, j in 1:num_sites, k in 1:num_sites if (i != j && j != k && i != k)]
+
+        [-(pij[findvaridx(sort([i, j])...)] * pij[findvaridx(sort([j, k])...)] + pij[findvaridx(sort([j, k])...)] * pij[findvaridx(sort([i, j])...)]-pij[findvaridx(sort([i,j])...)] - pij[findvaridx(sort([j,k])...)] - pij[findvaridx(sort([i,k])...)] + 1) for i in 1:num_sites, j in 1:num_sites, k in 1:num_sites if (i != j && j != k && i != k)]
+	]
+
+    pop = PolynomialOptimizationProblem(objective, gs, pij)
+
+    method = MomentMethod(2, identity, pij)
+
+	model = make_sdp(method, pop)
+
+	set_optimizer(model, Clarabel.Optimizer)
+	optimize!(model)
+
+	# FIXME: objective and dual seems to be converging why they say it's only 
+	# nearly feasible? But it works for Mosek
+	@test_broken is_solved_and_feasible(model)
+	@test isapprox(objective_value(model), true_ans, atol=1e-6)
 end

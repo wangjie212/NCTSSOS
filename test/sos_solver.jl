@@ -1,5 +1,7 @@
 using Test, NCTSSOS, DynamicPolynomials, Clarabel
 using JuMP
+using MosekTools
+using Graphs
 
 using NCTSSOS: get_C_α_j
 using SparseArrays
@@ -143,4 +145,43 @@ end
     @test isapprox(objective_value(dual_model), 4.372259295498716e-10, atol=1e-8)
 end
 
+
+@testset "Dualization Heisenberg Model on Star Graph" begin
+	num_sites = 4
+	star = star_graph(num_sites)
+
+	true_ans = -1.0
+
+    vec_idx2ij = [(i, j) for i in 1:num_sites for j in (i+1):num_sites]
+
+	findvaridx(i,j) = findfirst(x -> x == (i, j), vec_idx2ij)
+
+	@ncpolyvar pij[1:length(vec_idx2ij)]
+
+    objective = sum(pij[[findvaridx(ee.src, ee.dst) for ee in edges(star)]])
+
+	gs = [
+        [(pij[findvaridx(i, j)]^2 - 1) for i in 1:num_sites for j in (i+1):num_sites];
+        [-(pij[findvaridx(i, j)]^2 - 1) for i in 1:num_sites for j in (i+1):num_sites];
+
+
+        [(pij[findvaridx(sort([i, j])...)] * pij[findvaridx(sort([j, k])...)] + pij[findvaridx(sort([j, k])...)] * pij[findvaridx(sort([i, j])...)]-pij[findvaridx(sort([i,j])...)] - pij[findvaridx(sort([j,k])...)] - pij[findvaridx(sort([i,k])...)] + 1) for i in 1:num_sites, j in 1:num_sites, k in 1:num_sites if (i != j && j != k && i != k)]
+
+        [-(pij[findvaridx(sort([i, j])...)] * pij[findvaridx(sort([j, k])...)] + pij[findvaridx(sort([j, k])...)] * pij[findvaridx(sort([i, j])...)]-pij[findvaridx(sort([i,j])...)] - pij[findvaridx(sort([j,k])...)] - pij[findvaridx(sort([i,k])...)] + 1) for i in 1:num_sites, j in 1:num_sites, k in 1:num_sites if (i != j && j != k && i != k)]
+	]
+
+    pop = PolynomialOptimizationProblem(objective, gs, pij)
+
+    method = MomentMethod(2, identity, pij)
+
+	model = make_sdp(method, pop)
+    dual_model = dualize(model, get_total_basis2var_dict(method))
+
+	set_optimizer(dual_model, Clarabel.Optimizer)
+	optimize!(dual_model)
+
+    # FIXME: this is also only nearly feasible for Clarabel why is this the case?
+	@test_broken is_solved_and_feasible(dual_model)
+	@test isapprox(objective_value(dual_model), true_ans, atol=1e-6)
+end
 
