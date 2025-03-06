@@ -5,7 +5,7 @@ end
 function mergeclique!(cliques, cliqueG, i, j; d=3)
     cliques[i] = unique(sort([cliques[i]; cliques[j]]))
     cliques[j] = cliques[end]
-    cliques = cliques[1:end-1]
+    cliques = cliques[1:(end - 1)]
     for neighbor in neighbors(cliqueG, j)
         if neighbor != i
             add_edge!(cliqueG, i, neighbor)
@@ -13,19 +13,19 @@ function mergeclique!(cliques, cliqueG, i, j; d=3)
     end
     rem_vertex!(cliqueG, j)
     for neighbor in neighbors(cliqueG, i)
-        weight = fweight(cliques[i], cliques[neighbor], d=d)
+        weight = fweight(cliques[i], cliques[neighbor]; d=d)
         set_prop!(cliqueG, i, neighbor, :weight, weight)
     end
-    return cliques,cliqueG
+    return cliques, cliqueG
 end
 
 function clique_merge!(cliques; d=3, QUIET=true)
     cql = length(cliques)
     cliqueG = MetaGraph(cql)
-    for i = 1:cql, j = i+1:cql
+    for i in 1:cql, j in (i + 1):cql
         if intersect(cliques[i], cliques[j]) != []
             add_edge!(cliqueG, i, j)
-            weight = fweight(cliques[i], cliques[j], d=d)
+            weight = fweight(cliques[i], cliques[j]; d=d)
             set_prop!(cliqueG, i, j, :weight, weight)
         end
     end
@@ -41,7 +41,7 @@ function clique_merge!(cliques; d=3, QUIET=true)
             end
         end
         if mweight > 0
-            cliques,cliqueG = mergeclique!(cliques, cliqueG, src(medge), dst(medge), d=d)
+            cliques, cliqueG = mergeclique!(cliques, cliqueG, src(medge), dst(medge); d=d)
         else
             break
         end
@@ -49,11 +49,11 @@ function clique_merge!(cliques; d=3, QUIET=true)
     cliquesize = length.(cliques)
     cql = length(cliquesize)
     if QUIET == false
-        uc = sort(unique(cliquesize), rev=true)
-        sizes = [sum(cliquesize.== i) for i in uc]
+        uc = sort(unique(cliquesize); rev=true)
+        sizes = [sum(cliquesize .== i) for i in uc]
         println("-------------------------------------------")
         println("The size of blocks after merging:\n$uc\n$sizes")
         println("-------------------------------------------")
     end
-    return cliques,cql,cliquesize
+    return cliques, cql, cliquesize
 end
