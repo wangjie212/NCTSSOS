@@ -24,4 +24,7 @@ flowchart TD
 - `sym_canon` -> `symmetric_canonalize`
 - `get_ncbasis` -> `get_basis` generalized to work on commuting and non-commuting variables.
 
+= Introduced API
+
+- `remove_zero_degree` removes variables with degree $0$ in a monomial. It is required for comparison of two monomials' equality.
 

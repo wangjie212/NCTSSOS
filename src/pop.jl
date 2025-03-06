@@ -12,8 +12,8 @@ end
 # be as general as possible
 function PolynomialOptimizationProblem(objective::Polynomial{C,T}, constraints) where {C,T}
     cons = collect(Polynomial{C,T}, constraints)
-    variables = union(variables(objective), [variables(c) for c in cons]...)
-    return PolynomialOptimizationProblem(objective, cons, variables)
+    vars = union(variables(objective), [variables(c) for c in cons]...)
+    return PolynomialOptimizationProblem(objective, cons, vars)
 end
 
 nvariables(pop::PolynomialOptimizationProblem) = length(pop.variables)
