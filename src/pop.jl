@@ -1,27 +1,21 @@
 abstract type OptimizationProblem end
 
-struct PolynomialOptimizationProblem{C,N,VV<:AbstractVector{<:DP.AbstractVariable},PD<:AbstractPolynomialLike} <: OptimizationProblem
-    objective::PD
-    constraints::NTuple{N,PD}
-    variables::VV
+# C: false if the variables are not commutative
+# T: type of the coefficients
+struct PolynomialOptimizationProblem{C,T} <: OptimizationProblem
+    objective::Polynomial{C,T}
+    constraints::Vector{Polynomial{C,T}}
+    variables::Vector{PolyVar{C}}
 end
 
-function PolynomialOptimizationProblem(objective::PD, constraints::AbstractVector{PD}, variables::VV) where {VV<:AbstractVector{<:DP.AbstractVariable},PD<:AbstractPolynomialLike}
-    N = length(constraints)
-	C = any(x -> !(DP.iscomm(typeof(x))), variables)
-    PolynomialOptimizationProblem{C,N,VV,PD}(objective, ntuple(i -> constraints[i], N), variables)
+# for user convenience
+# be as general as possible
+function PolynomialOptimizationProblem(objective::Polynomial{C,T}, constraints) where {C,T}
+    cons = collect(Polynomial{C,T}, constraints)
+    variables = union(variables(objective), [variables(c) for c in cons]...)
+    return PolynomialOptimizationProblem(objective, cons, variables)
 end
-
-PolynomialOptimizationProblem(objective::PD, variables::VV) where {VV<:AbstractVector{<:DP.AbstractVariable},PD<:AbstractPolynomialLike} = PolynomialOptimizationProblem(objective, PD[], variables)
-
-get_objective(pop::PolynomialOptimizationProblem) = pop.objective
-
-get_constraints(pop::PolynomialOptimizationProblem) = pop.constraints
-
-get_variables(pop::PolynomialOptimizationProblem) = pop.variables
 
 nvariables(pop::PolynomialOptimizationProblem) = length(pop.variables)
-
-nconstraints(::PolynomialOptimizationProblem{C,N,VV,PD}) where {C,N,VV,PD} = N
-
-iscommutative(::PolynomialOptimizationProblem{C,N,VV,PD}) where {C,N,VV,PD} = C
+nconstraints(pop::PolynomialOptimizationProblem) = length(pop.constraints)
+iscommutative(::PolynomialOptimizationProblem{C}) where {C} = C
