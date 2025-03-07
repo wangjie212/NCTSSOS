@@ -1,10 +1,10 @@
 module NCTSSOS
 
 using DynamicPolynomials
-using DynamicPolynomials: AbstractVariable, variables, coefficient, monomial, terms, isconstant
-using SparseArrays
+using DynamicPolynomials:
+    AbstractVariable, variables, coefficient, monomial, terms, isconstant
+using SparseArrays, LinearAlgebra
 using JuMP
-using LinearAlgebra
 
 export PolynomialOptimizationProblem
 export moment_relax

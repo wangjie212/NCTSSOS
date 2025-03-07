@@ -14,7 +14,7 @@ SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 
 [compat]
 ChordalGraph = "0.4"
-DynamicPolynomials = "0.4.6"
+DynamicPolynomials = "0.4"
 Graphs = "1.5"
 MetaGraphs = "0.7"
 julia = "1"

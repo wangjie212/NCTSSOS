@@ -111,13 +111,12 @@ function nctssos_first(
     basis = Vector{Vector{Vector{UInt16}}}(undef, m + 1)
 
     basis[1] = get_ncbasis(n, order; binary=constraint !== nothing)
-    # TODO: I did not consider some variables are commutative
+    # NOTE: I did not consider some variables are commutative
     if partition > 0
         ind = [_comm(basis[1][i], partition) == basis[1][i] for i in 1:length(basis[1])]
         basis[1] = basis[1][ind]
     end
 
-    # FIXME: I am here
     ksupp = copy(supp[1])
     for i in 1:m
         basis[i + 1] = get_ncbasis(
