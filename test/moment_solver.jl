@@ -54,14 +54,12 @@ end
     localizing_matrix_constraint = constrain_moment_matrix!(model, g1, local_basis, monomap)
 
 
-    ((x->getfield(x,:func)) ∘ JuMP.constraint_object)(localizing_matrix_constraint)
     myexponents = [([1, 0], [2, 0]) ([2, 0], [3, 0]) ([1, 1], [2, 1]); ([2, 0], [3, 0]) ([3, 0], [4, 0]) ([2, 1], [3, 1]); ([1, 1], [2, 1]) ([2, 1], [3, 1]) ([1, 2], [2, 2])]
-    # true_localizing_matrix = [mapreduce(a -> monomap[prod([b -> iszero(b[2]) ? 1 : (x[b[1]])^b[2] for b in  enumerate(a)])], -, myexponents[i, j]) for i in 1:size(myexponents, 1), j in 1:size(myexponents, 2)]
-    true_localizing_matrix = [mapreduce(a -> (prod([b -> iszero(b[2]) ? 1 : (x[b[1]])^b[2] for b in  enumerate(a)]), -, myexponents[i, j])) for i in 1:size(myexponents, 1), j in 1:size(myexponents, 2)]
 
-    true_localizing_matrix
-    monomap[x[1]*x[2]]
+    true_localizing_matrix = [mapreduce(
+        a -> (monomap[prod([iszero(b[2]) ? one(x[1]) : x[b[1]]^b[2] for b in enumerate(a)])]), -, myexponents[i]) for i in eachindex(myexponents)]
 
+    @test true_localizing_matrix == ((x->getfield(x,:func)) ∘ JuMP.constraint_object)(localizing_matrix_constraint)
 end
 
 @testset "Moment Method Example 1" begin
@@ -131,7 +129,7 @@ end
 
 
 @testset "Moment Method Heisenberg Model on Star Graph" begin
-    num_sites = 6
+    num_sites = 8 
     g = star_graph(num_sites)
 
     true_ans = -1.0

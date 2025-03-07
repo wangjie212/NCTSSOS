@@ -2,10 +2,9 @@ struct SOSProblem{T} <: OptimizationProblem
     model::GenericModel{T}
 end
 
-
 function get_C_α_j(
-    basis::VE, localizing_mtx::VectorConstraint
-) where {VE<:AbstractVector{<:JuMP.AbstractVariableRef}}
+    basis::Vector{GenericVariableRef{T}}, localizing_mtx::VectorConstraint{F,S,Shape}
+) where {T,F,S,Shape}
     dim = ((x -> getfield(x, :side_dimension)) ∘ JuMP.shape)(localizing_mtx)
 
     Is, Js, Vs = [
