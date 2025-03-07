@@ -26,52 +26,39 @@ function get_Cαj(basis::Vector{GenericVariableRef{T}}, localizing_mtx::VectorCo
     return [sparse(Is[i], Js[i], Vs[i], dim, dim) for i in eachindex(basis)]
 end
 
-function sos_dualize(
-   moment_problem::MomentProblem{C,T} 
-) where {C,T}
+function sos_dualize(moment_problem::MomentProblem{C,T}) where {C,T}
     dual_model = GenericModel{T}()
 
-    dual_variables = [
-        begin
-            G_dim = sdp_constraint |> ((x -> getfield(x, :side_dimension)) ∘ JuMP.shape ∘ constraint_object)
-            @variable(dual_model, [1:G_dim, 1:G_dim] in PSDCone())
-        end for sdp_constraint in moment_problem.model[:mtx_constraints]
-    ]
+    # Initialize Gj as variables
+    dual_variables = map(moment_problem.model[:mtx_constraints]) do cons
+        G_dim = JuMP.shape(constraint_object(cons)).side_dimension
+        @variable(dual_model, [1:G_dim, 1:G_dim] in PSDCone())
+    end
 
-    dual_model[:dual_variables] = dual_variables
-
+    # b: to bound the minimum value of the primal problem
     @variable(dual_model, b)
     @objective(dual_model, Max, b)
 
-    primal_objective_terms = ((x -> getfield(x, :terms)) ∘ objective_function)(moment_problem.model)
+    primal_objective_terms = objective_function(moment_problem.model).terms
 
-    symmetric_basis = sort(
-        unique([symmetric_canonicalize(basis) for basis in keys(moment_problem.monomap)])
-    )
+    # NOTE: objective is Symmetric, hence when comparing polynomials, we need to canonicalize them first
+    # TODO: fix this for trace
+    symmetric_basis = sort(unique!([symmetric_canonicalize(basis) for basis in keys(moment_problem.monomap)]))
 
+    # JuMP variables corresponding to symmetric_basis 
     symmetric_variables = getindex.(Ref(moment_problem.monomap), symmetric_basis)
 
-    f_α_constraints = [
-        AffExpr(haskey(primal_objective_terms, α) ? primal_objective_terms[α] : 0.0) for
-        α in symmetric_variables
-    ]
-
-    f_α_constraints[1] -= b
-
+    # specify constraints
+    fα_constraints = [AffExpr(get(primal_objective_terms, α, zero(T))) for α in symmetric_variables]
+    fα_constraints[1] -= b   # constant term in the primal objective
     for (i, sdp_constraint) in enumerate(moment_problem.model[:mtx_constraints])
-        C_α_j = get_Cαj(
-            getindex.(Ref(moment_problem.monomap), collect(keys(moment_problem.monomap))),
-            constraint_object(sdp_constraint),
-        )
+        Cαj = get_Cαj(collect(values(moment_problem.monomap)), constraint_object(sdp_constraint))
         for (k, α) in enumerate(keys(moment_problem.monomap))
-            l = findfirst(
-                isequal(moment_problem.monomap[symmetric_canonicalize(α)]),
-                symmetric_variables,
-            )
-            f_α_constraints[l] -= LinearAlgebra.tr(C_α_j[k] * dual_variables[i])
+            l = findfirst(==(moment_problem.monomap[symmetric_canonicalize(α)]), symmetric_variables)
+            fα_constraints[l] -= LinearAlgebra.tr(Cαj[k] * dual_variables[i])
         end
     end
+    @constraint(dual_model, fα_constraints .== 0)
 
-    @constraint(dual_model, f_α_constraints in MOI.Zeros(length(symmetric_basis)))
     return SOSProblem(dual_model)
 end
