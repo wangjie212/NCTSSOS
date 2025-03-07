@@ -2,3 +2,4 @@ Manifest.toml
 old/
 .vscode/*
 */.vscode/*
+.Juliaformatter.toml
