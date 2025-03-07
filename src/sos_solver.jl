@@ -2,27 +2,23 @@ struct SOSProblem{T} <: OptimizationProblem
     model::GenericModel{T}
 end
 
-function get_C_α_j(
-    basis::Vector{GenericVariableRef{T}}, localizing_mtx::VectorConstraint{F,S,Shape}
-) where {T,F,S,Shape}
-    dim = ((x -> getfield(x, :side_dimension)) ∘ JuMP.shape)(localizing_mtx)
+# Decompose the matrix into the form sum_j C_αj * g_j
+# j: index of the constraint
+# α: the monomial (JuMP variable)
+function get_Cαj(basis::Vector{GenericVariableRef{T}}, localizing_mtx::VectorConstraint{F,S,Shape}) where {T,F,S,Shape}
+    dim = JuMP.shape(localizing_mtx).side_dimension
+    cis = CartesianIndices((dim, dim))
+    nbasis = length(basis)
 
-    Is, Js, Vs = [
-        [
-            begin
-                I = i <= 2 ? Int64[] : Float64[]
-                sizehint!(I, max(5, dim))
-                I
-            end for _ in eachindex(basis)
-        ] for i in 1:3
-    ]
+    # Is, Js, Vs: for storing sparse repr. of C_αj,
+    # each element corresponds to a monomial in basis.
+    Is, Js, Vs = [Int[] for _ in 1:nbasis], [Int[] for _ in 1:nbasis], [T[] for _ in 1:nbasis]
 
-    for (i, cur_expr) in enumerate(getfield(localizing_mtx, :func))
-        row_idx, col_idx = mod1(i, dim), div(i, dim, RoundUp)
-        for (α, coeff) in getfield(cur_expr, :terms)
-            α_idx = findfirst(isequal(α), basis)
-            push!(Is[α_idx], row_idx)
-            push!(Js[α_idx], col_idx)
+    for (ci, cur_expr) in zip(cis, localizing_mtx.func)
+        for (α, coeff) in cur_expr.terms
+            α_idx = findfirst(==(α), basis)
+            push!(Is[α_idx], ci.I[1])
+            push!(Js[α_idx], ci.I[2])
             push!(Vs[α_idx], coeff)
         end
     end
@@ -63,7 +59,7 @@ function sos_dualize(
     f_α_constraints[1] -= b
 
     for (i, sdp_constraint) in enumerate(moment_problem.model[:mtx_constraints])
-        C_α_j = get_C_α_j(
+        C_α_j = get_Cαj(
             getindex.(Ref(moment_problem.monomap), collect(keys(moment_problem.monomap))),
             constraint_object(sdp_constraint),
         )

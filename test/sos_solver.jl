@@ -4,16 +4,16 @@ using SparseArrays
 using JuMP
 using Graphs
 
-using NCTSSOS: get_C_α_j
+using NCTSSOS: get_Cαj
 
-@testset "C_α_j" begin
+@testset "Cαj" begin
 	model = Model()
 	@variable(model, x[1:4])
 
     cons = @constraint(model,[x[1] - x[2] x[3] x[4] + x[1]; x[1] - x[2] x[3] x[4] + x[1]; x[1] - x[2] x[3] x[4] + x[1]] in PSDCone())
     typeof(cons)
 
-    C_α_js = get_C_α_j(x, constraint_object(cons))
+    C_α_js = get_Cαj(x, constraint_object(cons))
 
     @test C_α_js == [sparse([1, 2, 3, 1, 2, 3], [1, 1, 1, 3, 3, 3], [1.0, 1.0, 1.0, 1.0, 1.0, 1.0], 3, 3),
 	 sparse([1, 2, 3], [1, 1, 1], [-1.0, -1.0, -1.0], 3, 3),

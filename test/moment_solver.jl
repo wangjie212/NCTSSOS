@@ -33,7 +33,7 @@ end
     )
     monomap = Dict(total_basis .=> y)
 
-    g1 = x[1] - x[1]^2
+    g1 = 1.0*x[1] - x[1]^2
     local_basis = [one(x[1]),x[1],x[2]]
     localizing_matrix_constraint = constrain_moment_matrix!(model, g1, local_basis, monomap)
 

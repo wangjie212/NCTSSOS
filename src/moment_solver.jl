@@ -5,15 +5,11 @@
 struct MomentProblem{C,T} <: OptimizationProblem 
     order::Int
     model::GenericModel{T}
-    monomap::Dict{Monomial{C},GenericVariableRef{T}}
+    monomap::Dict{Monomial{C},GenericVariableRef{T}}  # TODO: maybe refactor.
 end
 
-function substitute_variables(
-    poly::Polynomial{C,T}, monomap::Dict{Monomial{C},GenericVariableRef{T2}}
-) where {C,T,T2}
-    return mapreduce(
-        x -> coefficient(x) * monomap[remove_zero_degree(monomial(x))], +, terms(poly)
-    )
+function substitute_variables(poly::Polynomial{C,T}, monomap::Dict{Monomial{C},GenericVariableRef{T}}) where {C,T}
+    return mapreduce(x -> coefficient(x) * monomap[monomial(x)], +, terms(poly))
 end
 
 function moment_relax(pop::PolynomialOptimizationProblem{C,T}, order::Int) where {C,T}
@@ -54,10 +50,10 @@ end
 
 function constrain_moment_matrix!(
     model::GenericModel{T},
-    poly::Polynomial{C,T2},
+    poly::Polynomial{C,T},
     local_basis::Vector{Monomial{C}},
     monomap::Dict{Monomial{C},GenericVariableRef{T}},
-) where {C,T,T2}
+) where {C,T}
     moment_mtx = [
         substitute_variables(poly * neat_dot(row_idx, col_idx), monomap) for
         row_idx in local_basis, col_idx in local_basis
