@@ -1,6 +1,6 @@
 using Test, NCTSSOS
 using DynamicPolynomials
-using NCTSSOS: remove_zero_degree, star, symmetric_canonicalize, get_basis, support
+using NCTSSOS: remove_zero_degree, star, symmetric_canonicalize, get_basis, support, neat_dot
 
 @testset "Utilities" begin
     @ncpolyvar x y z
@@ -106,4 +106,11 @@ using NCTSSOS: remove_zero_degree, star, symmetric_canonicalize, get_basis, supp
         @test sort(support(poly, identity)) ==  sort([one(x), x, x^2 * y])
     end
 
+    @testset "neat_dot" begin
+        mono1 = Monomial{false}([x,y],[1,0])
+
+        mono2 = Monomial{false}([x,y],[1,1]) 
+
+        @test neat_dot(mono1,mono2) == Monomial{false}([x,y],[2,1])
+    end
 end

@@ -23,11 +23,11 @@ end
 
 @testset "Dualization Trivial Example 2" begin
     n = 2
-    true_min = 3
+    true_min = 3.0
     @ncpolyvar x[1:n]
 
     f = x[1]^2 + x[1] * x[2] + x[2] * x[1] + x[2]^2 + true_min
-    r = -10
+    r = -10.0
     g1 = r - x[1]
     g2 = r - x[2]
     g3 = x[1] - r
@@ -55,9 +55,9 @@ end
 @testset "Dualization Example 2" begin
     n = 2
     @ncpolyvar x[1:n]
-    f = 2 - x[1]^2 + x[1] * x[2]^2 * x[1] - x[2]^2
-    g = 4 - x[1]^2 - x[2]^2
-    h1 = x[1] * x[2] + x[2] * x[1] - 2
+    f = 2.0 - x[1]^2 + x[1] * x[2]^2 * x[1] - x[2]^2
+    g = 4.0 - x[1]^2 - x[2]^2
+    h1 = x[1] * x[2] + x[2] * x[1] - 2.0
     h2 = -h1
     pop = PolynomialOptimizationProblem(f, [g, h1, h2], x)
 
@@ -80,7 +80,7 @@ end
 
 @testset "Dualization Trivial Example" begin
     n = 2
-    true_min = 3
+    true_min = 3.0
     @ncpolyvar x[1:n]
 
     f = x[1]^2 + x[1] * x[2] + x[2] * x[1] + x[2]^2 + true_min
@@ -110,7 +110,7 @@ end
 
     f =
         x[1]^2 - x[1] * x[2] - x[2] * x[1] + 3x[2]^2 - 2x[1] * x[2] * x[1] +
-        2x[1] * x[2]^2 * x[1] - x[2] * x[3] - x[3] * x[2] +
+        2.0*x[1] * x[2]^2 * x[1] - x[2] * x[3] - x[3] * x[2] +
         6x[3]^2 +
         9x[2]^2 * x[3] +
         9x[3] * x[2]^2 - 54x[3] * x[2] * x[3] + 142x[3] * x[2]^2 * x[3]
@@ -146,17 +146,17 @@ end
 
     @ncpolyvar pij[1:length(vec_idx2ij)]
 
-    objective = sum(pij[[findvaridx(ee.src, ee.dst) for ee in edges(star)]])
+    objective = sum(1.0*pij[[findvaridx(ee.src, ee.dst) for ee in edges(star)]])
 
     gs = [
-        [(pij[findvaridx(i, j)]^2 - 1) for i in 1:num_sites for j in (i + 1):num_sites]
-        [-(pij[findvaridx(i, j)]^2 - 1) for i in 1:num_sites for j in (i + 1):num_sites]
+        [(pij[findvaridx(i, j)]^2 - 1.0) for i in 1:num_sites for j in (i + 1):num_sites]
+        [-(pij[findvaridx(i, j)]^2 - 1.0) for i in 1:num_sites for j in (i + 1):num_sites]
         [
             (
                 pij[findvaridx(sort([i, j])...)] * pij[findvaridx(sort([j, k])...)] +
                 pij[findvaridx(sort([j, k])...)] * pij[findvaridx(sort([i, j])...)] -
                 pij[findvaridx(sort([i, j])...)] - pij[findvaridx(sort([j, k])...)] -
-                pij[findvaridx(sort([i, k])...)] + 1
+                pij[findvaridx(sort([i, k])...)] + 1.0
             ) for i in 1:num_sites, j in 1:num_sites, k in 1:num_sites if
             (i != j && j != k && i != k)
         ]
@@ -165,7 +165,7 @@ end
                 pij[findvaridx(sort([i, j])...)] * pij[findvaridx(sort([j, k])...)] +
                 pij[findvaridx(sort([j, k])...)] * pij[findvaridx(sort([i, j])...)] -
                 pij[findvaridx(sort([i, j])...)] - pij[findvaridx(sort([j, k])...)] -
-                pij[findvaridx(sort([i, k])...)] + 1
+                pij[findvaridx(sort([i, k])...)] + 1.0
             ) for i in 1:num_sites, j in 1:num_sites, k in 1:num_sites if
             (i != j && j != k && i != k)
         ]

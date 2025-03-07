@@ -30,21 +30,17 @@ function get_C_α_j(
     return [sparse(Is[i], Js[i], Vs[i], dim, dim) for i in eachindex(basis)]
 end
 
-function init_dual_variables!(model::GenericModel{T}, dual_model::GenericModel{T}) where {T}
-    return [
-        begin
-            G_dim = sdp_constraint |> ((x -> getfield(x, :side_dimension)) ∘ JuMP.shape ∘ constraint_object)
-            @variable(dual_model, [1:G_dim, 1:G_dim] in PSDCone())
-        end for sdp_constraint in model[:mtx_constraints]
-    ]
-end
-
 function sos_dualize(
    moment_problem::MomentProblem{C,T} 
 ) where {C,T}
     dual_model = GenericModel{T}()
 
-    dual_variables = init_dual_variables!(moment_problem.model, dual_model)
+    dual_variables = [
+        begin
+            G_dim = sdp_constraint |> ((x -> getfield(x, :side_dimension)) ∘ JuMP.shape ∘ constraint_object)
+            @variable(dual_model, [1:G_dim, 1:G_dim] in PSDCone())
+        end for sdp_constraint in moment_problem.model[:mtx_constraints]
+    ]
 
     dual_model[:dual_variables] = dual_variables
 

@@ -3,7 +3,7 @@ using DynamicPolynomials
 using JuMP
 using Clarabel
 using Graphs
-using NCTSSOS: get_basis, init_moment_vector!, substitute_variables, constrain_moment_matrix!, remove_zero_degree, star
+using NCTSSOS: get_basis, substitute_variables, constrain_moment_matrix!, remove_zero_degree, star
 
 @testset "Replace DynamicPolynomials variables with JuMP variables" begin
     @ncpolyvar x y z
@@ -17,20 +17,6 @@ using NCTSSOS: get_basis, init_moment_vector!, substitute_variables, constrain_m
     @test substitute_variables(poly, monomap) == 1.0*jm[5] - 2.0 * jm[6] - jm[1]
 end
 
-@testset "Init Moment Vector" begin
-    @ncpolyvar x[1:3]
-
-    model = GenericModel{Float64}()
-
-    total_basis = get_basis(x, 1)
-
-    jump_vars = init_moment_vector!(model, total_basis)
-
-    y = all_variables(model)
-
-    @test jump_vars == Dict([one(x[1]) => y[1], x[1] => y[2], x[2] => y[3], x[3] => y[4]])
-end
-
 @testset "Constrain Moment Matrix" begin
     # Example 2.4 in Sparse Polynomial Optimization: Theory and Practice 
     model = GenericModel{Float64}()
@@ -38,15 +24,13 @@ end
     @variable(model, y[1:15])
     @polyvar x[1:2]
 
-    total_basis = begin
-        moment_mtx_idcs = get_basis(x, order)
-        sort(
-            unique([
-                remove_zero_degree(row_idx * col_idx) for
-                row_idx in star.(moment_mtx_idcs) for col_idx in moment_mtx_idcs
-            ]),
-        )
-    end
+    moment_mtx_idcs = get_basis(x, order)
+    total_basis = sort(
+        unique([
+            remove_zero_degree(row_idx * col_idx) for row_idx in star.(moment_mtx_idcs) for
+            col_idx in moment_mtx_idcs
+        ]),
+    )
     monomap = Dict(total_basis .=> y)
 
     g1 = x[1] - x[1]^2
@@ -68,7 +52,7 @@ end
     @ncpolyvar x[1:n]
     f =
         x[1]^2 - x[1] * x[2] - x[2] * x[1] + 3x[2]^2 - 2x[1] * x[2] * x[1] +
-        2x[1] * x[2]^2 * x[1] - x[2] * x[3] - x[3] * x[2] +
+        2.0x[1] * x[2]^2 * x[1] - x[2] * x[3] - x[3] * x[2] +
         6x[3]^2 +
         9x[2]^2 * x[3] +
         9x[3] * x[2]^2 - 54x[3] * x[2] * x[3] + 142x[3] * x[2]^2 * x[3]
@@ -90,9 +74,9 @@ end
     order = 2
     n = 2
     @ncpolyvar x[1:2]
-    f = 2 - x[1]^2 + x[1] * x[2]^2 * x[1] - x[2]^2
-    g = 4 - x[1]^2 - x[2]^2
-    h1 = x[1] * x[2] + x[2] * x[1] - 2
+    f = 2.0 - x[1]^2 + x[1] * x[2]^2 * x[1] - x[2]^2
+    g = 4.0 - x[1]^2 - x[2]^2
+    h1 = x[1] * x[2] + x[2] * x[1] - 2.0
     h2 = -h1
     pop = PolynomialOptimizationProblem(f, [g, h1, h2], x)
 
@@ -140,17 +124,17 @@ end
 
     @ncpolyvar pij[1:length(vec_idx2ij)]
 
-    objective = sum(pij[[findvaridx(ee.src, ee.dst) for ee in edges(g)]])
+    objective = sum(1.0*pij[[findvaridx(ee.src, ee.dst) for ee in edges(g)]])
 
     gs = [
-        [(pij[findvaridx(i, j)]^2 - 1) for i in 1:num_sites for j in (i + 1):num_sites]
-        [-(pij[findvaridx(i, j)]^2 - 1) for i in 1:num_sites for j in (i + 1):num_sites]
+        [(pij[findvaridx(i, j)]^2 - 1.0) for i in 1:num_sites for j in (i + 1):num_sites]
+        [-(pij[findvaridx(i, j)]^2 - 1.0) for i in 1:num_sites for j in (i + 1):num_sites]
         [
             (
                 pij[findvaridx(sort([i, j])...)] * pij[findvaridx(sort([j, k])...)] +
                 pij[findvaridx(sort([j, k])...)] * pij[findvaridx(sort([i, j])...)] -
                 pij[findvaridx(sort([i, j])...)] - pij[findvaridx(sort([j, k])...)] -
-                pij[findvaridx(sort([i, k])...)] + 1
+                pij[findvaridx(sort([i, k])...)] + 1.0
             ) for i in 1:num_sites, j in 1:num_sites, k in 1:num_sites if
             (i != j && j != k && i != k)
         ]
@@ -159,7 +143,7 @@ end
                 pij[findvaridx(sort([i, j])...)] * pij[findvaridx(sort([j, k])...)] +
                 pij[findvaridx(sort([j, k])...)] * pij[findvaridx(sort([i, j])...)] -
                 pij[findvaridx(sort([i, j])...)] - pij[findvaridx(sort([j, k])...)] -
-                pij[findvaridx(sort([i, k])...)] + 1
+                pij[findvaridx(sort([i, k])...)] + 1.0
             ) for i in 1:num_sites, j in 1:num_sites, k in 1:num_sites if
             (i != j && j != k && i != k)
         ]

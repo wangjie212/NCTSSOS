@@ -5,8 +5,8 @@ using DynamicPolynomials
     nvars = 10
     ncons = 3
     @ncpolyvar x[1:nvars]
-    objective = sum(x .^ 2)
-    constraints = [sum(i .* x) for i in 1:ncons]
+    objective = 1.0 * sum(x .^ 2)
+    constraints = [1.0 * sum(i .* x) for i in 1:ncons]
 
     pop = PolynomialOptimizationProblem(objective, constraints)
 

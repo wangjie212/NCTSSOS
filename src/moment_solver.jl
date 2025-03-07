@@ -17,54 +17,38 @@ function substitute_variables(
 end
 
 function moment_relax(pop::PolynomialOptimizationProblem{C,T}, order::Int) where {C,T}
-
-    objective = (symmetric_canonicalize ∘ (x -> getfield(x, :objective)))(pop)
+    objective = symmetric_canonicalize(pop.objective)
 
     # NOTE: objective and constraints may have integer coefficients, but popular JuMP solvers does not support integer coefficients
     # left type here to support BigFloat model for higher precision
-    T2 = (T <: Integer) ? Float64 : T
-    model = GenericModel{T2}()
+    model = GenericModel{T}()
 
+    # get the basis of the moment matrix, then sort it
+    moment_basis = get_basis(pop.variables, order)
     # total_basis that is the union of support of all constraints and objective and moment matrix and localizing matrices
-    total_basis = begin
-        moment_mtx_idcs = get_basis(pop.variables, order)
-        sort(
-            unique([
-                remove_zero_degree(row_idx * col_idx) for
-                row_idx in star.(moment_mtx_idcs) for col_idx in moment_mtx_idcs
-            ]),
-        )
-    end
+    total_basis = sort(unique!([neat_dot(row_idx, col_idx) for row_idx in moment_basis for col_idx in moment_basis]))
 
-    monomap = init_moment_vector!(model, total_basis)
+    # map the monomials to JuMP variables, the first variable must be 1
+    @variable(model, y[1:length(total_basis)])
+    @constraint(model, first(y) == 1)
+    monomap = Dict(zip(total_basis, y))
 
+    # add the constraints
     constraint_matrices = [
         constrain_moment_matrix!(
             model,
-            cur_poly,
-            get_basis(
-                pop.variables, order - ceil(Int, maxdegree(cur_poly) / 2)
-            ),
+            poly,
+            get_basis(pop.variables, order - ceil(Int, maxdegree(poly) / 2)),
             monomap,
-        ) for cur_poly in vcat(pop.constraints..., one(objective))
+        ) for poly in [one(objective), pop.constraints...]
     ]
 
+    # store the constraints for future reference
     model[:mtx_constraints] = constraint_matrices
 
-    @objective(
-        model, Min, substitute_variables(objective, monomap)
-    )
+    @objective(model, Min, substitute_variables(objective, monomap))
 
     return MomentProblem(order, model, monomap)
-end
-
-
-function init_moment_vector!(
-    model::GenericModel{T}, basis::Vector{Monomial{C}}
-) where {C,T}
-    moment_vector = @variable(model, y[1:length(basis)])
-    @constraint(model, first(y) - 1 in Zeros())
-    return Dict(basis .=> moment_vector)
 end
 
 
@@ -75,12 +59,8 @@ function constrain_moment_matrix!(
     monomap::Dict{Monomial{C},GenericVariableRef{T}},
 ) where {C,T,T2}
     moment_mtx = [
-        substitute_variables(poly * row_idx * col_idx, monomap) for
-        row_idx in star.(local_basis), col_idx in local_basis
+        substitute_variables(poly * neat_dot(row_idx, col_idx), monomap) for
+        row_idx in local_basis, col_idx in local_basis
     ]
-    return @constraint(
-        model,
-        moment_mtx in PSDCone(),
-        base_name = isconstant(poly) ? "moment_matrix" : "localizing_matrix_$(hash(poly))"
-    )
+    return @constraint(model,moment_mtx in PSDCone())
 end
