@@ -11,13 +11,10 @@
 
 ```mermaid
 flowchart TD
-    A[Polynomial Optimization Problem] -->|relax| B[Moment Problem]
-    B -->|apply sparsity| C[Moment Problems]
-    C -->|dualization| D[SOS Problem]
+    A[Polynomial Optimization Problem] -->|_moment_relax_| B[Moment Problem]
+    B -->|_apply_sparsity_| C[Moment Problems]
+    C -->|_sos_dualize_| D[SOS Problem]
 ```
-
-`PolynomialOptimizationProblem` characterizes a general Polynomial Optimziation problem.
-
 
 = API Naming Changes
 

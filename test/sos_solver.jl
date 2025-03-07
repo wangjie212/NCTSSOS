@@ -1,10 +1,10 @@
-using Test, NCTSSOS, DynamicPolynomials, Clarabel
+using Test, NCTSSOS
+using DynamicPolynomials, Clarabel
+using SparseArrays
 using JuMP
-using MosekTools
 using Graphs
 
 using NCTSSOS: get_C_α_j
-using SparseArrays
 
 # FIXME: This is not what it does 
 # @testset "C_α_j" begin

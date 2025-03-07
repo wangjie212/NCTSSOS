@@ -3,7 +3,66 @@ using DynamicPolynomials
 using JuMP
 using Clarabel
 using Graphs
-using NCTSSOS: get_basis, init_moment_vector!
+using NCTSSOS: get_basis, init_moment_vector!, substitute_variables, constrain_moment_matrix!, remove_zero_degree, star
+
+@testset "Replace DynamicPolynomials variables with JuMP variables" begin
+    @ncpolyvar x y z
+    poly = 1.0 * x^2 - 2.0 * x * y - 1
+
+    model = GenericModel{Float64}()
+    @variable(model, jm[1:13])
+
+    monomap = Dict(get_basis([x,y,z],2) .=> jm)
+
+    @test substitute_variables(poly, monomap) == 1.0*jm[5] - 2.0 * jm[6] - jm[1]
+end
+
+@testset "Init Moment Vector" begin
+    @ncpolyvar x[1:3]
+
+    model = GenericModel{Float64}()
+
+    total_basis = get_basis(x, 1)
+
+    jump_vars = init_moment_vector!(model, total_basis)
+
+    y = all_variables(model)
+
+    @test jump_vars == Dict([one(x[1]) => y[1], x[1] => y[2], x[2] => y[3], x[3] => y[4]])
+end
+
+@testset "Constrain Moment Matrix" begin
+    # Example 2.4 in Sparse Polynomial Optimization: Theory and Practice 
+    model = GenericModel{Float64}()
+    order = 2
+    @variable(model, y[1:15])
+    @polyvar x[1:2]
+
+    total_basis = begin
+        moment_mtx_idcs = get_basis(x, order)
+        sort(
+            unique([
+                remove_zero_degree(row_idx * col_idx) for
+                row_idx in star.(moment_mtx_idcs) for col_idx in moment_mtx_idcs
+            ]),
+        )
+    end
+    monomap = Dict(total_basis .=> y)
+
+    g1 = x[1] - x[1]^2
+    local_basis = [one(x[1]),x[1],x[2]]
+    localizing_matrix_constraint = constrain_moment_matrix!(model, g1, local_basis, monomap)
+
+
+    ((x->getfield(x,:func)) ∘ JuMP.constraint_object)(localizing_matrix_constraint)
+    myexponents = [([1, 0], [2, 0]) ([2, 0], [3, 0]) ([1, 1], [2, 1]); ([2, 0], [3, 0]) ([3, 0], [4, 0]) ([2, 1], [3, 1]); ([1, 1], [2, 1]) ([2, 1], [3, 1]) ([1, 2], [2, 2])]
+    # true_localizing_matrix = [mapreduce(a -> monomap[prod([b -> iszero(b[2]) ? 1 : (x[b[1]])^b[2] for b in  enumerate(a)])], -, myexponents[i, j]) for i in 1:size(myexponents, 1), j in 1:size(myexponents, 2)]
+    true_localizing_matrix = [mapreduce(a -> (prod([b -> iszero(b[2]) ? 1 : (x[b[1]])^b[2] for b in  enumerate(a)]), -, myexponents[i, j])) for i in 1:size(myexponents, 1), j in 1:size(myexponents, 2)]
+
+    true_localizing_matrix
+    monomap[x[1]*x[2]]
+
+end
 
 @testset "Moment Method Example 1" begin
     order = 2
@@ -70,19 +129,6 @@ end
     # @test isapprox(objective_value(moment_problem.model), 0.0, atol=1e-4)
 end
 
-@testset "Init Moment Vector" begin
-    @ncpolyvar x[1:3]
-
-    model = GenericModel{Float64}()
-
-    total_basis = get_basis(x, 1)
-
-    jump_vars = init_moment_vector!(model, total_basis)
-
-    y = all_variables(model)
-
-    @test jump_vars == Dict([one(x[1]) => y[1], x[1] => y[2], x[2] => y[3], x[3] => y[4]])
-end
 
 @testset "Moment Method Heisenberg Model on Star Graph" begin
     num_sites = 6

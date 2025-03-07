@@ -8,7 +8,7 @@ struct MomentProblem{C,T} <: OptimizationProblem
     monomap::Dict{Monomial{C},GenericVariableRef{T}}
 end
 
-function replace_variable_with_jump_variables(
+function substitute_variables(
     poly::Polynomial{C,T}, monomap::Dict{Monomial{C},GenericVariableRef{T2}}
 ) where {C,T,T2}
     return mapreduce(
@@ -17,9 +17,11 @@ function replace_variable_with_jump_variables(
 end
 
 function moment_relax(pop::PolynomialOptimizationProblem{C,T}, order::Int) where {C,T}
-    # construct model
+
     objective = (symmetric_canonicalize ∘ (x -> getfield(x, :objective)))(pop)
 
+    # NOTE: objective and constraints may have integer coefficients, but popular JuMP solvers does not support integer coefficients
+    # left type here to support BigFloat model for higher precision
     T2 = (T <: Integer) ? Float64 : T
     model = GenericModel{T2}()
 
@@ -50,7 +52,7 @@ function moment_relax(pop::PolynomialOptimizationProblem{C,T}, order::Int) where
     model[:mtx_constraints] = constraint_matrices
 
     @objective(
-        model, Min, replace_variable_with_jump_variables(objective, monomap)
+        model, Min, substitute_variables(objective, monomap)
     )
 
     return MomentProblem(order, model, monomap)
@@ -70,10 +72,10 @@ function constrain_moment_matrix!(
     model::GenericModel{T},
     poly::Polynomial{C,T2},
     local_basis::Vector{Monomial{C}},
-    basis2var_dict::Dict{Monomial{C},GenericVariableRef{T}},
+    monomap::Dict{Monomial{C},GenericVariableRef{T}},
 ) where {C,T,T2}
     moment_mtx = [
-        replace_variable_with_jump_variables(poly * row_idx * col_idx, basis2var_dict) for
+        substitute_variables(poly * row_idx * col_idx, monomap) for
         row_idx in star.(local_basis), col_idx in local_basis
     ]
     return @constraint(

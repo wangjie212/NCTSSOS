@@ -1,5 +1,6 @@
 using Test, NCTSSOS
 using DynamicPolynomials
+using NCTSSOS: remove_zero_degree, star, symmetric_canonicalize, get_basis, support
 
 @testset "Utilities" begin
     @ncpolyvar x y z
