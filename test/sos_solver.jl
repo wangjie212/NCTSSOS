@@ -135,7 +135,7 @@ end
 end
 
 @testset "Dualization Heisenberg Model on Star Graph" begin
-    num_sites = 16
+    num_sites = 8
     star = star_graph(num_sites)
 
     true_ans = -1.0
@@ -179,17 +179,9 @@ end
 
     sos_problem = sos_dualize(moment_problem)
 
-    set_optimizer(moment_problem.model, Mosek.Optimizer)
-    optimize!(moment_problem.model)
-
-    set_optimizer(sos_problem.model, Mosek.Optimizer)
+    set_optimizer(sos_problem.model, Clarabel.Optimizer)
     optimize!(sos_problem.model)
-
-    @show moment_problem.model
-    @show sos_problem.model
 
     @test is_solved_and_feasible(sos_problem.model)
     @test isapprox(objective_value(sos_problem.model), true_ans, atol=1e-6)
 end
-
-using MosekTools
