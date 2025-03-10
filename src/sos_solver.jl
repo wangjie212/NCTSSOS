@@ -30,7 +30,7 @@ function sos_dualize(moment_problem::MomentProblem{C,T}) where {C,T}
     dual_model = GenericModel{T}()
 
     # Initialize Gj as variables
-    dual_variables = map(moment_problem.model[:mtx_constraints]) do cons
+    dual_variables = map(moment_problem.constraints) do cons
         G_dim = JuMP.shape(constraint_object(cons)).side_dimension
         @variable(dual_model, [1:G_dim, 1:G_dim] in PSDCone())
     end
@@ -45,13 +45,13 @@ function sos_dualize(moment_problem::MomentProblem{C,T}) where {C,T}
     # TODO: fix this for trace
     symmetric_basis = sort(unique!([symmetric_canonicalize(basis) for basis in keys(moment_problem.monomap)]))
 
-    # JuMP variables corresponding to symmetric_basis 
+    # JuMP variables corresponding to symmetric_basis
     symmetric_variables = getindex.(Ref(moment_problem.monomap), symmetric_basis)
 
     # specify constraints
     fα_constraints = [AffExpr(get(primal_objective_terms, α, zero(T))) for α in symmetric_variables]
     fα_constraints[1] -= b   # constant term in the primal objective
-    for (i, sdp_constraint) in enumerate(moment_problem.model[:mtx_constraints])
+    for (i, sdp_constraint) in enumerate(moment_problem.constraints)
         Cαj = get_Cαj(collect(values(moment_problem.monomap)), constraint_object(sdp_constraint))
         for (k, α) in enumerate(keys(moment_problem.monomap))
             l = findfirst(==(moment_problem.monomap[symmetric_canonicalize(α)]), symmetric_variables)

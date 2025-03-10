@@ -7,18 +7,18 @@ using Graphs
 using NCTSSOS: get_Cαj
 
 @testset "Cαj" begin
-	model = Model()
-	@variable(model, x[1:4])
+    model = Model()
+    @variable(model, x[1:4])
 
-    cons = @constraint(model,[x[1] - x[2] x[3] x[4] + x[1]; x[1] - x[2] x[3] x[4] + x[1]; x[1] - x[2] x[3] x[4] + x[1]] in PSDCone())
+    cons = @constraint(model, [x[1]-x[2] x[3] x[4]+x[1]; x[1]-x[2] x[3] x[4]+x[1]; x[1]-x[2] x[3] x[4]+x[1]] in PSDCone())
     typeof(cons)
 
     C_α_js = get_Cαj(x, constraint_object(cons))
 
     @test C_α_js == [sparse([1, 2, 3, 1, 2, 3], [1, 1, 1, 3, 3, 3], [1.0, 1.0, 1.0, 1.0, 1.0, 1.0], 3, 3),
-	 sparse([1, 2, 3], [1, 1, 1], [-1.0, -1.0, -1.0], 3, 3),
-	 sparse([1, 2, 3], [2, 2, 2], [1.0, 1.0, 1.0], 3, 3),
-	 sparse([1, 2, 3], [3, 3, 3], [1.0, 1.0, 1.0], 3, 3)]
+        sparse([1, 2, 3], [1, 1, 1], [-1.0, -1.0, -1.0], 3, 3),
+        sparse([1, 2, 3], [2, 2, 2], [1.0, 1.0, 1.0], 3, 3),
+        sparse([1, 2, 3], [3, 3, 3], [1.0, 1.0, 1.0], 3, 3)]
 end
 
 @testset "Dualization Trivial Example 2" begin
@@ -36,7 +36,7 @@ end
     pop = PolynomialOptimizationProblem(f, [g1, g2, g3, g4], x)
     order = 2
 
-    moment_problem = moment_relax(pop, 2) 
+    moment_problem = moment_relax(pop, 2)
 
     sos_problem = sos_dualize(moment_problem)
 
@@ -62,7 +62,7 @@ end
     pop = PolynomialOptimizationProblem(f, [g, h1, h2], x)
 
     order = 2
-    moment_method = moment_relax(pop,order)
+    moment_method = moment_relax(pop, order)
 
     sos_method = sos_dualize(moment_method)
 
@@ -110,7 +110,7 @@ end
 
     f =
         x[1]^2 - x[1] * x[2] - x[2] * x[1] + 3x[2]^2 - 2x[1] * x[2] * x[1] +
-        2.0*x[1] * x[2]^2 * x[1] - x[2] * x[3] - x[3] * x[2] +
+        2.0 * x[1] * x[2]^2 * x[1] - x[2] * x[3] - x[3] * x[2] +
         6x[3]^2 +
         9x[2]^2 * x[3] +
         9x[3] * x[2]^2 - 54x[3] * x[2] * x[3] + 142x[3] * x[2]^2 * x[3]
@@ -135,22 +135,22 @@ end
 end
 
 @testset "Dualization Heisenberg Model on Star Graph" begin
-    num_sites = 4
+    num_sites = 16
     star = star_graph(num_sites)
 
     true_ans = -1.0
 
-    vec_idx2ij = [(i, j) for i in 1:num_sites for j in (i + 1):num_sites]
+    vec_idx2ij = [(i, j) for i in 1:num_sites for j in (i+1):num_sites]
 
     findvaridx(i, j) = findfirst(x -> x == (i, j), vec_idx2ij)
 
     @ncpolyvar pij[1:length(vec_idx2ij)]
 
-    objective = sum(1.0*pij[[findvaridx(ee.src, ee.dst) for ee in edges(star)]])
+    objective = sum(1.0 * pij[[findvaridx(ee.src, ee.dst) for ee in edges(star)]])
 
     gs = [
-        [(pij[findvaridx(i, j)]^2 - 1.0) for i in 1:num_sites for j in (i + 1):num_sites]
-        [-(pij[findvaridx(i, j)]^2 - 1.0) for i in 1:num_sites for j in (i + 1):num_sites]
+        [(pij[findvaridx(i, j)]^2 - 1.0) for i in 1:num_sites for j in (i+1):num_sites]
+        [-(pij[findvaridx(i, j)]^2 - 1.0) for i in 1:num_sites for j in (i+1):num_sites]
         [
             (
                 pij[findvaridx(sort([i, j])...)] * pij[findvaridx(sort([j, k])...)] +
@@ -175,14 +175,21 @@ end
 
     order = 1
 
-    moment_problem = moment_relax(pop,order)
+    moment_problem = moment_relax(pop, order)
 
     sos_problem = sos_dualize(moment_problem)
 
+    set_optimizer(moment_problem.model, Mosek.Optimizer)
+    optimize!(moment_problem.model)
 
-    set_optimizer(sos_problem.model, Clarabel.Optimizer)
+    set_optimizer(sos_problem.model, Mosek.Optimizer)
     optimize!(sos_problem.model)
+
+    @show moment_problem.model
+    @show sos_problem.model
 
     @test is_solved_and_feasible(sos_problem.model)
     @test isapprox(objective_value(sos_problem.model), true_ans, atol=1e-6)
 end
+
+using MosekTools

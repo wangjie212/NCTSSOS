@@ -2,9 +2,10 @@
 # T: type of the coefficients
 # order: order of the moment problem
 # monomap: map from monomials in DynamicPolynomials to variables in JuMP
-struct MomentProblem{C,T} <: OptimizationProblem 
+struct MomentProblem{C,T,CR<:ConstraintRef} <: OptimizationProblem
     order::Int
     model::GenericModel{T}
+    constraints::Vector{CR}
     monomap::Dict{Monomial{C},GenericVariableRef{T}}  # TODO: maybe refactor.
 end
 
@@ -40,11 +41,10 @@ function moment_relax(pop::PolynomialOptimizationProblem{C,T}, order::Int) where
     ]
 
     # store the constraints for future reference
-    model[:mtx_constraints] = constraint_matrices
 
     @objective(model, Min, substitute_variables(objective, monomap))
 
-    return MomentProblem(order, model, monomap)
+    return MomentProblem(order, model, constraint_matrices, monomap)
 end
 
 
@@ -58,5 +58,5 @@ function constrain_moment_matrix!(
         substitute_variables(poly * neat_dot(row_idx, col_idx), monomap) for
         row_idx in local_basis, col_idx in local_basis
     ]
-    return @constraint(model,moment_mtx in PSDCone())
+    return @constraint(model, moment_mtx in PSDCone())
 end
