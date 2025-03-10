@@ -6,6 +6,8 @@ using DynamicPolynomials:
 using SparseArrays, LinearAlgebra
 using JuMP
 using CliqueTrees
+using CliqueTrees: EliminationAlgorithm
+using ChordalGraph
 
 export PolynomialOptimizationProblem
 export moment_relax

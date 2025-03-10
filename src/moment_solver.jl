@@ -61,7 +61,15 @@ function constrain_moment_matrix!(
     return @constraint(model, moment_mtx in PSDCone())
 end
 
-
-function get_graph()
-
+# polys: objective + constraints
+# d : degree of relaxation
+# alg: elimination algorithm
+function clique_decomp(polys::Vector{Polynomial{C}},d::Int, alg::EA) where {C, EA<:EliminationAlgorithm}
+    # TODO: check performance
+    all_vars = sort(union!(PolyVar{C}[],[variables(p) for p in polys]))
+    nvars = length(all_vars)
+    G = SimpleGraph(nvars)
+    # TODO: now chordal graph.jl is only used to provide add_clique!, should I remove it ?
+    map(x->begin (isone(x[1]) || ceil(Int, maxdegree(x[2])//2) ) ? [add_clique!(G,map(v->findfirst(v,variables(mono)))) for mono in monomials(x[2])] : [add_clique!(G,map(v->findfirst(v,all_vars), x[2]))]  end ,enumeration(polys))
+    return collect(Vector{Int},cliquetree(G,alg=alg)[2])
 end

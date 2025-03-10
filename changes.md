@@ -20,13 +20,19 @@ flowchart TD
 
 - `sym_canon` -> `symmetric_canonalize`
 - `get_ncbasis` -> `get_basis` generalized to work on commuting and non-commuting variables.
+- `clique_decomp`:
 
-== `get_graph`
+<!-- == `get_graph`
 - `get_graph` -> `get_graph`
 code in `nccpop.jl` and `ncupop.jl` are exactly the same
-code in `trace.jl` and `complex.jl` have not been considered
+code in `trace.jl` and `complex.jl` have not been considered -->
 
 = Introduced API
 
 -  `remove_zero_degree` removes variables with degree $0$ in a monomial. It is
 required for comparison of two monomials' equality.
+
+= Questions
+
+== Order in Construction of Localizing Matrix
+- Are $L_(bold(y)) (u^* g v)$ and $L_(bold(y)) (g u^* v)$ lead to the same relaxation?
