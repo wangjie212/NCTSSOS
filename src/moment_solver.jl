@@ -55,8 +55,13 @@ function constrain_moment_matrix!(
     monomap::Dict{Monomial{C},GenericVariableRef{T}},
 ) where {C,T}
     moment_mtx = [
-        substitute_variables(poly * neat_dot(row_idx, col_idx), monomap) for
+        substitute_variables(sum([coef * neat_dot(row_idx, mono * col_idx) for (coef, mono) in zip(coefficients(poly),monomials(poly))]), monomap) for
         row_idx in local_basis, col_idx in local_basis
     ]
     return @constraint(model, moment_mtx in PSDCone())
+end
+
+
+function get_graph()
+
 end

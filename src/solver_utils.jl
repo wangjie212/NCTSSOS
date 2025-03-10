@@ -22,7 +22,7 @@ function symmetric_canonicalize(poly::Polynomial{C,T}) where {C,T}
     )
 end
 
-#NOTE: I did not consider binary variable but it's easy to extend, just filter out in monomial z==2 && vars in binary set 
+#NOTE: I did not consider binary variable but it's easy to extend, just filter out in monomial z==2 && vars in binary set
 function get_basis(vars::Vector{PolyVar{C}}, d::Int) where {C}
     return mapreduce(cur_d -> remove_zero_degree.(monomials(vars, cur_d)), vcat, 0:d)
 end

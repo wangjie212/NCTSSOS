@@ -5,6 +5,7 @@ using DynamicPolynomials:
     AbstractVariable, variables, coefficient, monomial, terms, isconstant
 using SparseArrays, LinearAlgebra
 using JuMP
+using CliqueTrees
 
 export PolynomialOptimizationProblem
 export moment_relax
