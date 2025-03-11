@@ -20,8 +20,6 @@ function moment_relax(pop::PolynomialOptimizationProblem{C,T}, order::Int, cliqu
     # TODO: good way to perform no relaxation? 
     cliques = isnothing(clique_alg) ? [pop.variables] : map(x -> pop.variables[x], collect(Vector{Int}, cliquetree(get_correlative_graph(pop.variables, [pop.objective, pop.constraints...], order), alg=clique_alg)[2]))
 
-    @info cliques
-
     clique_cons, ignored_cons = assign_constraint(cliques, pop.constraints)
 
     # NOTE: objective and constraints may have integer coefficients, but popular JuMP solvers does not support integer coefficients
