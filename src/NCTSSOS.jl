@@ -8,6 +8,7 @@ using JuMP
 using CliqueTrees
 using CliqueTrees: EliminationAlgorithm
 using ChordalGraph
+using Graphs
 
 export PolynomialOptimizationProblem
 export moment_relax

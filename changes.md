@@ -20,7 +20,12 @@ flowchart TD
 
 - `sym_canon` -> `symmetric_canonalize`
 - `get_ncbasis` -> `get_basis` generalized to work on commuting and non-commuting variables.
-- `clique_decomp`:
+- `clique_decomp`: core functionality moved to `get_correlative_graph` for better testing 
+
+= API Input changes
+
+- `assign_constraint` now takes a vector of vector of variables denoting cliques
+and a vector of polynomials denoting constraints.
 
 <!-- == `get_graph`
 - `get_graph` -> `get_graph`
@@ -31,6 +36,7 @@ code in `trace.jl` and `complex.jl` have not been considered -->
 
 -  `remove_zero_degree` removes variables with degree $0$ in a monomial. It is
 required for comparison of two monomials' equality.
+
 
 = Questions
 

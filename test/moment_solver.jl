@@ -3,7 +3,59 @@ using DynamicPolynomials
 using JuMP
 using Clarabel
 using Graphs
-using NCTSSOS: get_basis, substitute_variables, constrain_moment_matrix!, remove_zero_degree, star
+using NCTSSOS: get_basis, substitute_variables, constrain_moment_matrix!, remove_zero_degree, star, get_correlative_graph, assign_constraint
+using CliqueTrees
+
+@testset "Assign Constraint" begin
+    n = 4
+    @ncpolyvar x[1:n]
+
+    cliques = [x[[1, 2, 4]], x[[1, 2, 3]], x[[2, 3, 4]], x[[3, 4, 1]]]
+    cons = Polynomial{false,Float64}[x[1] * x[2],
+        x[2] * x[3],
+        x[3] * x[4],
+        x[4] * x[1]]
+
+    @test assign_constraint(cliques, cons) == [[[1, 4], [2], [3]]], []
+
+end
+
+@testset "Clique Decomposition" begin
+    n = 4 
+    @ncpolyvar x[1:n]
+    f = sum(x[i]*x[mod1(i+1,n)] for i in 1:n)
+    order = 1
+
+    G = get_correlative_graph(x,[f],order)
+    @test G.fadjlist == map(x->sort!(x),[[2, 4], [1, 3], [2, 4], [1, 3]])
+
+
+    n = 3 
+    @ncpolyvar x[1:3]
+    f = x[1]^2 - x[1] * x[2] - x[2] * x[1] + 3x[2]^2 - 2x[1] * x[2] * x[1] + 2x[1] * x[2]^2 * x[1] - x[2] * x[3] - x[3] * x[2] +
+        6x[3]^2 + 9x[2]^2 * x[3] + 9x[3] * x[2]^2 - 54x[3] * x[2] * x[3] + 142x[3] * x[2]^2 * x[3]
+    order = 2
+
+    G = get_correlative_graph(x,[f],order)
+    @test G.fadjlist == [[2], [1, 3], [2]]
+
+    n = 10
+    @ncpolyvar x[1:n]
+    f = 0.0
+    for i = 1:n
+        jset = max(1,i-5):min(n,i+1)
+        jset = setdiff(jset,i)
+        f += (2x[i]+5*x[i]^3+1)^2
+        f -= sum([4x[i]*x[j]+10x[i]^3*x[j]+2x[j]+4x[i]*x[j]^2+10x[i]^3*x[j]^2+2x[j]^2 for j in jset])
+        f += sum([x[j]*x[k]+2x[j]^2*x[k]+x[j]^2*x[k]^2 for j in jset for k in jset])
+    end
+    order = 2
+    G = get_correlative_graph(x, [f], order)
+    @test G.fadjlist == [[2, 3, 4, 5, 6, 7], [1, 3, 4, 5, 6, 7, 8], [1, 2, 4, 5, 6, 7, 8, 9], [1, 2, 3, 5, 6, 7, 8, 9, 10], [1, 2, 3, 4, 6, 7, 8, 9, 10], [1, 2, 3, 4, 5, 7, 8, 9, 10], [1, 2, 3, 4, 5, 6, 8, 9, 10], [2, 3, 4, 5, 6, 7, 9, 10], [3, 4, 5, 6, 7, 8, 10], [4, 5, 6, 7, 8, 9]]
+    order = 3
+    G = get_correlative_graph(x, [f], order)
+    @test G.fadjlist == [[2, 3, 4, 5, 6, 7], [1, 3, 4, 5, 6, 7, 8], [1, 2, 4, 5, 6, 7, 8, 9], [1, 2, 3, 5, 6, 7, 8, 9, 10], [1, 2, 3, 4, 6, 7, 8, 9, 10], [1, 2, 3, 4, 5, 7, 8, 9, 10], [1, 2, 3, 4, 5, 6, 8, 9, 10], [2, 3, 4, 5, 6, 7, 9, 10], [3, 4, 5, 6, 7, 8, 10], [4, 5, 6, 7, 8, 9]]
+end
 
 @testset "Replace DynamicPolynomials variables with JuMP variables" begin
     @ncpolyvar x y z

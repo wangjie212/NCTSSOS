@@ -13,8 +13,18 @@ function substitute_variables(poly::Polynomial{C,T}, monomap::Dict{Monomial{C},G
     return mapreduce(x -> coefficient(x) * monomap[monomial(x)], +, terms(poly))
 end
 
-function moment_relax(pop::PolynomialOptimizationProblem{C,T}, order::Int) where {C,T}
+# clique_alg: algorithm for clique decomposition
+function moment_relax(pop::PolynomialOptimizationProblem{C,T}, order::Int, clique_alg::Union{Nothing,EA}) where {C,T,EA<:EliminationAlgorithm}
     objective = symmetric_canonicalize(pop.objective)
+
+
+    # TODO: what if I don't want to relax?
+    if isnothing(clique_alg) 
+        cliques = [pop.variables]
+    else
+        G = get_correlative_graph(pop.variables, [pop.objective, pop.constraints...], order)
+        cliques = map(x -> pop.variables[x], collect(Vector{Int}, cliquetree(G, alg=clique_alg)[2]))
+    end
 
     # NOTE: objective and constraints may have integer coefficients, but popular JuMP solvers does not support integer coefficients
     # left type here to support BigFloat model for higher precision
@@ -61,15 +71,27 @@ function constrain_moment_matrix!(
     return @constraint(model, moment_mtx in PSDCone())
 end
 
-# polys: objective + constraints
-# d : degree of relaxation
-# alg: elimination algorithm
-function clique_decomp(polys::Vector{Polynomial{C}},d::Int, alg::EA) where {C, EA<:EliminationAlgorithm}
-    # TODO: check performance
-    all_vars = sort(union!(PolyVar{C}[],[variables(p) for p in polys]))
-    nvars = length(all_vars)
+# ordered_vars: variables in the order to be appeared in graph 
+# polys: objective + constraints order is important
+# order: order of the moment problem
+function get_correlative_graph(ordered_vars::Vector{PolyVar{C}}, polys::Vector{Polynomial{C,T}}, order::Int) where {C,T}
+    nvars = length(ordered_vars)
     G = SimpleGraph(nvars)
-    # TODO: now chordal graph.jl is only used to provide add_clique!, should I remove it ?
-    map(x->begin (isone(x[1]) || ceil(Int, maxdegree(x[2])//2) ) ? [add_clique!(G,map(v->findfirst(v,variables(mono)))) for mono in monomials(x[2])] : [add_clique!(G,map(v->findfirst(v,all_vars), x[2]))]  end ,enumeration(polys))
-    return collect(Vector{Int},cliquetree(G,alg=alg)[2])
+
+    for (i, poly) in enumerate(polys)
+        if isone(i) || order == ceil(Int, maxdegree(poly) // 2)
+            map(mono -> add_clique!(G, map(v -> findfirst(==(v), ordered_vars), unique!(effective_variables(mono)))), monomials(poly))
+        else
+            add_clique!(G, map(v -> findfirst(==(v), ordered_vars), unique!(effective_variables(poly))))
+        end
+    end
+    return G
+end
+
+function assign_constraint(cliques::Vector{Vector{PolyVar{C}}}, cons::Vector{Polynomial{C,T}}) where {C,T}
+    # assign each constraint to a clique
+    # there might be constraints that are not captured by any single clique, 
+    # NOTE: we ignore this constraint. This should only occur at lower order of relaxation.
+    J_idcs = map(j -> isnothing(j) ? 0 : j, map(g -> findfirst(clique -> all(in.(unique!(effective_variables(g)), Ref(clique))), cliques), cons))
+    return [findall(==(j), J_idcs) for j in 1:maximum(J_idcs)], findall(iszero, J_idcs)
 end
