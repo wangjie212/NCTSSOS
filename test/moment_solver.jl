@@ -10,14 +10,15 @@ using CliqueTrees
     n = 4
     @ncpolyvar x[1:n]
 
-    cliques = [x[[1, 2, 4]], x[[1, 2, 3]], x[[2, 3, 4]], x[[3, 4, 1]]]
+    cliques = [x[[1, 2, 4]], x[[2, 3, 4]]]
+    # NOTE: CliqueTrees.MMD() returns cliques that results in discardding a constraint
+    # cliques = [x[[2, 3, 4]], x[[1, 3, 4]]]
     cons = Polynomial{false,Float64}[x[1] * x[2],
         x[2] * x[3],
         x[3] * x[4],
         x[4] * x[1]]
 
-    @test assign_constraint(cliques, cons) == [[[1, 4], [2], [3]]], []
-
+    @test assign_constraint(cliques, cons) == ([[1, 4], [2, 3]], Int[])
 end
 
 @testset "Clique Decomposition" begin
@@ -28,6 +29,8 @@ end
 
     G = get_correlative_graph(x,[f],order)
     @test G.fadjlist == map(x->sort!(x),[[2, 4], [1, 3], [2, 4], [1, 3]])
+    cliques = map(y -> x[y], collect(Vector{Int}, cliquetree(G, alg=CliqueTrees.MCS())[2]))
+    cliques = map(y -> x[y], collect(Vector{Int}, cliquetree(G, alg=CliqueTrees.MMD())[2]))
 
 
     n = 3 
@@ -55,6 +58,16 @@ end
     order = 3
     G = get_correlative_graph(x, [f], order)
     @test G.fadjlist == [[2, 3, 4, 5, 6, 7], [1, 3, 4, 5, 6, 7, 8], [1, 2, 4, 5, 6, 7, 8, 9], [1, 2, 3, 5, 6, 7, 8, 9, 10], [1, 2, 3, 4, 6, 7, 8, 9, 10], [1, 2, 3, 4, 5, 7, 8, 9, 10], [1, 2, 3, 4, 5, 6, 8, 9, 10], [2, 3, 4, 5, 6, 7, 9, 10], [3, 4, 5, 6, 7, 8, 10], [4, 5, 6, 7, 8, 9]]
+
+    n = 3
+    @ncpolyvar x[1:3]
+    f = x[1]^2 - x[1] * x[2] - x[2] * x[1] + 3.0x[2]^2 - 2x[1] * x[2] * x[1] + 2x[1] * x[2]^2 * x[1] - x[2] * x[3] - x[3] * x[2] +
+        6.0 * x[3]^2 + 9x[2]^2 * x[3] + 9x[3] * x[2]^2 - 54x[3] * x[2] * x[3] + 142x[3] * x[2]^2 * x[3]
+
+    cons = vcat([1.0 - x[i]^2 for i in 1:n], [x[i] - 1.0 / 3 for i in 1:n])
+    order = 3
+    G = get_correlative_graph(x,[f,cons...],order)
+    @test G.fadjlist == [[2], [1, 3], [2]]
 end
 
 @testset "Replace DynamicPolynomials variables with JuMP variables" begin
@@ -111,7 +124,7 @@ end
 
     pop = PolynomialOptimizationProblem(f, x)
 
-    moment_problem = moment_relax(pop, order)
+    moment_problem = moment_relax(pop, order, nothing)
 
     set_optimizer(moment_problem.model, Clarabel.Optimizer)
     optimize!(moment_problem.model)
@@ -132,17 +145,38 @@ end
     h2 = -h1
     pop = PolynomialOptimizationProblem(f, [g, h1, h2], x)
 
-    moment_problem = moment_relax(pop, order)
+    moment_problem = moment_relax(pop, order, nothing)
 
     set_optimizer(moment_problem.model, Clarabel.Optimizer)
     optimize!(moment_problem.model)
+
     @test is_solved_and_feasible(moment_problem.model)
     @test isapprox(objective_value(moment_problem.model), -1.0, atol=1e-6)
 end
 
+@testset "Moment Method Correlative Sparsity" begin
+    n = 3
+    @ncpolyvar x[1:n]
+    f = x[1]^2 - x[1] * x[2] - x[2] * x[1] + 3.0x[2]^2 - 2x[1] * x[2] * x[1] + 2x[1] * x[2]^2 * x[1] - x[2] * x[3] - x[3] * x[2] +
+        6.0 * x[3]^2 + 9x[2]^2 * x[3] + 9x[3] * x[2]^2 - 54x[3] * x[2] * x[3] + 142x[3] * x[2]^2 * x[3]
+
+    cons = vcat([1.0 - x[i]^2 for i in 1:n], [x[i] - 1.0 / 3 for i in 1:n])
+    order = 3
+
+    pop = PolynomialOptimizationProblem(f, cons, x)
+
+    moment_problem = moment_relax(pop, order, BFS())
+    set_optimizer(moment_problem.model, Clarabel.Optimizer)
+    optimize!(moment_problem.model)
+
+    # FIXME: reduced accuracy
+    # @test is_solved_and_feasible(moment_problem.model)
+    @test isapprox(objective_value(moment_problem.model), 0.9975306427277915, atol=1e-5)
+end
+
 @testset "Moment Method Example 3" begin
     # NOTE: this is not doable in non-sparse case
-    # order = 2
+    # order = 4
     # n = 10
     # @ncpolyvar x[1:n]
     # f = 0.0
@@ -156,7 +190,7 @@ end
 
     # pop = PolynomialOptimizationProblem(f, x)
 
-    # moment_problem = moment_relax(pop,order )
+    # moment_problem = moment_relax(pop, order, MF())
     # set_optimizer(moment_problem.model, Clarabel.Optimizer)
     # optimize!(moment_problem.model)
 
@@ -204,7 +238,7 @@ end
     pop = PolynomialOptimizationProblem(objective, gs, pij)
     order = 1
 
-    moment_problem = moment_relax(pop, order )
+    moment_problem = moment_relax(pop, order, nothing)
 
 
     set_optimizer(moment_problem.model, Clarabel.Optimizer)

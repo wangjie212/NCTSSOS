@@ -17,23 +17,25 @@ end
 function moment_relax(pop::PolynomialOptimizationProblem{C,T}, order::Int, clique_alg::Union{Nothing,EA}) where {C,T,EA<:EliminationAlgorithm}
     objective = symmetric_canonicalize(pop.objective)
 
+    # TODO: good way to perform no relaxation? 
+    cliques = isnothing(clique_alg) ? [pop.variables] : map(x -> pop.variables[x], collect(Vector{Int}, cliquetree(get_correlative_graph(pop.variables, [pop.objective, pop.constraints...], order), alg=clique_alg)[2]))
 
-    # TODO: what if I don't want to relax?
-    if isnothing(clique_alg) 
-        cliques = [pop.variables]
-    else
-        G = get_correlative_graph(pop.variables, [pop.objective, pop.constraints...], order)
-        cliques = map(x -> pop.variables[x], collect(Vector{Int}, cliquetree(G, alg=clique_alg)[2]))
-    end
+    @info cliques
+
+    clique_cons, ignored_cons = assign_constraint(cliques, pop.constraints)
 
     # NOTE: objective and constraints may have integer coefficients, but popular JuMP solvers does not support integer coefficients
     # left type here to support BigFloat model for higher precision
     model = GenericModel{T}()
 
-    # get the basis of the moment matrix, then sort it
-    moment_basis = get_basis(pop.variables, order)
-    # total_basis that is the union of support of all constraints and objective and moment matrix and localizing matrices
-    total_basis = sort(unique!([neat_dot(row_idx, col_idx) for row_idx in moment_basis for col_idx in moment_basis]))
+    clique_total_basis = map(cliques) do clique
+        # get the basis of the moment matrix in a clique, then sort it
+        clique_moment_basis = get_basis(clique, order)
+        # total_basis that is the union of support of all constraints and objective and moment matrix and localizing matrices in a clique
+        sort(unique!([neat_dot(row_idx, col_idx) for row_idx in clique_moment_basis for col_idx in clique_moment_basis]))
+    end
+
+    total_basis = unique!(vcat(clique_total_basis...))
 
     # map the monomials to JuMP variables, the first variable must be 1
     @variable(model, y[1:length(total_basis)])
@@ -41,14 +43,14 @@ function moment_relax(pop::PolynomialOptimizationProblem{C,T}, order::Int, cliqu
     monomap = Dict(zip(total_basis, y))
 
     # add the constraints
-    constraint_matrices = [
+    constraint_matrices = vec([
         constrain_moment_matrix!(
             model,
             poly,
-            get_basis(pop.variables, order - ceil(Int, maxdegree(poly) / 2)),
+            get_basis(clique_vars, order - ceil(Int, maxdegree(poly) / 2)),
             monomap,
-        ) for poly in [one(objective), pop.constraints...]
-    ]
+        ) for (i, clique_vars) in enumerate(cliques) for poly in [one(objective), pop.constraints[clique_cons[i]]...]
+    ])
 
     # store the constraints for future reference
 
@@ -79,9 +81,15 @@ function get_correlative_graph(ordered_vars::Vector{PolyVar{C}}, polys::Vector{P
     G = SimpleGraph(nvars)
 
     for (i, poly) in enumerate(polys)
+        # for clearer logic, I didn't combine the two branches
         if isone(i) || order == ceil(Int, maxdegree(poly) // 2)
-            map(mono -> add_clique!(G, map(v -> findfirst(==(v), ordered_vars), unique!(effective_variables(mono)))), monomials(poly))
+            # if objective or order too large, each term forms a clique
+            map(monomials(poly)) do mono
+                add_clique!(G, map(v -> findfirst(==(v), ordered_vars), unique!(effective_variables(mono))))
+            end
         else
+            # NOTE: if is constraint and order not too large, all variables in the constraint forms a clique
+            # this ensures each "small" constraint is in a clique ?
             add_clique!(G, map(v -> findfirst(==(v), ordered_vars), unique!(effective_variables(poly))))
         end
     end
@@ -92,6 +100,8 @@ function assign_constraint(cliques::Vector{Vector{PolyVar{C}}}, cons::Vector{Pol
     # assign each constraint to a clique
     # there might be constraints that are not captured by any single clique, 
     # NOTE: we ignore this constraint. This should only occur at lower order of relaxation.
-    J_idcs = map(j -> isnothing(j) ? 0 : j, map(g -> findfirst(clique -> all(in.(unique!(effective_variables(g)), Ref(clique))), cliques), cons))
-    return [findall(==(j), J_idcs) for j in 1:maximum(J_idcs)], findall(iszero, J_idcs)
+    clique_cons =  map(cliques) do clique
+        findall(g->issubset(unique!(effective_variables(g)), clique), cons)
+    end
+    return clique_cons, setdiff(1:length(cons), unique(vcat(clique_cons...)))
 end

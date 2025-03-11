@@ -36,7 +36,7 @@ end
     pop = PolynomialOptimizationProblem(f, [g1, g2, g3, g4], x)
     order = 2
 
-    moment_problem = moment_relax(pop, 2)
+    moment_problem = moment_relax(pop, 2, nothing)
 
     sos_problem = sos_dualize(moment_problem)
 
@@ -62,7 +62,7 @@ end
     pop = PolynomialOptimizationProblem(f, [g, h1, h2], x)
 
     order = 2
-    moment_method = moment_relax(pop, order)
+    moment_method = moment_relax(pop, order, nothing)
 
     sos_method = sos_dualize(moment_method)
 
@@ -88,7 +88,7 @@ end
     pop = PolynomialOptimizationProblem(f, x)
     order = 2
 
-    moment_method = moment_relax(pop, order)
+    moment_method = moment_relax(pop, order, nothing)
 
     sos_method = sos_dualize(moment_method)
 
@@ -118,7 +118,7 @@ end
     pop = PolynomialOptimizationProblem(f, x)
     order = 2
 
-    moment_problem = moment_relax(pop, order)
+    moment_problem = moment_relax(pop, order, nothing)
 
     sos_problem = sos_dualize(moment_problem)
 
@@ -175,7 +175,7 @@ end
 
     order = 1
 
-    moment_problem = moment_relax(pop, order)
+    moment_problem = moment_relax(pop, order, nothing)
 
     sos_problem = sos_dualize(moment_problem)
 
