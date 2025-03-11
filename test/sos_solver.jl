@@ -3,7 +3,7 @@ using DynamicPolynomials, Clarabel
 using SparseArrays
 using JuMP
 using Graphs
-
+using CliqueTrees
 using NCTSSOS: get_Cαj
 
 @testset "Cαj" begin
@@ -184,4 +184,27 @@ end
 
     @test is_solved_and_feasible(sos_problem.model)
     @test isapprox(objective_value(sos_problem.model), true_ans, atol=1e-6)
+end
+
+@testset "SOS Method Correlative Sparsity" begin
+    n = 3
+    @ncpolyvar x[1:n]
+    f = x[1]^2 - x[1] * x[2] - x[2] * x[1] + 3.0x[2]^2 - 2x[1] * x[2] * x[1] + 2x[1] * x[2]^2 * x[1] - x[2] * x[3] - x[3] * x[2] +
+        6.0 * x[3]^2 + 9x[2]^2 * x[3] + 9x[3] * x[2]^2 - 54x[3] * x[2] * x[3] + 142x[3] * x[2]^2 * x[3]
+
+    cons = vcat([1.0 - x[i]^2 for i in 1:n], [x[i] - 1.0 / 3 for i in 1:n])
+    order = 3
+
+    pop = PolynomialOptimizationProblem(f, cons, x)
+
+    moment_problem = moment_relax(pop, order, BFS())
+    sos_problem = sos_dualize(moment_problem)
+
+    set_optimizer(sos_problem.model, Clarabel.Optimizer)
+
+    optimize!(sos_problem.model)
+
+    # FIXME: reduced accuracy
+    @test is_solved_and_feasible(sos_problem.model)
+    @test isapprox(objective_value(sos_problem.model), 0.9975306427277915, atol=1e-5)
 end
