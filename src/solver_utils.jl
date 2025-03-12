@@ -36,3 +36,6 @@ function neat_dot(x::Monomial{C}, y::Monomial{C}) where {C}
     # NOTE: the `*` in DynamicPolynomials sometimes creates monomials with degree 0, which we don't want
     return remove_zero_degree(star(x) * y)
 end
+
+sorted_unique(xs) = sort(unique(xs))
+sorted_union(xs...) = sort(union(xs...))

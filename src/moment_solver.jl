@@ -13,12 +13,14 @@ function substitute_variables(poly::Polynomial{C,T}, monomap::Dict{Monomial{C},G
     return mapreduce(x -> coefficient(x) * monomap[monomial(x)], +, terms(poly))
 end
 
-# clique_alg: algorithm for clique decomposition
-function moment_relax(pop::PolynomialOptimizationProblem{C,T}, order::Int, clique_alg::Union{Nothing,EA}) where {C,T,EA<:EliminationAlgorithm}
-    objective = symmetric_canonicalize(pop.objective)
+# outputs: a vector of polyvars
+function clique_decomp(pop::PolynomialOptimizationProblem, clique_alg::EliminationAlgorithm, order::Int)
+    return map(x -> pop.variables[x], collect(Vector{Int}, cliquetree(get_correlative_graph(pop.variables, [pop.objective, pop.constraints...], order), alg=clique_alg)[2]))
+end
 
-    # TODO: good way to perform no relaxation? 
-    cliques = isnothing(clique_alg) ? [pop.variables] : map(x -> pop.variables[x], collect(Vector{Int}, cliquetree(get_correlative_graph(pop.variables, [pop.objective, pop.constraints...], order), alg=clique_alg)[2]))
+# clique_alg: algorithm for clique decomposition
+function moment_relax(pop::PolynomialOptimizationProblem{C,T}, order::Int, cliques::Vector{Vector{PolyVar{C}}}) where {C,T}
+    objective = symmetric_canonicalize(pop.objective)
 
     clique_cons, ignored_cons = assign_constraint(cliques, pop.constraints)
 
@@ -26,14 +28,15 @@ function moment_relax(pop::PolynomialOptimizationProblem{C,T}, order::Int, cliqu
     # left type here to support BigFloat model for higher precision
     model = GenericModel{T}()
 
+    # clique_total_basis that is the union of support of all constraints and objective and moment matrix and localizing matrices in a clique
     clique_total_basis = map(cliques) do clique
         # get the basis of the moment matrix in a clique, then sort it
         clique_moment_basis = get_basis(clique, order)
-        # total_basis that is the union of support of all constraints and objective and moment matrix and localizing matrices in a clique
-        sort(unique!([neat_dot(row_idx, col_idx) for row_idx in clique_moment_basis for col_idx in clique_moment_basis]))
+        sorted_unique([neat_dot(row_idx, col_idx) for row_idx in clique_moment_basis for col_idx in clique_moment_basis])
     end
 
-    total_basis = unique!(vcat(clique_total_basis...))
+    # the union of clique_total_basis
+    total_basis = sorted_union(clique_total_basis...)
 
     # map the monomials to JuMP variables, the first variable must be 1
     @variable(model, y[1:length(total_basis)])
@@ -65,22 +68,24 @@ function constrain_moment_matrix!(
     monomap::Dict{Monomial{C},GenericVariableRef{T}},
 ) where {C,T}
     moment_mtx = [
-        substitute_variables(sum([coef * neat_dot(row_idx, mono * col_idx) for (coef, mono) in zip(coefficients(poly),monomials(poly))]), monomap) for
+        substitute_variables(sum([coef * neat_dot(row_idx, mono * col_idx) for (coef, mono) in zip(coefficients(poly), monomials(poly))]), monomap) for
         row_idx in local_basis, col_idx in local_basis
     ]
     return @constraint(model, moment_mtx in PSDCone())
 end
 
-# ordered_vars: variables in the order to be appeared in graph 
+# ordered_vars: variables in the order to be appeared in graph
 # polys: objective + constraints order is important
 # order: order of the moment problem
-function get_correlative_graph(ordered_vars::Vector{PolyVar{C}}, polys::Vector{Polynomial{C,T}}, order::Int) where {C,T}
+function get_correlative_graph(ordered_vars::Vector{PolyVar{C}}, obj::Polynomial{C,T}, cons::Vector{Polynomial{C,T}}, order::Int) where {C,T}
     nvars = length(ordered_vars)
     G = SimpleGraph(nvars)
 
-    for (i, poly) in enumerate(polys)
+    add_clique!(G, map(v -> findfirst(==(v), ordered_vars), unique!(effective_variables(obj))))
+
+    for poly in enumerate(cons)
         # for clearer logic, I didn't combine the two branches
-        if isone(i) || order == ceil(Int, maxdegree(poly) // 2)
+        if order == ceil(Int, maxdegree(poly) // 2)
             # if objective or order too large, each term forms a clique
             map(monomials(poly)) do mono
                 add_clique!(G, map(v -> findfirst(==(v), ordered_vars), unique!(effective_variables(mono))))
@@ -96,10 +101,12 @@ end
 
 function assign_constraint(cliques::Vector{Vector{PolyVar{C}}}, cons::Vector{Polynomial{C,T}}) where {C,T}
     # assign each constraint to a clique
-    # there might be constraints that are not captured by any single clique, 
+    # there might be constraints that are not captured by any single clique,
     # NOTE: we ignore this constraint. This should only occur at lower order of relaxation.
-    clique_cons =  map(cliques) do clique
-        findall(g->issubset(unique!(effective_variables(g)), clique), cons)
+
+    # clique_cons: vector of vector of constraints index, each belong to a clique
+    clique_cons = map(cliques) do clique
+        findall(g -> issubset(unique!(effective_variables(g)), clique), cons)
     end
-    return clique_cons, setdiff(1:length(cons), unique(vcat(clique_cons...)))
+    return clique_cons, setdiff(1:length(cons), union(clique_cons...))
 end

@@ -208,3 +208,44 @@ end
     @test is_solved_and_feasible(sos_problem.model)
     @test isapprox(objective_value(sos_problem.model), 0.9975306427277915, atol=1e-5)
 end
+
+@testset "Benchmark" begin
+    n = 3
+    @ncpolyvar x[1:n]
+    f = x[1]^2 - x[1] * x[2] - x[2] * x[1] + 3.0x[2]^2 - 2x[1] * x[2] * x[1] + 2x[1] * x[2]^2 * x[1] - x[2] * x[3] - x[3] * x[2] +
+        6.0 * x[3]^2 + 9x[2]^2 * x[3] + 9x[3] * x[2]^2 - 54x[3] * x[2] * x[3] + 142x[3] * x[2]^2 * x[3]
+
+    cons = vcat([1.0 - x[i]^2 for i in 1:n], [x[i] - 1.0 / 3 for i in 1:n])
+    order = 3
+
+    pop = PolynomialOptimizationProblem(f, cons, x)
+
+    moment_problem = moment_relax(pop, order, nothing)
+    moment_problem_s = moment_relax(pop, order, BFS())
+
+    set_optimizer(moment_problem.model, Clarabel.Optimizer)
+    set_optimizer(moment_problem_s.model, Clarabel.Optimizer)
+
+    optimize!(moment_problem.model)
+    optimize!(moment_problem_s.model)
+
+    @test isapprox(objective_value(moment_problem.model), objective_value(moment_problem_s.model), atol=1e-5)
+    @test solve_time(moment_problem.model) > solve_time(moment_problem_s.model)
+
+    sos_problem = sos_dualize(moment_problem)
+    sos_problem_s = sos_dualize(moment_problem_s)
+
+    set_optimizer(sos_problem.model, Clarabel.Optimizer)
+    set_optimizer(sos_problem_s.model, Clarabel.Optimizer)
+
+    optimize!(sos_problem.model)
+    optimize!(sos_problem_s.model)
+
+    @test isapprox(objective_value(sos_problem.model), objective_value(sos_problem_s.model), atol=1e-5)
+    @test solve_time(sos_problem.model) > solve_time(sos_problem_s.model)
+
+end
+
+
+
+
