@@ -100,6 +100,27 @@ function get_correlative_graph(ordered_vars::Vector{PolyVar{C}}, obj::Polynomial
     return G
 end
 
+#   porting nccpop.jl's  get_graph
+#   constructs the graph according to (7.5) and (7.14) together
+#   total_support: support of objective and constraint (7.12)
+#   total_basis: basis used to index the moment matrix
+#   supp(G): monomials that are either v^†v where v is a vertex in G, or β^†γ where {β,γ} is an edge in G (7.4)?
+function get_term_sparsity_graph(cons_support::Vector{Monomial{C}}, total_support::Vector{Monomial{C}}, total_basis::Vector{Monomial{C}}) where {C}
+    nterms = length(total_basis)
+    G = SimpleGraph(nterms)
+    for i in 1:nterms, j in i+1:nterms
+        map(cons_support) do c_supp
+            if neat_dot(total_basis[i], c_supp * total_basis[j]) in total_support
+                add_edge!(G, i, j)
+            end
+        end
+        if any(m -> m in cons_support, total_basis[i] * total_basis[j])
+            add_edge!(G, i, j)
+        end
+    end
+    return G
+end
+
 function assign_constraint(cliques::Vector{Vector{PolyVar{C}}}, cons::Vector{Polynomial{C,T}}) where {C,T}
     # assign each constraint to a clique
     # there might be constraints that are not captured by any single clique,
@@ -110,4 +131,12 @@ function assign_constraint(cliques::Vector{Vector{PolyVar{C}}}, cons::Vector{Pol
         findall(g -> issubset(unique!(effective_variables(g)), clique), cons)
     end
     return clique_cons, setdiff(1:length(cons), union(clique_cons...))
+end
+
+
+# calling nccpop.jl's get_blocks
+# tsupp : total support for objective and constraint
+# basis : vector of total_basis for each clique's moment matrix
+function get_blocks(clique::Vector{PolyVar{C}}, clique_cons::Vector{Int}, obj::Polynomial{C,T}, cons::Vector{Polynomial{C,T}}) where {C,T}
+
 end
