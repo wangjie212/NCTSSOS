@@ -15,7 +15,7 @@ end
 
 # outputs: a vector of polyvars
 function clique_decomp(pop::PolynomialOptimizationProblem, clique_alg::EliminationAlgorithm, order::Int)
-    return map(x -> pop.variables[x], collect(Vector{Int}, cliquetree(get_correlative_graph(pop.variables, [pop.objective, pop.constraints...], order), alg=clique_alg)[2]))
+    return map(x -> pop.variables[x], collect(Vector{Int}, cliquetree(get_correlative_graph(pop.variables, pop.objective, pop.constraints, order), alg=clique_alg)[2]))
 end
 
 # clique_alg: algorithm for clique decomposition
@@ -81,19 +81,20 @@ function get_correlative_graph(ordered_vars::Vector{PolyVar{C}}, obj::Polynomial
     nvars = length(ordered_vars)
     G = SimpleGraph(nvars)
 
-    add_clique!(G, map(v -> findfirst(==(v), ordered_vars), unique!(effective_variables(obj))))
+    # find index of all unique variables in polynomial/monomial p
+    vmap(p) = map(v -> findfirst(==(v), ordered_vars), unique!(effective_variables(p)))
+
+    add_clique!(G, vmap(obj))
 
     for poly in enumerate(cons)
         # for clearer logic, I didn't combine the two branches
         if order == ceil(Int, maxdegree(poly) // 2)
             # if objective or order too large, each term forms a clique
-            map(monomials(poly)) do mono
-                add_clique!(G, map(v -> findfirst(==(v), ordered_vars), unique!(effective_variables(mono))))
-            end
+            map(mono -> add_clique!(G, vmap(mono)), monomials(poly))
         else
             # NOTE: if is constraint and order not too large, all variables in the constraint forms a clique
             # this ensures each "small" constraint is in a clique ?
-            add_clique!(G, map(v -> findfirst(==(v), ordered_vars), unique!(effective_variables(poly))))
+            add_clique!(G, vmap(poly))
         end
     end
     return G
