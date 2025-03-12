@@ -20,7 +20,7 @@ flowchart TD
 
 - `sym_canon` -> `symmetric_canonalize`
 - `get_ncbasis` -> `get_basis` generalized to work on commuting and non-commuting variables.
-- `clique_decomp`: core functionality moved to `get_correlative_graph` for better testing 
+- `clique_decomp`: core functionality moved to `get_correlative_graph` for better testing
 
 = API Input changes
 
@@ -42,3 +42,6 @@ required for comparison of two monomials' equality.
 
 == Order in Construction of Localizing Matrix
 - Are $L_(bold(y)) (u^* g v)$ and $L_(bold(y)) (g u^* v)$ lead to the same relaxation?
+
+== `assign_constraint` returns pairwise non-disjoint cliques
+In contrary to pp30 on Sparse Polynomial Optimization.

@@ -4,7 +4,7 @@ using SparseArrays
 using JuMP
 using Graphs
 using CliqueTrees
-using NCTSSOS: get_Cαj
+using NCTSSOS: get_Cαj, clique_decomp
 
 @testset "Cαj" begin
     model = Model()
@@ -36,7 +36,7 @@ end
     pop = PolynomialOptimizationProblem(f, [g1, g2, g3, g4], x)
     order = 2
 
-    moment_problem = moment_relax(pop, 2, nothing)
+    moment_problem = moment_relax(pop, 2, [x])
 
     sos_problem = sos_dualize(moment_problem)
 
@@ -62,7 +62,8 @@ end
     pop = PolynomialOptimizationProblem(f, [g, h1, h2], x)
 
     order = 2
-    moment_method = moment_relax(pop, order, nothing)
+
+    moment_method = moment_relax(pop, order, [x])
 
     sos_method = sos_dualize(moment_method)
 
@@ -88,7 +89,7 @@ end
     pop = PolynomialOptimizationProblem(f, x)
     order = 2
 
-    moment_method = moment_relax(pop, order, nothing)
+    moment_method = moment_relax(pop, order, [x])
 
     sos_method = sos_dualize(moment_method)
 
@@ -118,7 +119,7 @@ end
     pop = PolynomialOptimizationProblem(f, x)
     order = 2
 
-    moment_problem = moment_relax(pop, order, nothing)
+    moment_problem = moment_relax(pop, order, [x])
 
     sos_problem = sos_dualize(moment_problem)
 
@@ -175,7 +176,7 @@ end
 
     order = 1
 
-    moment_problem = moment_relax(pop, order, nothing)
+    moment_problem = moment_relax(pop, order, [pij])
 
     sos_problem = sos_dualize(moment_problem)
 
@@ -197,7 +198,9 @@ end
 
     pop = PolynomialOptimizationProblem(f, cons, x)
 
-    moment_problem = moment_relax(pop, order, BFS())
+    cliques = clique_decomp(x, f, cons, BFS(), order)
+
+    moment_problem = moment_relax(pop, order, cliques)
     sos_problem = sos_dualize(moment_problem)
 
     set_optimizer(sos_problem.model, Clarabel.Optimizer)
@@ -220,8 +223,9 @@ end
 
     pop = PolynomialOptimizationProblem(f, cons, x)
 
-    moment_problem = moment_relax(pop, order, nothing)
-    moment_problem_s = moment_relax(pop, order, BFS())
+    moment_problem = moment_relax(pop, order, [x])
+    cliques = clique_decomp(x, f, cons, BFS(), order)
+    moment_problem_s = moment_relax(pop, order, cliques)
 
     set_optimizer(moment_problem.model, Clarabel.Optimizer)
     set_optimizer(moment_problem_s.model, Clarabel.Optimizer)

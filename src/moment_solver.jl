@@ -14,8 +14,8 @@ function substitute_variables(poly::Polynomial{C,T}, monomap::Dict{Monomial{C},G
 end
 
 # outputs: a vector of polyvars
-function clique_decomp(pop::PolynomialOptimizationProblem, clique_alg::EliminationAlgorithm, order::Int)
-    return map(x -> pop.variables[x], collect(Vector{Int}, cliquetree(get_correlative_graph(pop.variables, pop.objective, pop.constraints, order), alg=clique_alg)[2]))
+function clique_decomp(variables::Vector{PolyVar{C}}, objective::Polynomial{C,T}, cons::Vector{Polynomial{C,T}}, clique_alg::EliminationAlgorithm, order::Int) where {C,T}
+    return map(x -> variables[x], collect(Vector{Int}, cliquetree(get_correlative_graph(variables, objective, cons, order), alg=clique_alg)[2]))
 end
 
 # clique_alg: algorithm for clique decomposition
@@ -84,9 +84,9 @@ function get_correlative_graph(ordered_vars::Vector{PolyVar{C}}, obj::Polynomial
     # find index of all unique variables in polynomial/monomial p
     vmap(p) = map(v -> findfirst(==(v), ordered_vars), unique!(effective_variables(p)))
 
-    add_clique!(G, vmap(obj))
+    map(mono -> add_clique!(G, vmap(mono)), monomials(obj))
 
-    for poly in enumerate(cons)
+    for poly in cons
         # for clearer logic, I didn't combine the two branches
         if order == ceil(Int, maxdegree(poly) // 2)
             # if objective or order too large, each term forms a clique

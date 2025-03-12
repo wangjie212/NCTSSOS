@@ -3,7 +3,7 @@ using DynamicPolynomials
 using JuMP
 using Clarabel
 using Graphs
-using NCTSSOS: get_basis, substitute_variables, constrain_moment_matrix!, remove_zero_degree, star, get_correlative_graph, assign_constraint
+using NCTSSOS: get_basis, substitute_variables, constrain_moment_matrix!, remove_zero_degree, star, get_correlative_graph, assign_constraint, clique_decomp
 using CliqueTrees
 
 @testset "Assign Constraint" begin
@@ -22,42 +22,50 @@ using CliqueTrees
 end
 
 @testset "Clique Decomposition" begin
-    n = 4 
+    n = 4
     @ncpolyvar x[1:n]
-    f = sum(x[i]*x[mod1(i+1,n)] for i in 1:n)
+    f = sum(x[i] * x[mod1(i + 1, n)] for i in 1:n)
     order = 1
 
-    G = get_correlative_graph(x,[f],order)
-    @test G.fadjlist == map(x->sort!(x),[[2, 4], [1, 3], [2, 4], [1, 3]])
-    cliques = map(y -> x[y], collect(Vector{Int}, cliquetree(G, alg=CliqueTrees.MCS())[2]))
-    cliques = map(y -> x[y], collect(Vector{Int}, cliquetree(G, alg=CliqueTrees.MMD())[2]))
+    G = get_correlative_graph(x, f, typeof(f)[], order)
+    @test G.fadjlist == map(x -> sort!(x), [[2, 4], [1, 3], [2, 4], [1, 3]])
+
+    @test clique_decomp(x, f, typeof(f)[], MCS(), order) == [[x[1], x[2], x[4]], [x[2], x[3], x[4]]]
+    @test clique_decomp(x, f, typeof(f)[], MMD(), order) == [[x[1], x[3], x[4]], [x[2], x[3], x[4]]]
 
 
-    n = 3 
+    n = 3
     @ncpolyvar x[1:3]
     f = x[1]^2 - x[1] * x[2] - x[2] * x[1] + 3x[2]^2 - 2x[1] * x[2] * x[1] + 2x[1] * x[2]^2 * x[1] - x[2] * x[3] - x[3] * x[2] +
-        6x[3]^2 + 9x[2]^2 * x[3] + 9x[3] * x[2]^2 - 54x[3] * x[2] * x[3] + 142x[3] * x[2]^2 * x[3]
+        6.0 * x[3]^2 + 9x[2]^2 * x[3] + 9x[3] * x[2]^2 - 54x[3] * x[2] * x[3] + 142x[3] * x[2]^2 * x[3]
     order = 2
 
-    G = get_correlative_graph(x,[f],order)
+    G = get_correlative_graph(x, f, typeof(f)[], order)
     @test G.fadjlist == [[2], [1, 3], [2]]
+
+    # MMD, MF don't work
+    @test clique_decomp(x, f, typeof(f)[], BFS(), order) == [[x[1],x[2]],[x[2],x[3]]]
 
     n = 10
     @ncpolyvar x[1:n]
     f = 0.0
     for i = 1:n
-        jset = max(1,i-5):min(n,i+1)
-        jset = setdiff(jset,i)
-        f += (2x[i]+5*x[i]^3+1)^2
-        f -= sum([4x[i]*x[j]+10x[i]^3*x[j]+2x[j]+4x[i]*x[j]^2+10x[i]^3*x[j]^2+2x[j]^2 for j in jset])
-        f += sum([x[j]*x[k]+2x[j]^2*x[k]+x[j]^2*x[k]^2 for j in jset for k in jset])
+        jset = max(1, i - 5):min(n, i + 1)
+        jset = setdiff(jset, i)
+        f += (2x[i] + 5 * x[i]^3 + 1)^2
+        f -= sum([4x[i] * x[j] + 10x[i]^3 * x[j] + 2x[j] + 4x[i] * x[j]^2 + 10x[i]^3 * x[j]^2 + 2x[j]^2 for j in jset])
+        f += sum([x[j] * x[k] + 2x[j]^2 * x[k] + x[j]^2 * x[k]^2 for j in jset for k in jset])
     end
     order = 2
-    G = get_correlative_graph(x, [f], order)
+    G = get_correlative_graph(x, f, typeof(f)[], order)
     @test G.fadjlist == [[2, 3, 4, 5, 6, 7], [1, 3, 4, 5, 6, 7, 8], [1, 2, 4, 5, 6, 7, 8, 9], [1, 2, 3, 5, 6, 7, 8, 9, 10], [1, 2, 3, 4, 6, 7, 8, 9, 10], [1, 2, 3, 4, 5, 7, 8, 9, 10], [1, 2, 3, 4, 5, 6, 8, 9, 10], [2, 3, 4, 5, 6, 7, 9, 10], [3, 4, 5, 6, 7, 8, 10], [4, 5, 6, 7, 8, 9]]
+    @test sort(clique_decomp(x, f, typeof(f)[], BFS(), order)) == sort([x[[4,5,6,7,8,9,10]],x[[3,4,5,6,7,8,9]],x[[2,3,4,5,6,7,8]],x[[1,2,3,4,5,6,7]]])
+
     order = 3
-    G = get_correlative_graph(x, [f], order)
+    G = get_correlative_graph(x, f, typeof(f)[], order)
     @test G.fadjlist == [[2, 3, 4, 5, 6, 7], [1, 3, 4, 5, 6, 7, 8], [1, 2, 4, 5, 6, 7, 8, 9], [1, 2, 3, 5, 6, 7, 8, 9, 10], [1, 2, 3, 4, 6, 7, 8, 9, 10], [1, 2, 3, 4, 5, 7, 8, 9, 10], [1, 2, 3, 4, 5, 6, 8, 9, 10], [2, 3, 4, 5, 6, 7, 9, 10], [3, 4, 5, 6, 7, 8, 10], [4, 5, 6, 7, 8, 9]]
+    @test sort(clique_decomp(x, f, typeof(f)[], BFS(), order)) == sort([x[[4,5,6,7,8,9,10]],x[[3,4,5,6,7,8,9]],x[[2,3,4,5,6,7,8]],x[[1,2,3,4,5,6,7]]])
+
 
     n = 3
     @ncpolyvar x[1:3]
@@ -66,8 +74,9 @@ end
 
     cons = vcat([1.0 - x[i]^2 for i in 1:n], [x[i] - 1.0 / 3 for i in 1:n])
     order = 3
-    G = get_correlative_graph(x,[f,cons...],order)
+    G = get_correlative_graph(x, f, cons, order)
     @test G.fadjlist == [[2], [1, 3], [2]]
+    @test sort(clique_decomp(x, f, cons, BFS(), order)) == sort([x[[1,2]],x[[2,3]]])
 end
 
 @testset "Replace DynamicPolynomials variables with JuMP variables" begin
@@ -124,7 +133,7 @@ end
 
     pop = PolynomialOptimizationProblem(f, x)
 
-    moment_problem = moment_relax(pop, order, nothing)
+    moment_problem = moment_relax(pop, order, [x])
 
     set_optimizer(moment_problem.model, Clarabel.Optimizer)
     optimize!(moment_problem.model)
@@ -145,7 +154,7 @@ end
     h2 = -h1
     pop = PolynomialOptimizationProblem(f, [g, h1, h2], x)
 
-    moment_problem = moment_relax(pop, order, nothing)
+    moment_problem = moment_relax(pop, order, [x])
 
     set_optimizer(moment_problem.model, Clarabel.Optimizer)
     optimize!(moment_problem.model)
@@ -165,7 +174,9 @@ end
 
     pop = PolynomialOptimizationProblem(f, cons, x)
 
-    moment_problem = moment_relax(pop, order, BFS())
+    cliques = clique_decomp(x, f, cons, BFS(), order)
+
+    moment_problem = moment_relax(pop, order, cliques)
     set_optimizer(moment_problem.model, Clarabel.Optimizer)
 
     optimize!(moment_problem.model)
@@ -238,7 +249,7 @@ end
     pop = PolynomialOptimizationProblem(objective, gs, pij)
     order = 1
 
-    moment_problem = moment_relax(pop, order, nothing)
+    moment_problem = moment_relax(pop, order, [pij])
 
 
     set_optimizer(moment_problem.model, Clarabel.Optimizer)
@@ -249,3 +260,4 @@ end
     # @test is_solved_and_feasible(moment_problem.model)
     @test isapprox(objective_value(moment_problem.model), true_ans, atol=1e-6)
 end
+
