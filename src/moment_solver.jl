@@ -18,6 +18,12 @@ function clique_decomp(variables::Vector{PolyVar{C}}, objective::Polynomial{C,T}
     return map(x -> variables[x], collect(Vector{Int}, cliquetree(get_correlative_graph(variables, objective, cons, order), alg=clique_alg)[2]))
 end
 
+# TODO: it is possible to merge the logic of clique_decomp and block_decomp, is using Vector{Union{PolyVar{C},Monomial{C}}} ok?
+# outputs: a vector of monomials
+function block_decomp(G::SimpleGraph, basis::Vector{Monomial{C}}, clique_alg::EliminationAlgorithm) where {C}
+    return map(x -> basis[x], collect(Vector{Int}, cliquetree(G, alg=clique_alg)[2]))
+end
+
 # clique_alg: algorithm for clique decomposition
 function moment_relax(pop::PolynomialOptimizationProblem{C,T}, order::Int, cliques::Vector{Vector{PolyVar{C}}}) where {C,T}
     objective = symmetric_canonicalize(pop.objective)
