@@ -53,8 +53,6 @@ function moment_relax(pop::PolynomialOptimizationProblem{C,T}, order::Int, cliqu
         ) for (i, clique_vars) in enumerate(cliques) for poly in [one(objective), pop.constraints[clique_cons[i]]...]
     ])
 
-    # store the constraints for future reference
-
     @objective(model, Min, substitute_variables(objective, monomap))
 
     return MomentProblem(order, model, constraint_matrices, monomap)
@@ -104,21 +102,22 @@ end
 #   constructs the graph according to (7.5) and (7.14) together
 #   total_support: support of objective and constraint (7.12)
 #   total_basis: basis used to index the moment matrix
-#   supp(G): monomials that are either v^†v where v is a vertex in G, or β^†γ where {β,γ} is an edge in G (7.4)?
 function get_term_sparsity_graph(cons_support::Vector{Monomial{C}}, total_support::Vector{Monomial{C}}, total_basis::Vector{Monomial{C}}) where {C}
     nterms = length(total_basis)
     G = SimpleGraph(nterms)
     for i in 1:nterms, j in i+1:nterms
-        map(cons_support) do c_supp
-            if neat_dot(total_basis[i], c_supp * total_basis[j]) in total_support
-                add_edge!(G, i, j)
-            end
-        end
-        if any(m -> m in cons_support, total_basis[i] * total_basis[j])
-            add_edge!(G, i, j)
-        end
+        i == j && continue
+        map(c_supp -> neat_dot(total_basis[i], c_supp * total_basis[j]) in total_support && add_edge!(G, i, j), cons_support)
     end
     return G
+end
+
+#   supp(G,g): monomials that are either v^† g_supp v where v is a vertex in G, or β^† g_supp γ where {β,γ} is an edge in G following (10,4)
+#  given term sparsity graph G, which terms needs to be considered as a variable for describing the localizing/moment matrix with respect to g
+function term_sparsity_graph_supp(G::SimpleGraph, basis::Vector{Monomial{C}}, g::Polynomial) where {C}
+    # following (10.4) in Sparse Polynomial Optimization: Theory and Practise
+    mapreducegsupp(a, b) = (mapreduce(g_supp -> neat_dot(a, g_supp * b), vcat, monomials(g)))
+    return union([mapreducegsupp(basis[v], basis[v]) for v in vertices(G)], [mapreducegsupp(basis[e.src], basis[e.dst]) for e in edges(G)])
 end
 
 function assign_constraint(cliques::Vector{Vector{PolyVar{C}}}, cons::Vector{Polynomial{C,T}}) where {C,T}

@@ -3,8 +3,35 @@ using DynamicPolynomials
 using JuMP
 using Clarabel
 using Graphs
-using NCTSSOS: get_basis, substitute_variables, constrain_moment_matrix!, remove_zero_degree, star, get_correlative_graph, assign_constraint, clique_decomp
+using NCTSSOS: get_basis, substitute_variables, constrain_moment_matrix!, remove_zero_degree, star, get_correlative_graph, assign_constraint, clique_decomp, get_term_sparsity_graph, term_sparsity_graph_supp
 using CliqueTrees
+
+@testset "Term Sparsity Graph" begin
+    # Example 7.6 of Sparse Polynomial Optimization: Theory and Practice
+    @polyvar x[1:3]
+    # f = x[1]^2 - 2x[1] * x[2] + 3.0 * x[2]^2 - 2 * x[1]^2 * x[2] + 2 * x[1]^2 * x[2]^2 - 2 * x[2] * x[3] + 6 * x[3]^2 + 18 * x[2]^2 * x[3] - 54 * x[2] * x[3]^2 + 142 * x[2]^2 * x[3]^2
+    # @test sort(monomials(f)) == sort(total_support)
+
+    total_support = [x[3]^2, x[2] * x[3], x[2]^2, x[1] * x[2], x[1]^2, x[2] * x[3]^2, x[2]^2 * x[3], x[1]^2 * x[2], x[2]^2 * x[3]^2, x[1]^2 * x[2]^2]
+
+    total_basis = [one(x[1]),x[1],x[2],x[3],x[1]*x[2],x[2]*x[3]]
+
+    G_tsp = get_term_sparsity_graph([one(x[1])],total_support,total_basis)
+    @test G_tsp.fadjlist == [[5,6],[3,5],[2,4,6],[3,6],[1,2],[1,3,4]]
+    @test term_sparsity_graph_supp(G_tsp, total_basis, one(Polynomial{true,Float64})) == [one(x[1]), x[1]^2, x[2]^2, x[3]^2, x[1]^2 * x[2]^2, x[2]^2 * x[3]^2, x[1] * x[2], x[2] * x[3], x[1]^2 * x[2], x[2]^2 * x[3], x[2] * x[3]^2]
+
+    # Example 10.2
+    @ncpolyvar x y
+    total_support = [one(x), x^2, x * y^2 * x, y^2, x * y * x * y, y * x * y * x, x^3 * y, y * x^3, x * y^3, y^3 * x]
+    # f = 2.0 - x^2 + x * y^2 * x - y^2 + x * y * x * y + y * x * y * x + x^3 * y + y * x^3 + x * y^3 + y^3 * x
+    # @test sort(monomials(f)) == sort(total_support)
+
+    total_basis = [one(x), x, y, x^2, y^2, x * y, y * x]
+
+    G_tsp = get_term_sparsity_graph([one(x)],total_support,total_basis)
+    @test G_tsp.fadjlist == [[4,5],Int[],Int[],[1,6],[1,7],[4,7],[5,6]]
+    @test sort(term_sparsity_graph_supp(G_tsp, total_basis, one(Polynomial{false,Float64}))) == sort([one(x * y), x^2, y^2, x^4, y^4, y * x^2 * y, x * y^2 * x, x^3 * y, y^3 * x, y * x * y * x])
+end
 
 @testset "Assign Constraint" begin
     n = 4
