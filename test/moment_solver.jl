@@ -4,7 +4,47 @@ using JuMP
 using Clarabel
 using Graphs
 using NCTSSOS: get_basis, substitute_variables, constrain_moment_matrix!, remove_zero_degree, star, get_correlative_graph, assign_constraint, clique_decomp, get_term_sparsity_graph, term_sparsity_graph_supp
+using NCTSSOS: sorted_union, neat_dot
 using CliqueTrees
+
+@testset "CS TS Example" begin
+    order = 4
+    n = 10
+    @ncpolyvar x[1:n]
+    f = 0.0
+    for i = 1:n
+        jset = max(1,i-5):min(n,i+1)
+        jset = setdiff(jset,i)
+        f += (2x[i]+5*x[i]^3+1)^2
+        f -= sum([4x[i]*x[j]+10x[i]^3*x[j]+2x[j]+4x[i]*x[j]^2+10x[i]^3*x[j]^2+2x[j]^2 for j in jset])
+        f += sum([x[j]*x[k]+2x[j]^2*x[k]+x[j]^2*x[k]^2 for j in jset for k in jset])
+    end
+    cons = [(x[i]^2 - 10.0) for i in 1:n]
+
+    pop = PolynomialOptimizationProblem(f, cons)
+
+    cliques = clique_decomp(x, f, cons, BFS(), order)
+
+    clique_cons, discarded_cons = assign_constraint(cliques, cons)
+
+
+    # prepare the support for each term sparse localizing moment
+    prev_localizing_mtx_basis = [
+        map(zip([one(f); cons[cur_cons]], [f; cons[cur_cons]])) do polys
+            sorted_union(monomials(last(polys)), [neat_dot(b, b) for b in get_basis(cur_clique, order - ceil(Int, maxdegree(first(polys)) / 2))])
+        end
+        for (cur_clique, cur_cons) in zip(cliques, clique_cons)
+    ]
+
+
+    length.(prev_localizing_mtx_basis[1])
+
+    # moment_problem = moment_relax(pop, order, MF())
+    # set_optimizer(moment_problem.model, Clarabel.Optimizer)
+    # optimize!(moment_problem.model)
+
+    # @test isapprox(objective_value(moment_problem.model), 0.0, atol=1e-4)
+end
 
 @testset "Term Sparsity Graph" begin
     # Example 7.6 of Sparse Polynomial Optimization: Theory and Practice
@@ -32,6 +72,9 @@ using CliqueTrees
     @test G_tsp.fadjlist == [[4,5],Int[],Int[],[1,6],[1,7],[4,7],[5,6]]
     @test sort(term_sparsity_graph_supp(G_tsp, total_basis, one(Polynomial{false,Float64}))) == sort([one(x * y), x^2, y^2, x^4, y^4, y * x^2 * y, x * y^2 * x, x^3 * y, y^3 * x, y * x * y * x])
 end
+
+ksupp = [1, x[1]^2, x[1]^4, x[1] * x[2], x[1] * x[2]^2 * x[1], x[2] * x[1]^2 * x[2], x[2]^2, x[2]^4]
+ksupp_after = [1, x[1]^2, x[1]^4, x[1]^3 * x[2], x[1]^2 * x[2] * x[1], x[1]^2 * x[2]^2, x[1] * x[2], x[1] * x[2] * x[1] * x[2], x[1] * x[2]^2 * x[1], x[1] * x[2]^3, x[2] * x[1]^2 * x[2], x[2] * x[1] * x[2]^2, x[2]^2, x[2]^4]
 
 @testset "Assign Constraint" begin
     n = 4
@@ -214,26 +257,6 @@ end
 end
 
 @testset "Moment Method Example 3" begin
-    # NOTE: this is not doable in non-sparse case
-    # order = 4
-    # n = 10
-    # @ncpolyvar x[1:n]
-    # f = 0.0
-    # for i = 1:n
-    #     jset = max(1,i-5):min(n,i+1)
-    #     jset = setdiff(jset,i)
-    #     f += (2x[i]+5*x[i]^3+1)^2
-    #     f -= sum([4x[i]*x[j]+10x[i]^3*x[j]+2x[j]+4x[i]*x[j]^2+10x[i]^3*x[j]^2+2x[j]^2 for j in jset])
-    #     f += sum([x[j]*x[k]+2x[j]^2*x[k]+x[j]^2*x[k]^2 for j in jset for k in jset])
-    # end
-
-    # pop = PolynomialOptimizationProblem(f, x)
-
-    # moment_problem = moment_relax(pop, order, MF())
-    # set_optimizer(moment_problem.model, Clarabel.Optimizer)
-    # optimize!(moment_problem.model)
-
-    # @test isapprox(objective_value(moment_problem.model), 0.0, atol=1e-4)
 end
 
 @testset "Moment Method Heisenberg Model on Star Graph" begin

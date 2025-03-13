@@ -24,8 +24,10 @@ function block_decomp(G::SimpleGraph, basis::Vector{Monomial{C}}, clique_alg::El
     return map(x -> basis[x], collect(Vector{Int}, cliquetree(G, alg=clique_alg)[2]))
 end
 
+
 # clique_alg: algorithm for clique decomposition
-function moment_relax(pop::PolynomialOptimizationProblem{C,T}, order::Int, cliques::Vector{Vector{PolyVar{C}}}) where {C,T}
+function moment_relax(pop::PolynomialOptimizationProblem{C,T}, order::Int, cliques::Vector{Vector{PolyVar{C}}},
+    clique_cons::Vector{Vector{Polynomial{C,T}}}, clique_total_basis::Vector{Vector{Monomial{C}}}) where {C,T}
     objective = symmetric_canonicalize(pop.objective)
 
     clique_cons, ignored_cons = assign_constraint(cliques, pop.constraints)
@@ -106,25 +108,48 @@ end
 
 #   porting nccpop.jl's  get_graph
 #   constructs the graph according to (7.5) and (7.14) together
-#   total_support: support of objective and constraint (7.12)
+#   total_support: support of objective, constraint and their corresponding term sparsity graph in previous iteration (7.14)
 #   total_basis: basis used to index the moment matrix
 function get_term_sparsity_graph(cons_support::Vector{Monomial{C}}, total_support::Vector{Monomial{C}}, total_basis::Vector{Monomial{C}}) where {C}
     nterms = length(total_basis)
     G = SimpleGraph(nterms)
     for i in 1:nterms, j in i+1:nterms
-        i == j && continue
         map(c_supp -> neat_dot(total_basis[i], c_supp * total_basis[j]) in total_support && add_edge!(G, i, j), cons_support)
     end
     return G
 end
 
 #   supp(G,g): monomials that are either v^† g_supp v where v is a vertex in G, or β^† g_supp γ where {β,γ} is an edge in G following (10,4)
-#  given term sparsity graph G, which terms needs to be considered as a variable for describing the localizing/moment matrix with respect to g
+#   given term sparsity graph G, which terms needs to be considered as a variable for describing the localizing/moment matrix with respect to g
 function term_sparsity_graph_supp(G::SimpleGraph, basis::Vector{Monomial{C}}, g::Polynomial) where {C}
     # following (10.4) in Sparse Polynomial Optimization: Theory and Practise
     mapreducegsupp(a, b) = (mapreduce(g_supp -> neat_dot(a, g_supp * b), vcat, monomials(g)))
     return union([mapreducegsupp(basis[v], basis[v]) for v in vertices(G)], [mapreducegsupp(basis[e.src], basis[e.dst]) for e in edges(G)])
 end
+
+
+# total_basis: basis of the moment matrix for a clique
+# prev_localizing_mtx_basis: support of previous iteration of term sparse graph
+#
+# localizing_mtx_basis: Vector of Vector of Monomial, each is the basis of the localizing matrix
+function get_term_sparse_basis(total_basis::Vector{Monomial{C}}, prev_localizing_mtx_basis::Vector{Vector{Monomial{C}}}, elim_alg::EliminationAlgorithm) where {C}
+
+    Fs = [SimpleGraph(length(total_basis))]
+
+    Gs = block_decomp.(Fs, Ref(total_basis), Ref(elim_alg))
+
+    prev_localizing_mtx_basis == localizing_mtx_basis && @info "Term Sparse Graph has stabilized"
+    return localizing_mtx_basis
+end
+
+
+
+# function support_extension(G::SimpleGraph, basis::Vector{Monomial{C}}, g::Polynomial) where {C}
+#     G_nxt = SimpleGraph(nv(G))
+#     G_supp = term_sparsity_graph_supp(G, basis, g)
+
+#     return G_nxt
+# end
 
 function assign_constraint(cliques::Vector{Vector{PolyVar{C}}}, cons::Vector{Polynomial{C,T}}) where {C,T}
     # assign each constraint to a clique
