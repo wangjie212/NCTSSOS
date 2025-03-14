@@ -10,7 +10,8 @@ struct MomentProblem{C,T,CR<:ConstraintRef} <: OptimizationProblem
 end
 
 function substitute_variables(poly::Polynomial{C,T}, monomap::Dict{Monomial{C},GenericVariableRef{T}}) where {C,T}
-    return mapreduce(x -> coefficient(x) * monomap[monomial(x)], +, terms(poly))
+    # mapreduce(x -> (haskey(monomap, monomial(x)) ? (coefficient(x) * monomap[monomial(x)]) : (haskey(monomap, star(monomial(x))) ? coefficient(x) * monomap[star(monomial(x))] : AffExpr(zero(T)))), +, terms(poly))
+    mapreduce(x -> (coefficient(x) * monomap[monomial(x)]), +, terms(poly))
 end
 
 # outputs: a vector of polyvars
@@ -28,25 +29,17 @@ end
 
 
 # clique_alg: algorithm for clique decomposition
+# cliques_sub_mtx_col_basis: each clique, each obj/constraint, each ts_clique, each basis needed to index moment matrix
 function moment_relax(pop::PolynomialOptimizationProblem{C,T}, order::Int, cliques::Vector{Vector{PolyVar{C}}},
-    clique_cons::Vector{Vector{Polynomial{C,T}}}, clique_total_basis::Vector{Vector{Monomial{C}}}) where {C,T}
+    cliques_cons::Vector{Vector{Int}}, cliques_total_basis::Vector{Vector{Monomial{C}}}, cliques_sub_mtx_col_basis::Vector{Vector{Vector{Vector{Monomial{C}}}}}) where {C,T}
     objective = symmetric_canonicalize(pop.objective)
-
-    clique_cons, ignored_cons = assign_constraint(cliques, pop.constraints)
 
     # NOTE: objective and constraints may have integer coefficients, but popular JuMP solvers does not support integer coefficients
     # left type here to support BigFloat model for higher precision
     model = GenericModel{T}()
 
-    # clique_total_basis that is the union of support of all constraints and objective and moment matrix and localizing matrices in a clique
-    clique_total_basis = map(cliques) do clique
-        # get the basis of the moment matrix in a clique, then sort it
-        clique_moment_basis = get_basis(clique, order)
-        sorted_unique([neat_dot(row_idx, col_idx) for row_idx in clique_moment_basis for col_idx in clique_moment_basis])
-    end
-
     # the union of clique_total_basis
-    total_basis = sorted_union(clique_total_basis...)
+    total_basis = sorted_union(sorted_union.(cliques_total_basis)...)
 
     # map the monomials to JuMP variables, the first variable must be 1
     @variable(model, y[1:length(total_basis)])
@@ -54,14 +47,16 @@ function moment_relax(pop::PolynomialOptimizationProblem{C,T}, order::Int, cliqu
     monomap = Dict(zip(total_basis, y))
 
     # add the constraints
-    constraint_matrices = vec([
-        constrain_moment_matrix!(
-            model,
-            poly,
-            get_basis(clique_vars, order - ceil(Int, maxdegree(poly) / 2)),
-            monomap,
-        ) for (i, clique_vars) in enumerate(cliques) for poly in [one(objective), pop.constraints[clique_cons[i]]...]
-    ])
+    constraint_matrices = vec(reduce(vcat, [
+        mapreduce(vcat, ts_cliques) do ts_sub_basis
+            constrain_moment_matrix!(
+                model,
+                poly,
+                ts_sub_basis,
+                monomap,
+            )
+        end for (i, clique_vars) in enumerate(cliques) for (ts_cliques, poly) in zip(cliques_sub_mtx_col_basis[i], [one(objective), pop.constraints[cliques_cons[i]]...])
+    ]))
 
     @objective(model, Min, substitute_variables(objective, monomap))
 

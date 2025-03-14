@@ -4,11 +4,74 @@ using JuMP
 using Clarabel
 using Graphs
 using NCTSSOS: get_basis, substitute_variables, constrain_moment_matrix!, remove_zero_degree, star, get_correlative_graph, assign_constraint, clique_decomp, get_term_sparsity_graph, term_sparsity_graph_supp
-using NCTSSOS: sorted_union, neat_dot, sorted_unique
+using NCTSSOS: sorted_union,sorted_unique, neat_dot, sorted_unique, block_decomp
 using CliqueTrees
 
 # ksupp = [1, x[1]^2, x[1]^4, x[1] * x[2], x[1] * x[2]^2 * x[1], x[2] * x[1]^2 * x[2], x[2]^2, x[2]^4]
 # ksupp_after = [1, x[1]^2, x[1]^4, x[1]^3 * x[2], x[1]^2 * x[2] * x[1], x[1]^2 * x[2]^2, x[1] * x[2], x[1] * x[2] * x[1] * x[2], x[1] * x[2]^2 * x[1], x[1] * x[2]^3, x[2] * x[1]^2 * x[2], x[2] * x[1] * x[2]^2, x[2]^2, x[2]^4]
+@testset "TS Smaller Example" begin
+    n = 2
+    @ncpolyvar x[1:2]
+    f = 2.0-x[1]^2+x[1]*x[2]^2*x[1]-x[2]^2
+    g = 4.0-x[1]^2-x[2]^2
+    h1 = x[1]*x[2]+x[2]*x[1]-2.0
+    h2 = - h1
+    cons = [g, h1, h2]
+
+    pop = PolynomialOptimizationProblem(f, cons)
+
+    cliques = [x]
+
+    cliques_cons, discarded_cons = assign_constraint(cliques, cons)
+
+    # get the operators needed to index colum of moment/localizing mtx in each clique
+    cliques_col_basis = map(zip(cliques,cliques_cons)) do (clique, clique_cons)
+        # get the basis of the moment matrix in a clique, then sort it
+        [[get_basis(clique, order)]; get_basis.(Ref(clique), order .- ceil.(Int, maxdegree.(cons[clique_cons]) / 2))]
+    end
+
+
+    # prepare the support for each term sparse localizing moment
+    prev_localizing_mtx_basis = [
+        map(zip([f; cons[clique_cons]],clique_col_basis)) do (poly, poly_col_basis)
+            sorted_union(monomials(poly), [neat_dot(b, b) for b in poly_col_basis])
+        end
+        for (clique, clique_cons, clique_col_basis) in zip(cliques, cliques_cons, cliques_col_basis)
+    ]
+
+    # loop on the clique level
+    cliques_F_is = map(zip(cliques_cons, cliques, prev_localizing_mtx_basis, cliques_col_basis)) do (clique_cons, clique, prev_basis, clique_col_basis)
+        # cons_basis: term sparse basis of the localizing/moment matrix corresponding to the constraints/objective
+        map(zip([pop.objective; pop.constraints[clique_cons]], prev_basis, clique_col_basis)) do (poly, mtx_basis, col_basis)
+            get_term_sparsity_graph(collect(monomials((poly == pop.objective) ? one(poly) : poly)), mtx_basis, col_basis)
+        end
+    end
+
+    cliques_ts_cliques = map(zip(cliques_col_basis,cliques_F_is)) do (clique_col_basis, F_is)
+        map(zip(F_is,clique_col_basis)) do (F_i, col_basis)
+            block_decomp(F_i, col_basis,MF())
+        end
+    end
+
+    cliques_total_basis = map(zip(cliques_cons, cliques_ts_cliques)) do (clique_cons, ts_cliques)
+        sorted_unique(vec(reduce(vcat, [
+            map(monomials(poly)) do m
+                neat_dot(col_basis[i], m * col_basis[j])
+            end
+            for (poly, ts_clique) in zip([one(f); pop.constraints[clique_cons]], ts_cliques) for col_basis in ts_clique for i in 1:length(col_basis) for j in 1:length(col_basis)
+        ])))
+    end
+
+    moment_problem = moment_relax(pop, order, cliques, cliques_cons, cliques_total_basis, cliques_ts_cliques)
+
+    set_optimizer(moment_problem.model, Clarabel.Optimizer)
+    optimize!(moment_problem.model)
+
+    objective_value(moment_problem.model)
+
+
+end
+
 
 @testset "CS TS Example" begin
     order = 3
@@ -23,47 +86,66 @@ using CliqueTrees
         f += sum([x[j]*x[k]+2x[j]^2*x[k]+x[j]^2*x[k]^2 for j in jset for k in jset])
     end
 
-    cons = [(10.0 - x[i]^2) for i in 1:n]
+    cons = vcat([(1 - x[i]^2) for i in 1:n], [(x[i] - 1 / 3) for i in 1:n])
 
     pop = PolynomialOptimizationProblem(f, cons)
 
     cliques = clique_decomp(x, f, cons, MF(), order)
 
-    clique_cons, discarded_cons = assign_constraint(cliques, cons)
+    true_cliques = [[x[4], x[5], x[6], x[7], x[8], x[9], x[10]],
+        [x[3], x[4], x[5], x[6], x[7], x[8], x[9]],
+        [x[2], x[3], x[4], x[5], x[6], x[7], x[8]],
+        [x[1], x[2], x[3], x[4], x[5], x[6], x[7]]]
+
+    @test sort!(map(x -> sort!(x), cliques)) == sort!(map(x -> sort!(x), true_cliques))
+
+    cliques_cons, discarded_cons = assign_constraint(cliques, cons)
 
     # get the operators needed to index colum of moment/localizing mtx in each clique
-    cliques_col_basis = map(zip(cliques,clique_cons)) do (clique, cur_clique_cons)
+    cliques_col_basis = map(zip(cliques,cliques_cons)) do (clique, clique_cons)
         # get the basis of the moment matrix in a clique, then sort it
-        [[get_basis(clique, order)]; get_basis.(Ref(clique), order .- ceil.(Int, maxdegree.(cons[cur_clique_cons]) / 2))]
+        [[get_basis(clique, order)]; get_basis.(Ref(clique), order .- ceil.(Int, maxdegree.(cons[clique_cons]) / 2))]
     end
 
 
     # prepare the support for each term sparse localizing moment
     prev_localizing_mtx_basis = [
-        map(zip([f; cons[cur_cons]],cur_clique_col_basis)) do (poly, cur_poly_col_basis)
-            sorted_union(monomials(poly), [neat_dot(b, b) for b in cur_poly_col_basis])
+        map(zip([f; cons[clique_cons]],clique_col_basis)) do (poly, poly_col_basis)
+            sorted_union(monomials(poly), [neat_dot(b, b) for b in poly_col_basis])
         end
-        for (cur_clique, cur_cons, cur_clique_col_basis) in zip(cliques, clique_cons, cliques_col_basis)
+        for (clique, clique_cons, clique_col_basis) in zip(cliques, cliques_cons, cliques_col_basis)
     ]
 
     # loop on the clique level
-    F_is = map(zip(clique_cons, cliques, prev_localizing_mtx_basis,cliques_col_basis)) do (clique_cons, clique, prev_basis, clique_col_basis)
+    cliques_F_is = map(zip(cliques_cons, cliques, prev_localizing_mtx_basis, cliques_col_basis)) do (clique_cons, clique, prev_basis, clique_col_basis)
         # cons_basis: term sparse basis of the localizing/moment matrix corresponding to the constraints/objective
-        map(zip([pop.objective; pop.constraints[clique_cons]], prev_basis,clique_col_basis)) do (poly, mtx_basis, col_basis)
-            get_term_sparsity_graph(collect(monomials((poly == pop.objective) ? one(poly) : poly)), mtx_basis,col_basis)
+        map(zip([pop.objective; pop.constraints[clique_cons]], prev_basis, clique_col_basis)) do (poly, mtx_basis, col_basis)
+            get_term_sparsity_graph(collect(monomials((poly == pop.objective) ? one(poly) : poly)), mtx_basis, col_basis)
         end
     end
-    F_is[1]
 
-    length.(prev_localizing_mtx_basis[3])
+    cliques_ts_cliques = map(zip(cliques_col_basis,cliques_F_is)) do (clique_col_basis, F_is)
+        map(zip(F_is,clique_col_basis)) do (F_i, col_basis)
+            block_decomp(F_i, col_basis,MF())
+        end
+    end
 
+    cliques_total_basis = map(zip(cliques_cons, cliques_ts_cliques)) do (clique_cons, ts_cliques)
+        sorted_unique(vec(reduce(vcat, [
+            map(monomials(poly)) do m
+                neat_dot(col_basis[i], m * col_basis[j])
+            end
+            for (poly, ts_clique) in zip([one(f); pop.constraints[clique_cons]], ts_cliques) for col_basis in ts_clique for i in 1:length(col_basis) for j in 1:length(col_basis)
+        ])))
+    end
 
+    moment_problem = moment_relax(pop, order, cliques, cliques_cons, cliques_total_basis, cliques_ts_cliques)
 
-    # moment_problem = moment_relax(pop, order, MF())
-    # set_optimizer(moment_problem.model, Clarabel.Optimizer)
-    # optimize!(moment_problem.model)
+    set_optimizer(moment_problem.model, Clarabel.Optimizer)
+    optimize!(moment_problem.model)
 
-    # @test isapprox(objective_value(moment_problem.model), 0.0, atol=1e-4)
+    objective_value(moment_problem.model)
+
 end
 
 @testset "Term Sparsity Graph" begin
