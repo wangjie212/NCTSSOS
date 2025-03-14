@@ -24,6 +24,8 @@ end
 # outputs: a vector of monomials
 function block_decomp(G::SimpleGraph, basis::Vector{Monomial{C}}, clique_alg::EliminationAlgorithm) where {C}
     label, tree = cliquetree(G, alg=clique_alg)
+    display(G.fadjlist)
+    @show collect(Vector{Int}, tree)
     return map(x -> sort(basis[label[x]]), collect(Vector{Int}, tree))
 end
 

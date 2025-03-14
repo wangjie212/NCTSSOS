@@ -17,6 +17,7 @@ using CliqueTrees
     h1 = x[1]*x[2]+x[2]*x[1]-2.0
     h2 = - h1
     cons = [g, h1, h2]
+    order = 2
 
     pop = PolynomialOptimizationProblem(f, cons)
 
@@ -30,28 +31,32 @@ using CliqueTrees
         [[get_basis(clique, order)]; get_basis.(Ref(clique), order .- ceil.(Int, maxdegree.(cons[clique_cons]) / 2))]
     end
 
+    # cliques_col_basis_true = [one(x[1]), x[1]^2, x[1]^4, x[1]^3 * x[2], x[1]^2 * x[2] * x[1], x[1]^2 * x[2]^2, x[1] * x[2], x[1] * x[2] * x[1] * x[2], x[1] * x[2]^2 * x[1], x[1] * x[2]^2, x[2] * x[1]^2 * x[2], x[2] * x[1] * x[2]^2, x[2]^2, x[2]^4]
 
     # prepare the support for each term sparse localizing moment
     prev_localizing_mtx_basis = [
-        map(zip([f; cons[clique_cons]],clique_col_basis)) do (poly, poly_col_basis)
-            sorted_union(monomials(poly), [neat_dot(b, b) for b in poly_col_basis])
-        end
+        [sorted_union(reduce(vcat, monomials.([pop.objective; pop.constraints[clique_cons]])), [neat_dot(b, b) for b in clique_col_basis[1]]) for _ in 1:length(clique_cons)+1]
         for (clique, clique_cons, clique_col_basis) in zip(cliques, cliques_cons, cliques_col_basis)
     ]
+    prev_localizing_mtx_basis[1]
 
     # loop on the clique level
     cliques_F_is = map(zip(cliques_cons, cliques, prev_localizing_mtx_basis, cliques_col_basis)) do (clique_cons, clique, prev_basis, clique_col_basis)
         # cons_basis: term sparse basis of the localizing/moment matrix corresponding to the constraints/objective
         map(zip([pop.objective; pop.constraints[clique_cons]], prev_basis, clique_col_basis)) do (poly, mtx_basis, col_basis)
+            @show mtx_basis
             get_term_sparsity_graph(collect(monomials((poly == pop.objective) ? one(poly) : poly)), mtx_basis, col_basis)
         end
     end
 
     cliques_ts_cliques = map(zip(cliques_col_basis,cliques_F_is)) do (clique_col_basis, F_is)
         map(zip(F_is,clique_col_basis)) do (F_i, col_basis)
-            block_decomp(F_i, col_basis,MF())
+            block_decomp(F_i, col_basis,MMD())
         end
     end
+
+    blocks = map(a->sort!(map(b->sort!(b),a)),[[[one(x[1]), x[1] * x[2]], [one(x[1]), x[2] * x[1]], [one(x[1]), x[1]^2], [x[1], x[2]], [one(x[1]), x[2]^2]], [[x[1], x[2]], [one(x[1])]], [[x[1], x[2]], [one(x[1])]], [[x[1], x[2]], [one(x[1])]]])
+    @test map(a->sort!(map(b->sort!(b),a)),cliques_ts_cliques[1]) == blocks
 
     cliques_total_basis = map(zip(cliques_cons, cliques_ts_cliques)) do (clique_cons, ts_cliques)
         sorted_unique(vec(reduce(vcat, [
