@@ -134,7 +134,7 @@ end
 # prev_localizing_mtx_basis: support of previous iteration of term sparse graph
 #
 # localizing_mtx_basis: Vector of Vector of Monomial, each is the basis of the localizing matrix
-function get_term_sparse_basis(total_basis::Vector{Monomial{C}}, prev_localizing_mtx_basis::Vector{Vector{Monomial{C}}}, elim_alg::EliminationAlgorithm) where {C}
+function iterate_term_sparse_basis(total_basis::Vector{Monomial{C}}, prev_localizing_mtx_basis::Vector{Vector{Monomial{C}}}, elim_alg::EliminationAlgorithm) where {C}
 
     Fs = [SimpleGraph(length(total_basis))]
 
@@ -144,7 +144,12 @@ function get_term_sparse_basis(total_basis::Vector{Monomial{C}}, prev_localizing
     return localizing_mtx_basis
 end
 
+# calling nccpop.jl's get_blocks
+# tsupp : total support for objective and constraint
+# basis : vector of total_basis for each clique's moment matrix
+function get_blocks(clique::Vector{PolyVar{C}}, clique_cons::Vector{Int}, obj::Polynomial{C,T}, cons::Vector{Polynomial{C,T}}) where {C,T}
 
+end
 
 # function support_extension(G::SimpleGraph, basis::Vector{Monomial{C}}, g::Polynomial) where {C}
 #     G_nxt = SimpleGraph(nv(G))
@@ -163,12 +168,4 @@ function assign_constraint(cliques::Vector{Vector{PolyVar{C}}}, cons::Vector{Pol
         findall(g -> issubset(unique!(effective_variables(g)), clique), cons)
     end
     return clique_cons, setdiff(1:length(cons), union(clique_cons...))
-end
-
-
-# calling nccpop.jl's get_blocks
-# tsupp : total support for objective and constraint
-# basis : vector of total_basis for each clique's moment matrix
-function get_blocks(clique::Vector{PolyVar{C}}, clique_cons::Vector{Int}, obj::Polynomial{C,T}, cons::Vector{Polynomial{C,T}}) where {C,T}
-
 end
