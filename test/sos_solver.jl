@@ -36,7 +36,8 @@ end
     pop = PolynomialOptimizationProblem(f, [g1, g2, g3, g4], x)
     order = 2
 
-    moment_problem = moment_relax(pop, 2, [x])
+    # TODO: fix inputs
+    moment_problem = moment_relax(pop, 2, [x], [pop.constraints], [[monomials(f)...]])
 
     sos_problem = sos_dualize(moment_problem)
 
@@ -63,7 +64,8 @@ end
 
     order = 2
 
-    moment_method = moment_relax(pop, order, [x])
+    # TODO: fix inputs
+    moment_method = moment_relax(pop, order, [x], [pop.constraints], [[monomials(f)...]])
 
     sos_method = sos_dualize(moment_method)
 
@@ -89,7 +91,8 @@ end
     pop = PolynomialOptimizationProblem(f, x)
     order = 2
 
-    moment_method = moment_relax(pop, order, [x])
+    # TODO: fix inputs
+    moment_method = moment_relax(pop, order, [x], [pop.constraints], [[monomials(f)...]])
 
     sos_method = sos_dualize(moment_method)
 
@@ -119,7 +122,8 @@ end
     pop = PolynomialOptimizationProblem(f, x)
     order = 2
 
-    moment_problem = moment_relax(pop, order, [x])
+    # TODO: fix inputs
+    moment_problem = moment_relax(pop, order, [x], [pop.constraints], [[monomials(f)...]])
 
     sos_problem = sos_dualize(moment_problem)
 
@@ -176,7 +180,8 @@ end
 
     order = 1
 
-    moment_problem = moment_relax(pop, order, [pij])
+    # TODO: fix inputs
+    moment_problem = moment_relax(pop, order, [pij], [pop.constraints], [[monomials(objective)...]])
 
     sos_problem = sos_dualize(moment_problem)
 
@@ -198,9 +203,10 @@ end
 
     pop = PolynomialOptimizationProblem(f, cons, x)
 
-    cliques = clique_decomp(x, f, cons, BFS(), order)
+    cliques = clique_decomp(x, f, cons, MF(), order)
 
-    moment_problem = moment_relax(pop, order, cliques)
+    # TODO: fix inputs
+    moment_problem = moment_relax(pop, order, cliques, [pop.constraints], [[monomials(f)...]])
     sos_problem = sos_dualize(moment_problem)
 
     set_optimizer(sos_problem.model, Clarabel.Optimizer)
@@ -223,9 +229,10 @@ end
 
     pop = PolynomialOptimizationProblem(f, cons, x)
 
-    moment_problem = moment_relax(pop, order, [x])
-    cliques = clique_decomp(x, f, cons, BFS(), order)
-    moment_problem_s = moment_relax(pop, order, cliques)
+    # TODO: fix inputs
+    moment_problem = moment_relax(pop, order, [x], [pop.constraints], [[monomials(f)...]])
+    cliques = clique_decomp(x, f, cons, MF(), order)
+    moment_problem_s = moment_relax(pop, order, cliques, [pop.constraints], [[monomials(f)...]])
 
     set_optimizer(moment_problem.model, Clarabel.Optimizer)
     set_optimizer(moment_problem_s.model, Clarabel.Optimizer)

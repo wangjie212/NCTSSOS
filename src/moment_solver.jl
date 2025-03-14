@@ -15,13 +15,15 @@ end
 
 # outputs: a vector of polyvars
 function clique_decomp(variables::Vector{PolyVar{C}}, objective::Polynomial{C,T}, cons::Vector{Polynomial{C,T}}, clique_alg::EliminationAlgorithm, order::Int) where {C,T}
-    return map(x -> variables[x], collect(Vector{Int}, cliquetree(get_correlative_graph(variables, objective, cons, order), alg=clique_alg)[2]))
+    label, tree = cliquetree(get_correlative_graph(variables, objective, cons, order), alg=clique_alg)
+    return map(x -> sort(variables[label[x]]), collect(Vector{Int}, tree))
 end
 
 # TODO: it is possible to merge the logic of clique_decomp and block_decomp, is using Vector{Union{PolyVar{C},Monomial{C}}} ok?
 # outputs: a vector of monomials
 function block_decomp(G::SimpleGraph, basis::Vector{Monomial{C}}, clique_alg::EliminationAlgorithm) where {C}
-    return map(x -> basis[x], collect(Vector{Int}, cliquetree(G, alg=clique_alg)[2]))
+    label, tree = cliquetree(G, alg=clique_alg)
+    return map(x -> sort(basis[label[x]]), collect(Vector{Int}, tree))
 end
 
 

@@ -7,6 +7,9 @@ using NCTSSOS: get_basis, substitute_variables, constrain_moment_matrix!, remove
 using NCTSSOS: sorted_union, neat_dot
 using CliqueTrees
 
+# ksupp = [1, x[1]^2, x[1]^4, x[1] * x[2], x[1] * x[2]^2 * x[1], x[2] * x[1]^2 * x[2], x[2]^2, x[2]^4]
+# ksupp_after = [1, x[1]^2, x[1]^4, x[1]^3 * x[2], x[1]^2 * x[2] * x[1], x[1]^2 * x[2]^2, x[1] * x[2], x[1] * x[2] * x[1] * x[2], x[1] * x[2]^2 * x[1], x[1] * x[2]^3, x[2] * x[1]^2 * x[2], x[2] * x[1] * x[2]^2, x[2]^2, x[2]^4]
+
 @testset "CS TS Example" begin
     order = 4
     n = 10
@@ -19,11 +22,12 @@ using CliqueTrees
         f -= sum([4x[i]*x[j]+10x[i]^3*x[j]+2x[j]+4x[i]*x[j]^2+10x[i]^3*x[j]^2+2x[j]^2 for j in jset])
         f += sum([x[j]*x[k]+2x[j]^2*x[k]+x[j]^2*x[k]^2 for j in jset for k in jset])
     end
+
     cons = [(x[i]^2 - 10.0) for i in 1:n]
 
     pop = PolynomialOptimizationProblem(f, cons)
 
-    cliques = clique_decomp(x, f, cons, BFS(), order)
+    cliques = clique_decomp(x, f, cons, MF(), order)
 
     clique_cons, discarded_cons = assign_constraint(cliques, cons)
 
@@ -37,7 +41,8 @@ using CliqueTrees
     ]
 
 
-    length.(prev_localizing_mtx_basis[1])
+
+    length.(prev_localizing_mtx_basis[3])
 
     # moment_problem = moment_relax(pop, order, MF())
     # set_optimizer(moment_problem.model, Clarabel.Optimizer)
@@ -73,8 +78,6 @@ end
     @test sort(term_sparsity_graph_supp(G_tsp, total_basis, one(Polynomial{false,Float64}))) == sort([one(x * y), x^2, y^2, x^4, y^4, y * x^2 * y, x * y^2 * x, x^3 * y, y^3 * x, y * x * y * x])
 end
 
-ksupp = [1, x[1]^2, x[1]^4, x[1] * x[2], x[1] * x[2]^2 * x[1], x[2] * x[1]^2 * x[2], x[2]^2, x[2]^4]
-ksupp_after = [1, x[1]^2, x[1]^4, x[1]^3 * x[2], x[1]^2 * x[2] * x[1], x[1]^2 * x[2]^2, x[1] * x[2], x[1] * x[2] * x[1] * x[2], x[1] * x[2]^2 * x[1], x[1] * x[2]^3, x[2] * x[1]^2 * x[2], x[2] * x[1] * x[2]^2, x[2]^2, x[2]^4]
 
 @testset "Assign Constraint" begin
     n = 4
@@ -100,8 +103,8 @@ end
     G = get_correlative_graph(x, f, typeof(f)[], order)
     @test G.fadjlist == map(x -> sort!(x), [[2, 4], [1, 3], [2, 4], [1, 3]])
 
-    @test clique_decomp(x, f, typeof(f)[], MCS(), order) == [[x[1], x[2], x[4]], [x[2], x[3], x[4]]]
-    @test clique_decomp(x, f, typeof(f)[], MMD(), order) == [[x[1], x[3], x[4]], [x[2], x[3], x[4]]]
+    @test sort!(clique_decomp(x, f, typeof(f)[], MF(), order)) == sort!(map(x -> sort!(x), [[x[2], x[3], x[4]], [x[1], x[2], x[4]]]))
+    @test sort!(clique_decomp(x, f, typeof(f)[], MMD(), order)) == sort!(map(x -> sort!(x), [[x[1], x[2], x[3]], [x[1], x[3], x[4]]]))
 
 
     n = 3
@@ -114,7 +117,8 @@ end
     @test G.fadjlist == [[2], [1, 3], [2]]
 
     # MMD, MF don't work
-    @test clique_decomp(x, f, typeof(f)[], BFS(), order) == [[x[1],x[2]],[x[2],x[3]]]
+    @test sort!(clique_decomp(x, f, typeof(f)[], BFS(), order)) == sort!(map(x -> sort!(x), [[x[2],x[3]],[x[1],x[2]]]))
+    @test sort!(clique_decomp(x, f, typeof(f)[], MF(), order)) == sort!(map(x -> sort!(x), [[x[2],x[3]],[x[1],x[2]]]))
 
     n = 10
     @ncpolyvar x[1:n]
@@ -129,12 +133,12 @@ end
     order = 2
     G = get_correlative_graph(x, f, typeof(f)[], order)
     @test G.fadjlist == [[2, 3, 4, 5, 6, 7], [1, 3, 4, 5, 6, 7, 8], [1, 2, 4, 5, 6, 7, 8, 9], [1, 2, 3, 5, 6, 7, 8, 9, 10], [1, 2, 3, 4, 6, 7, 8, 9, 10], [1, 2, 3, 4, 5, 7, 8, 9, 10], [1, 2, 3, 4, 5, 6, 8, 9, 10], [2, 3, 4, 5, 6, 7, 9, 10], [3, 4, 5, 6, 7, 8, 10], [4, 5, 6, 7, 8, 9]]
-    @test sort(clique_decomp(x, f, typeof(f)[], BFS(), order)) == sort([x[[4,5,6,7,8,9,10]],x[[3,4,5,6,7,8,9]],x[[2,3,4,5,6,7,8]],x[[1,2,3,4,5,6,7]]])
+    @test sort!(clique_decomp(x, f, typeof(f)[], BFS(), order)) == sort!(map(x -> sort!(x), [x[[4,5,6,7,8,9,10]],x[[3,4,5,6,7,8,9]],x[[2,3,4,5,6,7,8]],x[[1,2,3,4,5,6,7]]]))
 
     order = 3
     G = get_correlative_graph(x, f, typeof(f)[], order)
     @test G.fadjlist == [[2, 3, 4, 5, 6, 7], [1, 3, 4, 5, 6, 7, 8], [1, 2, 4, 5, 6, 7, 8, 9], [1, 2, 3, 5, 6, 7, 8, 9, 10], [1, 2, 3, 4, 6, 7, 8, 9, 10], [1, 2, 3, 4, 5, 7, 8, 9, 10], [1, 2, 3, 4, 5, 6, 8, 9, 10], [2, 3, 4, 5, 6, 7, 9, 10], [3, 4, 5, 6, 7, 8, 10], [4, 5, 6, 7, 8, 9]]
-    @test sort(clique_decomp(x, f, typeof(f)[], BFS(), order)) == sort([x[[4,5,6,7,8,9,10]],x[[3,4,5,6,7,8,9]],x[[2,3,4,5,6,7,8]],x[[1,2,3,4,5,6,7]]])
+    @test sort!(clique_decomp(x, f, typeof(f)[], BFS(), order)) == sort!(map(x -> sort!(x), [x[[4,5,6,7,8,9,10]],x[[3,4,5,6,7,8,9]],x[[2,3,4,5,6,7,8]],x[[1,2,3,4,5,6,7]]]))
 
 
     n = 3
@@ -146,7 +150,7 @@ end
     order = 3
     G = get_correlative_graph(x, f, cons, order)
     @test G.fadjlist == [[2], [1, 3], [2]]
-    @test sort(clique_decomp(x, f, cons, BFS(), order)) == sort([x[[1,2]],x[[2,3]]])
+    @test sort!(clique_decomp(x, f, cons, BFS(), order)) == sort!(map(x -> sort!(x), [x[[1,2]],x[[2,3]]]))
 end
 
 @testset "Replace DynamicPolynomials variables with JuMP variables" begin
@@ -203,7 +207,8 @@ end
 
     pop = PolynomialOptimizationProblem(f, x)
 
-    moment_problem = moment_relax(pop, order, [x])
+    # TODO: fix inputs
+    moment_problem = moment_relax(pop, order, [x], [pop.constraints], [[monomials(f)...]])
 
     set_optimizer(moment_problem.model, Clarabel.Optimizer)
     optimize!(moment_problem.model)
@@ -224,7 +229,8 @@ end
     h2 = -h1
     pop = PolynomialOptimizationProblem(f, [g, h1, h2], x)
 
-    moment_problem = moment_relax(pop, order, [x])
+    # TODO: fix inputs
+    moment_problem = moment_relax(pop, order, [x], [pop.constraints], [[monomials(f)...]])
 
     set_optimizer(moment_problem.model, Clarabel.Optimizer)
     optimize!(moment_problem.model)
@@ -244,9 +250,11 @@ end
 
     pop = PolynomialOptimizationProblem(f, cons, x)
 
-    cliques = clique_decomp(x, f, cons, BFS(), order)
+    cliques = clique_decomp(x, f, cons, MF(), order)
 
-    moment_problem = moment_relax(pop, order, cliques)
+
+    # TODO: fix inputs
+    moment_problem = moment_relax(pop, order, cliques, [pop.constraints], [[monomials(f)...]])
     set_optimizer(moment_problem.model, Clarabel.Optimizer)
 
     optimize!(moment_problem.model)
@@ -254,9 +262,6 @@ end
     # FIXME: reduced accuracy
     # @test is_solved_and_feasible(moment_problem.model)
     @test isapprox(objective_value(moment_problem.model), 0.9975306427277915, atol=1e-5)
-end
-
-@testset "Moment Method Example 3" begin
 end
 
 @testset "Moment Method Heisenberg Model on Star Graph" begin
@@ -299,7 +304,8 @@ end
     pop = PolynomialOptimizationProblem(objective, gs, pij)
     order = 1
 
-    moment_problem = moment_relax(pop, order, [pij])
+    # TODO: fix inputs
+    moment_problem = moment_relax(pop, order, [pij], [pop.constraints], [[monomials(objective)...]])
 
 
     set_optimizer(moment_problem.model, Clarabel.Optimizer)
