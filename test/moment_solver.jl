@@ -4,7 +4,8 @@ using JuMP
 using Clarabel
 using Graphs
 using NCTSSOS: get_basis, substitute_variables, constrain_moment_matrix!, remove_zero_degree, star, get_correlative_graph, assign_constraint, clique_decomp, get_term_sparsity_graph, term_sparsity_graph_supp
-using NCTSSOS: sorted_union,sorted_unique, neat_dot, sorted_unique, block_decomp
+using NCTSSOS: sorted_union,sorted_unique, neat_dot, sorted_unique
+using NCTSSOS: correlative_sparsity
 using CliqueTrees
 
 # ksupp = [1, x[1]^2, x[1]^4, x[1] * x[2], x[1] * x[2]^2 * x[1], x[2] * x[1]^2 * x[2], x[2]^2, x[2]^4]
@@ -21,22 +22,14 @@ using CliqueTrees
 
     pop = PolynomialOptimizationProblem(f, cons)
 
-    cliques = [x]
+    cliques, cliques_cons, discarded_cons, cliques_idx_basis = correlative_sparsity(pop.variables, pop.objective, pop.constraints, order, nothing)
 
-    cliques_cons, discarded_cons = assign_constraint(cliques, cons)
-
-    # get the operators needed to index colum of moment/localizing mtx in each clique
-    cliques_col_basis = map(zip(cliques,cliques_cons)) do (clique, clique_cons)
-        # get the basis of the moment matrix in a clique, then sort it
-        [[get_basis(clique, order)]; get_basis.(Ref(clique), order .- ceil.(Int, maxdegree.(cons[clique_cons]) / 2))]
-    end
-
-    # cliques_col_basis_true = [one(x[1]), x[1]^2, x[1]^4, x[1]^3 * x[2], x[1]^2 * x[2] * x[1], x[1]^2 * x[2]^2, x[1] * x[2], x[1] * x[2] * x[1] * x[2], x[1] * x[2]^2 * x[1], x[1] * x[2]^2, x[2] * x[1]^2 * x[2], x[2] * x[1] * x[2]^2, x[2]^2, x[2]^4]
+    cliques_idx_basis[1]
 
     # prepare the support for each term sparse localizing moment
     prev_localizing_mtx_basis = [
-        [sorted_union(reduce(vcat, monomials.([pop.objective; pop.constraints[clique_cons]])), [neat_dot(b, b) for b in clique_col_basis[1]]) for _ in 1:length(clique_cons)+1]
-        for (clique, clique_cons, clique_col_basis) in zip(cliques, cliques_cons, cliques_col_basis)
+        [sorted_union(reduce(vcat, monomials.([pop.objective; pop.constraints[clique_cons]])), [neat_dot(b, b) for b in clique_idx_basis[1]]) for _ in 1:length(clique_cons)+1]
+        for (clique, clique_cons, clique_idx_basis) in zip(cliques, cliques_cons, cliques_idx_basis)
     ]
     prev_localizing_mtx_basis[1]
 
@@ -51,7 +44,7 @@ using CliqueTrees
 
     cliques_ts_cliques = map(zip(cliques_col_basis,cliques_F_is)) do (clique_col_basis, F_is)
         map(zip(F_is,clique_col_basis)) do (F_i, col_basis)
-            block_decomp(F_i, col_basis,MMD())
+            map(x->sort(col_basis[x]), clique_decomp(F_i, MMD()))
         end
     end
 
@@ -72,7 +65,7 @@ using CliqueTrees
     set_optimizer(moment_problem.model, Clarabel.Optimizer)
     optimize!(moment_problem.model)
 
-    objective_value(moment_problem.model)
+    @test isapprox(objective_value(moment_problem.model), -1.0, atol=1e-6)
 end
 
 
@@ -93,20 +86,14 @@ end
 
     pop = PolynomialOptimizationProblem(f, cons)
 
-    cliques = clique_decomp(x, f, cons, MF(), order)
-
-    true_cliques = [[x[4], x[5], x[6], x[7], x[8], x[9], x[10]],
-        [x[3], x[4], x[5], x[6], x[7], x[8], x[9]],
-        [x[2], x[3], x[4], x[5], x[6], x[7], x[8]],
-        [x[1], x[2], x[3], x[4], x[5], x[6], x[7]]]
-
-    cliques_cons, discarded_cons = assign_constraint(cliques, cons)
+    cliques, cliques_cons, discarded_cons, cliques_idx_basis = correlative_sparsity(pop.variables, pop.objective, pop.constraints, order, MF())
 
     # get the operators needed to index colum of moment/localizing mtx in each clique
     cliques_col_basis = map(zip(cliques,cliques_cons)) do (clique, clique_cons)
         # get the basis of the moment matrix in a clique, then sort it
         [[get_basis(clique, order)]; get_basis.(Ref(clique), order .- ceil.(Int, maxdegree.(cons[clique_cons]) / 2))]
     end
+    cliques_col_basis[1]
 
 
     # prepare the support for each term sparse localizing moment
@@ -127,7 +114,7 @@ end
 
     cliques_ts_cliques = map(zip(cliques_col_basis,cliques_F_is)) do (clique_col_basis, F_is)
         map(zip(F_is,clique_col_basis)) do (F_i, col_basis)
-            block_decomp(F_i, col_basis,MF())
+            map(x->sort(clique_col_basis[x]), block_decomp(F_i, MF()))
         end
     end
 
@@ -233,8 +220,10 @@ end
 
     pop = PolynomialOptimizationProblem(f, x)
 
+    cliques, clique_cons, _ = correlative_sparsity(pop.variables, pop.objective, pop.constraints, order, nothing)
+
     # TODO: fix inputs
-    moment_problem = moment_relax(pop, order, [x], [pop.constraints], [[monomials(f)...]])
+    moment_problem = moment_relax(pop, order, cliques, clique_cons, [[monomials(f)...]])
 
     set_optimizer(moment_problem.model, Clarabel.Optimizer)
     optimize!(moment_problem.model)

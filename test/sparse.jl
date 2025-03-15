@@ -1,5 +1,7 @@
 using Test, NCTSSOS
-using NCTSSOS: assign_constraint
+using Graphs
+using CliqueTrees
+using NCTSSOS: assign_constraint, get_correlative_graph, clique_decomp
 
 @testset "Assign Constraint" begin
     n = 4
@@ -26,7 +28,6 @@ using NCTSSOS: assign_constraint
 end
 
 @testset "Clique Decomposition" begin
-
     G = SimpleGraph(Edge.([(1, 2), (1, 3), (1, 4), (1, 5), (1, 6), (1, 7), (2, 3), (2, 4), (2, 5), (2, 6), (2, 7), (2, 8), (3, 4), (3, 5), (3, 6), (3, 7), (3, 8), (3, 9), (4, 5), (4, 6), (4, 7), (4, 8), (4, 9), (4, 10), (5, 6), (5, 7), (5, 8), (5, 9), (5, 10), (6, 7), (6, 8), (6, 9), (6, 10), (7, 8), (7, 9), (7, 10), (8, 9), (8, 10), (9, 10)]))
 
     true_cliques = [[4, 5, 6, 7, 8, 9, 10],
@@ -37,21 +38,40 @@ end
     @test sort!(map(x -> sort!(x),clique_decomp(G,MF()))) == sort!(true_cliques)
 
     # TODO: add more test
+    G = SimpleGraph(Edge.([(1, 2), (1, 4), (2, 3), (3, 4)]))
 
+    @test sort!(map(x -> sort!(x),clique_decomp(G, MF()))) == sort!(map(x -> sort!(x), [[2, 3, 4], [1, 2, 4]]))
+    @test sort!(map(x -> sort!(x),clique_decomp(G, MMD()))) == sort!(map(x -> sort!(x), [[1, 2, 3], [1, 3, 4]]))
+
+    G = SimpleGraph(Edge.([(1, 2),(2, 3)]))
+
+    @test sort!(map(x -> sort!(x),clique_decomp(G, BFS()))) == sort!(map(x -> sort!(x), [[2, 3], [1, 2]]))
+    @test sort!(map(x -> sort!(x),clique_decomp(G, MF()))) == sort!(map(x -> sort!(x), [[2, 3], [1, 2]]))
+    @test sort!(map(x -> sort!(x),clique_decomp(G, MMD()))) == sort!(map(x -> sort!(x), [[2, 3], [1, 2]]))
+
+    G = SimpleGraph(Edge.([(1, 2), (1, 3), (1, 4), (1, 5), (1, 6), (1, 7), (2, 3), (2, 4), (2, 5), (2, 6), (2, 7), (2, 8), (3, 4), (3, 5), (3, 6), (3, 7), (3, 8), (3, 9), (4, 5), (4, 6), (4, 7), (4, 8), (4, 9), (4, 10), (5, 6), (5, 7), (5, 8), (5, 9), (5, 10), (6, 7), (6, 8), (6, 9), (6, 10), (7, 8), (7, 9), (7, 10), (8, 9), (8, 10), (9, 10)]))
+
+    @test sort!(map(x -> sort!(x),clique_decomp(G, BFS()))) == sort!(map(x -> sort!(x), [[4, 5, 6, 7, 8, 9, 10], [3, 4, 5, 6, 7, 8, 9], [2, 3, 4, 5, 6, 7, 8], [1, 2, 3, 4, 5, 6, 7]]))
+    @test sort!(map(x -> sort!(x),clique_decomp(G, MF()))) == sort!(map(x -> sort!(x), [[4, 5, 6, 7, 8, 9, 10], [3, 4, 5, 6, 7, 8, 9], [2, 3, 4, 5, 6, 7, 8], [1, 2, 3, 4, 5, 6, 7]]))
+
+    G = SimpleGraph(Edge.([(1, 2),(1, 3),(1, 4),(1, 5),(1, 6),(1, 7),(2, 3),(2, 4),(2, 5),(2, 6),(2, 7),(2, 8),(3, 4),(3, 5),(3, 6),(3, 7),(3, 8),(3, 9),(4, 5),(4, 6),(4, 7),(4, 8),(4, 9),(4, 10),(5, 6),(5, 7),(5, 8),(5, 9),(5, 10),(6, 7),(6, 8),(6, 9),(6, 10),(7, 8),(7, 9),(7, 10),(8, 9),(8, 10),(9, 10)]))
+
+    @test sort!(map(x -> sort!(x), clique_decomp(G, BFS()))) == sort!(map(x -> sort!(x), [[4, 5, 6, 7, 8, 9, 10], [3, 4, 5, 6, 7, 8, 9], [2, 3, 4, 5, 6, 7, 8], [1, 2, 3, 4, 5, 6, 7]]))
+
+    G = SimpleGraph(Edge.([(1, 2), (2, 3)]))
+
+    @test sort!(map(x -> sort!(x), clique_decomp(G, BFS()))) == sort!(map(x -> sort!(x), [[2, 3], [1, 2]]))
 end
 
-@testset "Clique Decomposition" begin
+@testset "Get Correlative Graph" begin
     n = 4
     @ncpolyvar x[1:n]
     f = sum(x[i] * x[mod1(i + 1, n)] for i in 1:n)
     order = 1
 
     G = get_correlative_graph(x, f, typeof(f)[], order)
+    @test_throws AssertionError get_correlative_graph(sort(x), f, typeof(f)[], order)
     @test G.fadjlist == map(x -> sort!(x), [[2, 4], [1, 3], [2, 4], [1, 3]])
-
-    @test sort!(clique_decomp(x, f, typeof(f)[], MF(), order)) == sort!(map(x -> sort!(x), [[x[2], x[3], x[4]], [x[1], x[2], x[4]]]))
-    @test sort!(clique_decomp(x, f, typeof(f)[], MMD(), order)) == sort!(map(x -> sort!(x), [[x[1], x[2], x[3]], [x[1], x[3], x[4]]]))
-
 
     n = 3
     @ncpolyvar x[1:3]
@@ -61,10 +81,6 @@ end
 
     G = get_correlative_graph(x, f, typeof(f)[], order)
     @test G.fadjlist == [[2], [1, 3], [2]]
-
-    # MMD, MF don't work
-    @test sort!(clique_decomp(x, f, typeof(f)[], BFS(), order)) == sort!(map(x -> sort!(x), [[x[2],x[3]],[x[1],x[2]]]))
-    @test sort!(clique_decomp(x, f, typeof(f)[], MF(), order)) == sort!(map(x -> sort!(x), [[x[2],x[3]],[x[1],x[2]]]))
 
     n = 10
     @ncpolyvar x[1:n]
@@ -79,12 +95,10 @@ end
     order = 2
     G = get_correlative_graph(x, f, typeof(f)[], order)
     @test G.fadjlist == [[2, 3, 4, 5, 6, 7], [1, 3, 4, 5, 6, 7, 8], [1, 2, 4, 5, 6, 7, 8, 9], [1, 2, 3, 5, 6, 7, 8, 9, 10], [1, 2, 3, 4, 6, 7, 8, 9, 10], [1, 2, 3, 4, 5, 7, 8, 9, 10], [1, 2, 3, 4, 5, 6, 8, 9, 10], [2, 3, 4, 5, 6, 7, 9, 10], [3, 4, 5, 6, 7, 8, 10], [4, 5, 6, 7, 8, 9]]
-    @test sort!(clique_decomp(x, f, typeof(f)[], BFS(), order)) == sort!(map(x -> sort!(x), [x[[4,5,6,7,8,9,10]],x[[3,4,5,6,7,8,9]],x[[2,3,4,5,6,7,8]],x[[1,2,3,4,5,6,7]]]))
 
     order = 3
     G = get_correlative_graph(x, f, typeof(f)[], order)
     @test G.fadjlist == [[2, 3, 4, 5, 6, 7], [1, 3, 4, 5, 6, 7, 8], [1, 2, 4, 5, 6, 7, 8, 9], [1, 2, 3, 5, 6, 7, 8, 9, 10], [1, 2, 3, 4, 6, 7, 8, 9, 10], [1, 2, 3, 4, 5, 7, 8, 9, 10], [1, 2, 3, 4, 5, 6, 8, 9, 10], [2, 3, 4, 5, 6, 7, 9, 10], [3, 4, 5, 6, 7, 8, 10], [4, 5, 6, 7, 8, 9]]
-    @test sort!(clique_decomp(x, f, typeof(f)[], BFS(), order)) == sort!(map(x -> sort!(x), [x[[4,5,6,7,8,9,10]],x[[3,4,5,6,7,8,9]],x[[2,3,4,5,6,7,8]],x[[1,2,3,4,5,6,7]]]))
 
 
     n = 3
@@ -96,5 +110,4 @@ end
     order = 3
     G = get_correlative_graph(x, f, cons, order)
     @test G.fadjlist == [[2], [1, 3], [2]]
-    @test sort!(clique_decomp(x, f, cons, BFS(), order)) == sort!(map(x -> sort!(x), [x[[1,2]],x[[2,3]]]))
 end

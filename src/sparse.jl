@@ -1,25 +1,10 @@
-# outputs: a vector of polyvars
-function clique_decomp(variables::Vector{PolyVar{C}}, objective::Polynomial{C,T}, cons::Vector{Polynomial{C,T}}, clique_alg::EliminationAlgorithm, order::Int) where {C,T}
-    label, tree = cliquetree(get_correlative_graph(variables, objective, cons, order), alg=clique_alg)
-    return map(x -> sort(variables[label[x]]), collect(Vector{Int}, tree))
-end
-
-# TODO: it is possible to merge the logic of clique_decomp and block_decomp, is using Vector{Union{PolyVar{C},Monomial{C}}} ok?
-# outputs: a vector of monomials
-function block_decomp(G::SimpleGraph, basis::Vector{Monomial{C}}, clique_alg::EliminationAlgorithm) where {C}
-    label, tree = cliquetree(G, alg=clique_alg)
-    return map(x -> sort(basis[label[x]]), collect(Vector{Int}, tree))
-end
-
-function clique_decomp(G::SimpleGraph, clique_alg::EliminationAlgorithm)
-    label, tree = cliquetree(G, alg=clique_alg)
-    return map(x -> label[x], collect(Vector{Int}, tree))
-end
-
 # ordered_vars: variables in the order to be appeared in graph
 # polys: objective + constraints order is important
 # order: order of the moment problem
 function get_correlative_graph(ordered_vars::Vector{PolyVar{C}}, obj::Polynomial{C,T}, cons::Vector{Polynomial{C,T}}, order::Int) where {C,T}
+    # NOTE: Ordering in DynamicPolynomials is funky
+    @assert issorted(ordered_vars, rev=true) "Variables must be sorted"
+
     nvars = length(ordered_vars)
     G = SimpleGraph(nvars)
 
@@ -40,6 +25,50 @@ function get_correlative_graph(ordered_vars::Vector{PolyVar{C}}, obj::Polynomial
         end
     end
     return G
+end
+
+function clique_decomp(G::SimpleGraph, clique_alg::EliminationAlgorithm)
+    label, tree = cliquetree(G, alg=clique_alg)
+    return map(x -> label[x], collect(Vector{Int}, tree))
+end
+
+function assign_constraint(cliques::Vector{Vector{PolyVar{C}}}, cons::Vector{Polynomial{C,T}}) where {C,T}
+    # assign each constraint to a clique
+    # there might be constraints that are not captured by any single clique,
+    # NOTE: we ignore this constraint. This should only occur at lower order of relaxation.
+
+    # clique_cons: vector of vector of constraints index, each belong to a clique
+    clique_cons = map(cliques) do clique
+        findall(g -> issubset(unique!(effective_variables(g)), clique), cons)
+    end
+    return clique_cons, setdiff(1:length(cons), union(clique_cons...))
+end
+
+# obtains correlative sparse info for end users
+# DRY in tests
+function correlative_sparsity(variables::Vector{PolyVar{C}}, objective::Polynomial{C,T}, cons::Vector{Polynomial{C,T}}, order::Int, elim_algo::Union{Nothing,EliminationAlgorithm}) where {C,T}
+    cliques = isnothing(elim_algo) ? [variables] : map(x -> variables[x], clique_decomp(get_correlative_graph(variables, objective, cons, order), elim_algo))
+
+    cliques_cons, discarded_cons = assign_constraint(cliques, cons)
+
+    # get the operators needed to index columns of moment/localizing mtx in each clique
+    # depending on the clique's varaibles each is slightly different
+    cliques_idx_basis = map(zip(cliques, cliques_cons)) do (clique, clique_cons)
+        # get the basis of the moment matrix in a clique, then sort it
+        [[get_basis(clique, order)]; get_basis.(Ref(clique), order .- ceil.(Int, maxdegree.(cons[clique_cons]) / 2))]
+    end
+
+    # TODO: should I implement a structure for holding the sparsity info of a problem?
+    return cliques, cliques_cons, discarded_cons, cliques_idx_basis
+end
+
+
+# activated_supp:: following Remark 7.4 ,
+function iterate_term_sparsity_support(activated_supp::Vector{Monomial{C}}) where {C}
+
+    total_ts_support # a clique shares a total support
+
+    return total_ts_support
 end
 
 #   porting nccpop.jl's  get_graph
@@ -72,7 +101,7 @@ function iterate_term_sparse_basis(total_basis::Vector{Monomial{C}}, prev_locali
 
     Fs = [SimpleGraph(length(total_basis))]
 
-    Gs = block_decomp.(Fs, Ref(total_basis), Ref(elim_alg))
+    # Gs = block_decomp.(Fs, Ref(total_basis), Ref(elim_alg))
 
     prev_localizing_mtx_basis == localizing_mtx_basis && @info "Term Sparse Graph has stabilized"
     return localizing_mtx_basis
@@ -83,16 +112,4 @@ end
 # basis : vector of total_basis for each clique's moment matrix
 function get_blocks(clique::Vector{PolyVar{C}}, clique_cons::Vector{Int}, obj::Polynomial{C,T}, cons::Vector{Polynomial{C,T}}) where {C,T}
 
-end
-
-function assign_constraint(cliques::Vector{Vector{PolyVar{C}}}, cons::Vector{Polynomial{C,T}}) where {C,T}
-    # assign each constraint to a clique
-    # there might be constraints that are not captured by any single clique,
-    # NOTE: we ignore this constraint. This should only occur at lower order of relaxation.
-
-    # clique_cons: vector of vector of constraints index, each belong to a clique
-    clique_cons = map(cliques) do clique
-        findall(g -> issubset(unique!(effective_variables(g)), clique), cons)
-    end
-    return clique_cons, setdiff(1:length(cons), union(clique_cons...))
 end
