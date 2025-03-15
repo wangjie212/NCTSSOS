@@ -16,6 +16,8 @@ export sos_dualize
 
 include("pop.jl")
 
+include("sparse.jl")
+
 include("moment_solver.jl")
 
 include("sos_solver.jl")
