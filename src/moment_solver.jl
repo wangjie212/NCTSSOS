@@ -16,7 +16,7 @@ end
 # clique_alg: algorithm for clique decomposition
 # cliques_sub_mtx_col_basis: each clique, each obj/constraint, each ts_clique, each basis needed to index moment matrix
 function moment_relax(pop::PolynomialOptimizationProblem{C,T}, order::Int, cliques::Vector{Vector{PolyVar{C}}},
-    cliques_cons::Vector{Vector{Int}}, cliques_total_basis::Vector{Vector{Monomial{C}}}, cliques_sub_mtx_col_basis::Vector{Vector{Vector{Vector{Monomial{C}}}}}) where {C,T}
+    cliques_cons::Vector{Vector{Int}}, cliques_mtcs_bases::Vector{Vector{Vector{Vector{Monomial{C}}}}}) where {C,T}
     objective = symmetric_canonicalize(pop.objective)
 
     # NOTE: objective and constraints may have integer coefficients, but popular JuMP solvers does not support integer coefficients
@@ -24,7 +24,15 @@ function moment_relax(pop::PolynomialOptimizationProblem{C,T}, order::Int, cliqu
     model = GenericModel{T}()
 
     # the union of clique_total_basis
-    total_basis = sorted_union(sorted_union.(cliques_total_basis)...)
+    total_basis = sorted_union(map(zip(cliques_cons, cliques_mtcs_bases)) do (cons, mtcs_bases)
+        union(vec(reduce(vcat, [
+            map(monomials(poly)) do m
+                neat_dot(rol_idx, m * col_idx)
+            end
+            for (poly, bases) in zip([one(objective); pop.constraints[cons]], mtcs_bases) for basis in bases for rol_idx in basis for col_idx in basis
+        ])))
+    end...)
+
 
     # map the monomials to JuMP variables, the first variable must be 1
     @variable(model, y[1:length(total_basis)])
@@ -40,7 +48,7 @@ function moment_relax(pop::PolynomialOptimizationProblem{C,T}, order::Int, cliqu
                 ts_sub_basis,
                 monomap,
             )
-        end for (i, clique_vars) in enumerate(cliques) for (ts_cliques, poly) in zip(cliques_sub_mtx_col_basis[i], [one(objective), pop.constraints[cliques_cons[i]]...])
+        end for (i, clique_vars) in enumerate(cliques) for (ts_cliques, poly) in zip(cliques_mtcs_bases[i], [one(objective), pop.constraints[cliques_cons[i]]...])
     ]))
 
     @objective(model, Min, substitute_variables(objective, monomap))

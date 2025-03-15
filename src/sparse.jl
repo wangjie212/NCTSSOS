@@ -62,24 +62,20 @@ function correlative_sparsity(variables::Vector{PolyVar{C}}, objective::Polynomi
     return cliques, cliques_cons, discarded_cons, cliques_idx_basis
 end
 
-
-# activated_supp:: following Remark 7.4 ,
-function iterate_term_sparsity_support(activated_supp::Vector{Monomial{C}}) where {C}
-
-    total_ts_support # a clique shares a total support
-
-    return total_ts_support
-end
-
 #   porting nccpop.jl's  get_graph
 #   constructs the graph according to (7.5) and (7.14) together
-#   total_support: support of objective, constraint and their corresponding term sparsity graph in previous iteration (7.14)
-#   total_basis: basis used to index the moment matrix
-function get_term_sparsity_graph(cons_support::Vector{Monomial{C}}, total_support::Vector{Monomial{C}}, total_basis::Vector{Monomial{C}}) where {C}
-    nterms = length(total_basis)
+#   activated_supp: support of objective, constraint and their corresponding term sparsity graph in previous iteration (7.14)
+#   basis: basis used to index the moment matrix
+function get_term_sparsity_graph(cons_support::Vector{Monomial{C}}, activated_supp::Vector{Monomial{C}}, basis::Vector{Monomial{C}}) where {C}
+    nterms = length(basis)
     G = SimpleGraph(nterms)
     for i in 1:nterms, j in i+1:nterms
-        map(c_supp -> neat_dot(total_basis[i], c_supp * total_basis[j]) in total_support && add_edge!(G, i, j), cons_support)
+        for supp in cons_support
+            if neat_dot(basis[i], supp * basis[j]) in activated_supp
+                add_edge!(G, i, j)
+                continue
+            end
+        end
     end
     return G
 end
@@ -93,23 +89,11 @@ function term_sparsity_graph_supp(G::SimpleGraph, basis::Vector{Monomial{C}}, g:
 end
 
 
-# total_basis: basis of the moment matrix for a clique
-# prev_localizing_mtx_basis: support of previous iteration of term sparse graph
-#
-# localizing_mtx_basis: Vector of Vector of Monomial, each is the basis of the localizing matrix
-function iterate_term_sparse_basis(total_basis::Vector{Monomial{C}}, prev_localizing_mtx_basis::Vector{Vector{Monomial{C}}}, elim_alg::EliminationAlgorithm) where {C}
-
-    Fs = [SimpleGraph(length(total_basis))]
-
-    # Gs = block_decomp.(Fs, Ref(total_basis), Ref(elim_alg))
-
-    prev_localizing_mtx_basis == localizing_mtx_basis && @info "Term Sparse Graph has stabilized"
-    return localizing_mtx_basis
-end
-
-# calling nccpop.jl's get_blocks
-# tsupp : total support for objective and constraint
-# basis : vector of total_basis for each clique's moment matrix
-function get_blocks(clique::Vector{PolyVar{C}}, clique_cons::Vector{Int}, obj::Polynomial{C,T}, cons::Vector{Polynomial{C,T}}) where {C,T}
-
+# returns: F (the chordal graph), blocks in basis
+function iterate_term_sparse_supp(activated_supp::Vector{Monomial{C}}, poly::Polynomial, basis::Vector{Monomial{C}}, elim_algo::EliminationAlgorithm) where {C}
+    F = get_term_sparsity_graph(collect(monomials(poly)), activated_supp, basis)
+    blocks = clique_decomp(F, elim_algo)
+    map(block -> add_clique!(F, block), blocks)
+    # return term_sparsity_graph_supp(F, basis, poly), map(x -> basis[x], blocks)
+    return map(x -> basis[x], blocks)
 end
