@@ -15,8 +15,7 @@ end
 
 # clique_alg: algorithm for clique decomposition
 # cliques_sub_mtx_col_basis: each clique, each obj/constraint, each ts_clique, each basis needed to index moment matrix
-function moment_relax(pop::PolynomialOptimizationProblem{C,T}, order::Int, cliques::Vector{Vector{PolyVar{C}}},
-    cliques_cons::Vector{Vector{Int}}, cliques_mtcs_bases::Vector{Vector{Vector{Vector{Monomial{C}}}}}) where {C,T}
+function moment_relax(pop::PolynomialOptimizationProblem{C,T}, order::Int, cliques_cons::Vector{Vector{Int}}, cliques_mtcs_bases::Vector{Vector{Vector{Vector{Monomial{C}}}}}) where {C,T}
     objective = symmetric_canonicalize(pop.objective)
 
     # NOTE: objective and constraints may have integer coefficients, but popular JuMP solvers does not support integer coefficients
@@ -24,12 +23,12 @@ function moment_relax(pop::PolynomialOptimizationProblem{C,T}, order::Int, cliqu
     model = GenericModel{T}()
 
     # the union of clique_total_basis
-    total_basis = sorted_union(map(zip(cliques_cons, cliques_mtcs_bases)) do (cons, mtcs_bases)
+    total_basis = sorted_union(map(zip(cliques_cons, cliques_mtcs_bases)) do (cons_idx, mtcs_bases)
         union(vec(reduce(vcat, [
             map(monomials(poly)) do m
                 neat_dot(rol_idx, m * col_idx)
             end
-            for (poly, bases) in zip([one(objective); pop.constraints[cons]], mtcs_bases) for basis in bases for rol_idx in basis for col_idx in basis
+            for (poly, bases) in zip([one(objective); pop.constraints[cons_idx]], mtcs_bases) for basis in bases for rol_idx in basis for col_idx in basis
         ])))
     end...)
 
@@ -39,17 +38,19 @@ function moment_relax(pop::PolynomialOptimizationProblem{C,T}, order::Int, cliqu
     @constraint(model, first(y) == 1)
     monomap = Dict(zip(total_basis, y))
 
-    # add the constraints
-    constraint_matrices = vec(reduce(vcat, [
-        mapreduce(vcat, ts_cliques) do ts_sub_basis
-            constrain_moment_matrix!(
-                model,
-                poly,
-                ts_sub_basis,
-                monomap,
-            )
-        end for (i, clique_vars) in enumerate(cliques) for (ts_cliques, poly) in zip(cliques_mtcs_bases[i], [one(objective), pop.constraints[cliques_cons[i]]...])
-    ]))
+    constraint_matrices =
+        mapreduce(vcat, zip(cliques_mtcs_bases, cliques_cons)) do (mtcs_bases, cons_idx)
+            mapreduce(vcat, zip(mtcs_bases, [one(objective), pop.constraints[cons_idx]...])) do (ts_cliques, poly)
+                map(ts_cliques) do ts_sub_basis
+                    constrain_moment_matrix!(
+                        model,
+                        poly,
+                        ts_sub_basis,
+                        monomap,
+                    )
+                end
+            end
+        end
 
     @objective(model, Min, substitute_variables(objective, monomap))
 

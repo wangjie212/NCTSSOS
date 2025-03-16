@@ -4,7 +4,7 @@ using SparseArrays
 using JuMP
 using Graphs
 using CliqueTrees
-using NCTSSOS: get_Cαj, clique_decomp, correlative_sparsity
+using NCTSSOS: get_Cαj, clique_decomp, correlative_sparsity, sorted_union, neat_dot, iterate_term_sparse_supp
 
 @testset "Cαj" begin
     model = Model()
@@ -33,7 +33,7 @@ end
     g3 = x[1] - r
     g4 = x[2] - r
 
-    pop = PolynomialOptimizationProblem(f, [g1, g2, g3, g4], x)
+    pop = PolynomialOptimizationProblem(f, [g1, g2, g3, g4])
     order = 2
 
     cliques, cliques_cons, _, cliques_idx_basis = correlative_sparsity(pop.variables, pop.objective, pop.constraints, order, nothing)
@@ -43,7 +43,7 @@ end
         for idx_basis in cliques_idx_basis 
     ]
 
-    moment_problem = moment_relax(pop, order, cliques, cliques_cons, cliques_mtcs_bases)
+    moment_problem = moment_relax(pop, order, cliques_cons, cliques_mtcs_bases)
 
     sos_problem = sos_dualize(moment_problem)
 
@@ -66,31 +66,50 @@ end
     g = 4.0 - x[1]^2 - x[2]^2
     h1 = x[1] * x[2] + x[2] * x[1] - 2.0
     h2 = -h1
-    pop = PolynomialOptimizationProblem(f, [g, h1, h2], x)
+    pop = PolynomialOptimizationProblem(f, [g, h1, h2])
 
     order = 2
 
-    cliques, cliques_cons, _, cliques_idx_basis = correlative_sparsity(pop.variables, pop.objective, pop.constraints, order, nothing)
+    cliques, cliques_cons, _, cliques_idcs_bases = correlative_sparsity(pop.variables, pop.objective, pop.constraints, order, nothing)
 
-    cliques_mtcs_bases = [
-        [[basis] for basis in idx_basis]
-        for idx_basis in cliques_idx_basis 
-    ]
+    @testset "Dense" begin
+        cliques_mtcs_bases = [
+            [[basis] for basis in idx_basis]
+            for idx_basis in cliques_idcs_bases
+        ]
 
-    moment_problem = moment_relax(pop, order, cliques, cliques_cons, cliques_mtcs_bases)
+        moment_problem = moment_relax(pop, order, cliques_cons, cliques_mtcs_bases)
+        sos_problem = sos_dualize(moment_problem)
 
-    sos_problem = sos_dualize(moment_problem)
+        set_optimizer(sos_problem.model, Clarabel.Optimizer)
+        optimize!(sos_problem.model)
 
-    set_optimizer(moment_problem.model, Clarabel.Optimizer)
-    optimize!(moment_problem.model)
+        @test is_solved_and_feasible(sos_problem.model)
+        @test isapprox(objective_value(sos_problem.model), -1, atol=1e-6)
+    end
 
-    set_optimizer(sos_problem.model, Clarabel.Optimizer)
-    optimize!(sos_problem.model)
+    @testset "Term Sparse" begin
 
-    @test is_solved_and_feasible(moment_problem.model)
-    @test is_solved_and_feasible(sos_problem.model)
-    @test isapprox(objective_value(moment_problem.model), -1, atol=1e-6)
-    @test isapprox(objective_value(sos_problem.model), -1, atol=1e-6)
+        ts_algo = MMD()
+        # prepare the support for each term sparse localizing moment
+        initial_activated_supps = [
+            sorted_union(reduce(vcat, monomials.([pop.objective; pop.constraints[cons_idx]])), [neat_dot(b, b) for b in idcs_basis[1]])
+            for (clique, cons_idx, idcs_basis) in zip(cliques, cliques_cons, cliques_idcs_bases)
+        ]
+
+        # this is hedious but I need chordal graph for next iteration
+        cliques_mtcs_bases = map(zip(initial_activated_supps, cliques_cons, cliques_idcs_bases)) do (activated_supp, cons_idx, idcs_basis)
+            [iterate_term_sparse_supp(activated_supp, poly, basis, ts_algo) for (poly, basis) in zip([one(pop.objective); pop.constraints[cons_idx]], idcs_basis)]
+        end
+
+        moment_problem = moment_relax(pop, order, cliques_cons, cliques_mtcs_bases)
+        sos_problem = sos_dualize(moment_problem)
+        set_optimizer(sos_problem.model, Clarabel.Optimizer)
+        optimize!(sos_problem.model)
+        objective_value(sos_problem.model)
+
+        @test isapprox(objective_value(sos_problem.model), -1.0, atol=1e-6)
+    end
 end
 
 @testset "Dualization Trivial Example" begin
@@ -100,29 +119,24 @@ end
 
     f = x[1]^2 + x[1] * x[2] + x[2] * x[1] + x[2]^2 + true_min
 
-    pop = PolynomialOptimizationProblem(f, x)
+    pop = PolynomialOptimizationProblem(f, typeof(f)[])
     order = 2
 
-    cliques, cliques_cons, _, cliques_idx_basis = correlative_sparsity(pop.variables, pop.objective, pop.constraints, order, nothing)
+    cliques, cliques_cons, _, cliques_idcs_bases = correlative_sparsity(pop.variables, pop.objective, pop.constraints, order, nothing)
 
     cliques_mtcs_bases = [
         [[basis] for basis in idx_basis]
-        for idx_basis in cliques_idx_basis 
+        for idx_basis in cliques_idcs_bases
     ]
 
-    moment_method = moment_relax(pop, order, cliques, cliques_cons, cliques_mtcs_bases)
+    moment_method = moment_relax(pop, order,  cliques_cons, cliques_mtcs_bases)
 
     sos_method = sos_dualize(moment_method)
-
-    set_optimizer(moment_method.model, Clarabel.Optimizer)
-    optimize!(moment_method.model)
 
     set_optimizer(sos_method.model, Clarabel.Optimizer)
     optimize!(sos_method.model)
 
-    @test is_solved_and_feasible(moment_method.model)
     @test is_solved_and_feasible(sos_method.model)
-    @test isapprox(objective_value(moment_method.model), true_min, atol=1e-6)
     @test isapprox(objective_value(sos_method.model), true_min, atol=1e-6)
 end
 
@@ -137,29 +151,24 @@ end
         9x[2]^2 * x[3] +
         9x[3] * x[2]^2 - 54x[3] * x[2] * x[3] + 142x[3] * x[2]^2 * x[3]
 
-    pop = PolynomialOptimizationProblem(f, x)
+    pop = PolynomialOptimizationProblem(f, typeof(f)[])
     order = 2
 
-    cliques, cliques_cons, _, cliques_idx_basis = correlative_sparsity(pop.variables, pop.objective, pop.constraints, order, nothing)
+    cliques, cliques_cons, _, cliques_idcs_bases = correlative_sparsity(pop.variables, pop.objective, pop.constraints, order, nothing)
 
     cliques_mtcs_bases = [
         [[basis] for basis in idx_basis]
-        for idx_basis in cliques_idx_basis 
+        for idx_basis in cliques_idcs_bases
     ]
 
-    moment_problem = moment_relax(pop, order, cliques, cliques_cons, cliques_mtcs_bases)
+    moment_problem = moment_relax(pop, order, cliques_cons, cliques_mtcs_bases)
 
     sos_problem = sos_dualize(moment_problem)
-
-    set_optimizer(moment_problem.model, Clarabel.Optimizer)
-    optimize!(moment_problem.model)
 
     set_optimizer(sos_problem.model, Clarabel.Optimizer)
     optimize!(sos_problem.model)
 
-    @test is_solved_and_feasible(moment_problem.model)
     @test is_solved_and_feasible(sos_problem.model)
-    @test isapprox(objective_value(moment_problem.model), 4.372259295498716e-10, atol=1e-6)
     @test isapprox(objective_value(sos_problem.model), 4.372259295498716e-10, atol=1e-6)
 end
 
@@ -200,18 +209,18 @@ end
         ]
     ]
 
-    pop = PolynomialOptimizationProblem(objective, gs, pij)
+    pop = PolynomialOptimizationProblem(objective, gs)
 
     order = 1
 
-    cliques, cliques_cons, _, cliques_idx_basis = correlative_sparsity(pop.variables, pop.objective, pop.constraints, order, nothing)
+    cliques, cliques_cons, _, cliques_idcs_bases = correlative_sparsity(pop.variables, pop.objective, pop.constraints, order, nothing)
 
     cliques_mtcs_bases = [
         [[basis] for basis in idx_basis]
-        for idx_basis in cliques_idx_basis 
+        for idx_basis in cliques_idcs_bases 
     ]
 
-    moment_problem = moment_relax(pop, order, cliques, cliques_cons, cliques_mtcs_bases)
+    moment_problem = moment_relax(pop, order, cliques_cons, cliques_mtcs_bases)
 
     sos_problem = sos_dualize(moment_problem)
 
@@ -233,18 +242,16 @@ end
 
     cs_algo = MF()
 
-    pop = PolynomialOptimizationProblem(f, cons, x)
+    pop = PolynomialOptimizationProblem(f, cons)
 
-    cliques, cliques_cons, _, cliques_idx_basis = correlative_sparsity(pop.variables, pop.objective, pop.constraints, order, cs_algo)
+    cliques, cliques_cons, _, cliques_idcs_bases = correlative_sparsity(pop.variables, pop.objective, pop.constraints, order, cs_algo)
 
     cliques_mtcs_bases = [
         [[basis] for basis in idx_basis]
-        for idx_basis in cliques_idx_basis 
+        for idx_basis in cliques_idcs_bases 
     ]
 
-    moment_problem = moment_relax(pop, order, cliques, cliques_cons, cliques_mtcs_bases)
-
-
+    moment_problem = moment_relax(pop, order, cliques_cons, cliques_mtcs_bases)
 
     sos_problem = sos_dualize(moment_problem)
 
@@ -268,25 +275,25 @@ end
 
     cs_algo = MF()
 
-    pop = PolynomialOptimizationProblem(f, cons, x)
+    pop = PolynomialOptimizationProblem(f, cons)
 
-    cliques_s, cliques_cons_s, _, cliques_idx_basis_s = correlative_sparsity(pop.variables, pop.objective, pop.constraints, order, cs_algo)
+    cliques_s, cliques_cons_s, _, cliques_idcs_bases_s = correlative_sparsity(pop.variables, pop.objective, pop.constraints, order, cs_algo)
 
     cliques_mtcs_bases_s = [
         [[basis] for basis in idx_basis]
-        for idx_basis in cliques_idx_basis_s
+        for idx_basis in cliques_idcs_bases_s
     ]
 
-    cliques, cliques_cons, _, cliques_idx_basis = correlative_sparsity(pop.variables, pop.objective, pop.constraints, order, nothing)
+    cliques, cliques_cons, _, cliques_idcs_bases = correlative_sparsity(pop.variables, pop.objective, pop.constraints, order, nothing)
 
     cliques_mtcs_bases = [
         [[basis] for basis in idx_basis]
-        for idx_basis in cliques_idx_basis 
+        for idx_basis in cliques_idcs_bases 
     ]
 
-    moment_problem = moment_relax(pop, order, cliques, cliques_cons, cliques_mtcs_bases)
+    moment_problem = moment_relax(pop, order, cliques_cons, cliques_mtcs_bases)
 
-    moment_problem_s = moment_relax(pop, order, cliques_s, cliques_cons_s, cliques_mtcs_bases_s)
+    moment_problem_s = moment_relax(pop, order, cliques_cons_s, cliques_mtcs_bases_s)
 
     set_optimizer(moment_problem.model, Clarabel.Optimizer)
     set_optimizer(moment_problem_s.model, Clarabel.Optimizer)
