@@ -4,7 +4,7 @@ using SparseArrays
 using JuMP
 using Graphs
 using CliqueTrees
-using NCTSSOS: get_Cαj, clique_decomp, correlative_sparsity, sorted_union, neat_dot, iterate_term_sparse_supp
+using NCTSSOS: get_Cαj, clique_decomp, correlative_sparsity, sorted_union, neat_dot, iterate_term_sparse_supp, symmetric_canonicalize
 
 @testset "Cαj" begin
     model = Model()
@@ -89,17 +89,19 @@ end
     end
 
     @testset "Term Sparse" begin
-
         ts_algo = MMD()
+
+        cliques_objective = [reduce(+, [issubset(effective_variables(mono), clique) ? coef * mono : zero(mono) for (coef, mono) in zip(coefficients(pop.objective), monomials(pop.objective))]) for clique in cliques]
+
         # prepare the support for each term sparse localizing moment
-        initial_activated_supps = [
-            sorted_union(reduce(vcat, monomials.([pop.objective; pop.constraints[cons_idx]])), [neat_dot(b, b) for b in idcs_basis[1]])
-            for (clique, cons_idx, idcs_basis) in zip(cliques, cliques_cons, cliques_idcs_bases)
+        initial_activated_supp = [
+            # why does order matter here?
+            sorted_union(symmetric_canonicalize.(monomials(obj_part)), mapreduce(a -> monomials(a), vcat, pop.constraints[cons_idx]), [neat_dot(b, b) for b in idcs_bases[1]])
+            for (obj_part, cons_idx, idcs_bases) in zip(cliques_objective, cliques_cons, cliques_idcs_bases)
         ]
 
-        # this is hedious but I need chordal graph for next iteration
-        cliques_mtcs_bases = map(zip(initial_activated_supps, cliques_cons, cliques_idcs_bases)) do (activated_supp, cons_idx, idcs_basis)
-            [iterate_term_sparse_supp(activated_supp, poly, basis, ts_algo) for (poly, basis) in zip([one(pop.objective); pop.constraints[cons_idx]], idcs_basis)]
+        cliques_mtcs_bases = map(zip(initial_activated_supp, cliques_cons, cliques_idcs_bases)) do (activated_supp, cons_idx, idcs_bases)
+            [iterate_term_sparse_supp(activated_supp, poly, basis, ts_algo) for (poly, basis) in zip([one(pop.objective); pop.constraints[cons_idx]], idcs_bases)]
         end
 
         moment_problem = moment_relax(pop, order, cliques_cons, cliques_mtcs_bases)

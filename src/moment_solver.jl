@@ -16,7 +16,6 @@ end
 # clique_alg: algorithm for clique decomposition
 # cliques_sub_mtx_col_basis: each clique, each obj/constraint, each ts_clique, each basis needed to index moment matrix
 function moment_relax(pop::PolynomialOptimizationProblem{C,T}, order::Int, cliques_cons::Vector{Vector{Int}}, cliques_mtcs_bases::Vector{Vector{Vector{Vector{Monomial{C}}}}}) where {C,T}
-    objective = symmetric_canonicalize(pop.objective)
 
     # NOTE: objective and constraints may have integer coefficients, but popular JuMP solvers does not support integer coefficients
     # left type here to support BigFloat model for higher precision
@@ -28,7 +27,7 @@ function moment_relax(pop::PolynomialOptimizationProblem{C,T}, order::Int, cliqu
             map(monomials(poly)) do m
                 neat_dot(rol_idx, m * col_idx)
             end
-            for (poly, bases) in zip([one(objective); pop.constraints[cons_idx]], mtcs_bases) for basis in bases for rol_idx in basis for col_idx in basis
+            for (poly, bases) in zip([one(pop.objective); pop.constraints[cons_idx]], mtcs_bases) for basis in bases for rol_idx in basis for col_idx in basis
         ])))
     end...)
 
@@ -40,7 +39,7 @@ function moment_relax(pop::PolynomialOptimizationProblem{C,T}, order::Int, cliqu
 
     constraint_matrices =
         mapreduce(vcat, zip(cliques_mtcs_bases, cliques_cons)) do (mtcs_bases, cons_idx)
-            mapreduce(vcat, zip(mtcs_bases, [one(objective), pop.constraints[cons_idx]...])) do (ts_cliques, poly)
+            mapreduce(vcat, zip(mtcs_bases, [one(pop.objective), pop.constraints[cons_idx]...])) do (ts_cliques, poly)
                 map(ts_cliques) do ts_sub_basis
                     constrain_moment_matrix!(
                         model,
@@ -52,7 +51,7 @@ function moment_relax(pop::PolynomialOptimizationProblem{C,T}, order::Int, cliqu
             end
         end
 
-    @objective(model, Min, substitute_variables(objective, monomap))
+    @objective(model, Min, substitute_variables(symmetric_canonicalize(pop.objective), monomap))
 
     return MomentProblem(order, model, constraint_matrices, monomap)
 end

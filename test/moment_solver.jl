@@ -4,8 +4,7 @@ using JuMP
 using Clarabel
 using Graphs
 using NCTSSOS: get_basis, substitute_variables, constrain_moment_matrix!, remove_zero_degree, star, get_correlative_graph, assign_constraint, clique_decomp, get_term_sparsity_graph, term_sparsity_graph_supp
-using NCTSSOS: sorted_union,sorted_unique, neat_dot, sorted_unique
-using NCTSSOS: correlative_sparsity, iterate_term_sparse_supp
+using NCTSSOS: sorted_union, sorted_unique, neat_dot, sorted_unique, correlative_sparsity, iterate_term_sparse_supp, symmetric_canonicalize
 using CliqueTrees
 
 @testset "CS TS Example" begin
@@ -14,13 +13,15 @@ using CliqueTrees
     @ncpolyvar x[1:n]
     f = 0.0
     for i = 1:n
-        jset = max(1,i-5):min(n,i+1)
-        jset = setdiff(jset,i)
-        f += (2x[i]+5*x[i]^3+1)^2
-        f -= sum([4x[i]*x[j]+10x[i]^3*x[j]+2x[j]+4x[i]*x[j]^2+10x[i]^3*x[j]^2+2x[j]^2 for j in jset])
-        f += sum([x[j]*x[k]+2x[j]^2*x[k]+x[j]^2*x[k]^2 for j in jset for k in jset])
+        jset = max(1, i - 5):min(n, i + 1)
+        jset = setdiff(jset, i)
+        f += (2x[i] + 5 * x[i]^3 + 1)^2
+        f -= sum([4x[i] * x[j] + 10x[i]^3 * x[j] + 2x[j] + 4x[i] * x[j]^2 + 10x[i]^3 * x[j]^2 + 2x[j]^2 for j in jset])
+        f += sum([x[j] * x[k] + 2x[j]^2 * x[k] + x[j]^2 * x[k]^2 for j in jset for k in jset])
     end
 
+    # NOTE: should not symmetric canonicalize the polynomial since it might 
+    # take away some support in the polynomial
     cons = vcat([(1 - x[i]^2) for i in 1:n], [(x[i] - 1 / 3) for i in 1:n])
 
     pop = PolynomialOptimizationProblem(f, cons)
@@ -29,13 +30,15 @@ using CliqueTrees
 
     cliques, cliques_cons, discarded_cons, cliques_idcs_bases = correlative_sparsity(pop.variables, pop.objective, pop.constraints, order, cs_algo)
 
+    cliques_objective = [reduce(+, [issubset(effective_variables(mono), clique) ? coef * mono : zero(mono) for (coef, mono) in zip(coefficients(pop.objective), monomials(pop.objective))]) for clique in cliques]
+
     # prepare the support for each term sparse localizing moment
     initial_activated_supp = [
-        sorted_union(reduce(vcat, monomials.([pop.objective; pop.constraints[cons_idx]])), [neat_dot(b, b) for b in idcs_bases[1]])
-        for (cons_idx, idcs_bases) in zip(cliques_cons, cliques_idcs_bases)
+        # why does order matter here?
+        sorted_union(symmetric_canonicalize.(monomials(obj_part)), mapreduce(a -> monomials(a), vcat, pop.constraints[cons_idx]), [neat_dot(b, b) for b in idcs_bases[1]])
+        for (obj_part, cons_idx, idcs_bases) in zip(cliques_objective, cliques_cons, cliques_idcs_bases)
     ]
 
-    # this is hedious but I need chordal graph for next iteration
     cliques_mtcs_bases = map(zip(initial_activated_supp, cliques_cons, cliques_idcs_bases)) do (activated_supp, cons_idx, idcs_bases)
         [iterate_term_sparse_supp(activated_supp, poly, basis, ts_algo) for (poly, basis) in zip([one(pop.objective); pop.constraints[cons_idx]], idcs_bases)]
     end
@@ -43,7 +46,7 @@ using CliqueTrees
     moment_problem = moment_relax(pop, order, cliques_cons, cliques_mtcs_bases)
     set_optimizer(moment_problem.model, Clarabel.Optimizer)
     optimize!(moment_problem.model)
-    objective_value(moment_problem.model)
+    @test isapprox(objective_value(moment_problem.model), 3.011288, atol=1e-4)
 end
 
 @testset "Moment Method Heisenberg Model on Star Graph" begin
@@ -181,14 +184,18 @@ end
 
     @testset "Sprase" begin
         ts_algo = MMD()
-        initial_activated_supps = [
-            sorted_union(reduce(vcat, monomials.([pop.objective; pop.constraints[cons_idx]])), [neat_dot(b, b) for b in idcs_basis[1]])
-            for (clique, cons_idx, idcs_basis) in zip(cliques, cliques_cons, cliques_idcs_bases)
+
+        cliques_objective = [reduce(+, [issubset(effective_variables(mono), clique) ? coef * mono : zero(mono) for (coef, mono) in zip(coefficients(pop.objective), monomials(pop.objective))]) for clique in cliques]
+
+        # prepare the support for each term sparse localizing moment
+        initial_activated_supp = [
+            # why does order matter here?
+            sorted_union(symmetric_canonicalize.(monomials(obj_part)), [neat_dot(b, b) for b in idcs_bases[1]])
+            for (obj_part, cons_idx, idcs_bases) in zip(cliques_objective, cliques_cons, cliques_idcs_bases)
         ]
 
-        # this is hedious but I need chordal graph for next iteration
-        cliques_mtcs_bases_s = map(zip(initial_activated_supps, cliques_cons, cliques_idcs_bases)) do (activated_supp, cons_idx, idcs_basis)
-            [iterate_term_sparse_supp(activated_supp, poly, basis, ts_algo) for (poly, basis) in zip([one(pop.objective); pop.constraints[cons_idx]], idcs_basis)]
+        cliques_mtcs_bases_s = map(zip(initial_activated_supp, cliques_cons, cliques_idcs_bases)) do (activated_supp, cons_idx, idcs_bases)
+            [iterate_term_sparse_supp(activated_supp, poly, basis, ts_algo) for (poly, basis) in zip([one(pop.objective); pop.constraints[cons_idx]], idcs_bases)]
         end
 
         moment_problem_s = moment_relax(pop, order, cliques_cons, cliques_mtcs_bases_s)
@@ -196,7 +203,7 @@ end
         optimize!(moment_problem_s.model)
 
         @test is_solved_and_feasible(moment_problem_s.model)
-        @test isapprox(objective_value(moment_problem_s.model) ,-0.0035512, atol=1e-7 )
+        @test isapprox(objective_value(moment_problem_s.model), -0.0035512, atol=1e-7)
     end
 end
 
@@ -229,14 +236,18 @@ end
 
     @testset "Term Sparse" begin
         ts_algo = MMD()
-        initial_activated_supps = [
-            sorted_union(reduce(vcat, monomials.([pop.objective; pop.constraints[cons_idx]])), [neat_dot(b, b) for b in idcs_basis[1]])
-            for (clique, cons_idx, idcs_basis) in zip(cliques, cliques_cons, cliques_idcs_bases)
+
+        cliques_objective = [reduce(+, [issubset(effective_variables(mono), clique) ? coef * mono : zero(mono) for (coef, mono) in zip(coefficients(pop.objective), monomials(pop.objective))]) for clique in cliques]
+
+        # prepare the support for each term sparse localizing moment
+        initial_activated_supp = [
+            # why does order matter here?
+            sorted_union(symmetric_canonicalize.(monomials(obj_part)), mapreduce(a -> monomials(a), vcat, pop.constraints[cons_idx]), [neat_dot(b, b) for b in idcs_bases[1]])
+            for (obj_part, cons_idx, idcs_bases) in zip(cliques_objective, cliques_cons, cliques_idcs_bases)
         ]
 
-        # this is hedious but I need chordal graph for next iteration
-        cliques_mtcs_bases_s = map(zip(initial_activated_supps, cliques_cons, cliques_idcs_bases)) do (activated_supp, cons_idx, idcs_basis)
-            [iterate_term_sparse_supp(activated_supp, poly, basis, ts_algo) for (poly, basis) in zip([one(pop.objective); pop.constraints[cons_idx]], idcs_basis)]
+        cliques_mtcs_bases_s = map(zip(initial_activated_supp, cliques_cons, cliques_idcs_bases)) do (activated_supp, cons_idx, idcs_bases)
+            [iterate_term_sparse_supp(activated_supp, poly, basis, ts_algo) for (poly, basis) in zip([one(pop.objective); pop.constraints[cons_idx]], idcs_bases)]
         end
 
         moment_problem_s = moment_relax(pop, order, cliques_cons, cliques_mtcs_bases_s)
@@ -260,12 +271,12 @@ end
 
     pop = PolynomialOptimizationProblem(f, cons)
 
-    cliques, cliques_cons, _, cliques_idcs_basis = correlative_sparsity(pop.variables, pop.objective, pop.constraints, order, cs_algo)
+    cliques, cliques_cons, _, cliques_idcs_bases = correlative_sparsity(pop.variables, pop.objective, pop.constraints, order, cs_algo)
 
     @testset "Correlative Sparse" begin
         cliques_mtcs_bases = [
             [[basis] for basis in idx_basis]
-            for idx_basis in cliques_idcs_basis
+            for idx_basis in cliques_idcs_bases
         ]
 
         moment_problem = moment_relax(pop, order, cliques_cons, cliques_mtcs_bases)
@@ -281,13 +292,18 @@ end
 
     @testset "Term Sparse" begin
         ts_algo = MMD()
-        initial_activated_supps = [
-            sorted_union(reduce(vcat, monomials.([pop.objective; pop.constraints[cons_idx]])), [neat_dot(b, b) for b in idcs_basis[1]])
-            for (clique, cons_idx, idcs_basis) in zip(cliques, cliques_cons, cliques_idcs_basis)
+
+        cliques_objective = [reduce(+, [issubset(effective_variables(mono), clique) ? coef * mono : zero(mono) for (coef, mono) in zip(coefficients(pop.objective), monomials(pop.objective))]) for clique in cliques]
+
+        # prepare the support for each term sparse localizing moment
+        initial_activated_supp = [
+            # why does order matter here?
+            sorted_union(symmetric_canonicalize.(monomials(obj_part)), mapreduce(a -> monomials(a), vcat, pop.constraints[cons_idx]), [neat_dot(b, b) for b in idcs_bases[1]])
+            for (obj_part, cons_idx, idcs_bases) in zip(cliques_objective, cliques_cons, cliques_idcs_bases)
         ]
 
-        cliques_mtcs_bases_s = map(zip(initial_activated_supps, cliques_cons, cliques_idcs_basis)) do (activated_supp, cons_idx, idcs_basis)
-            [iterate_term_sparse_supp(activated_supp, poly, basis, ts_algo) for (poly, basis) in zip([one(pop.objective); pop.constraints[cons_idx]], idcs_basis)]
+        cliques_mtcs_bases_s = map(zip(initial_activated_supp, cliques_cons, cliques_idcs_bases)) do (activated_supp, cons_idx, idcs_bases)
+            [iterate_term_sparse_supp(activated_supp, poly, basis, ts_algo) for (poly, basis) in zip([one(pop.objective); pop.constraints[cons_idx]], idcs_bases)]
         end
 
         moment_problem_s = moment_relax(pop, order, cliques_cons, cliques_mtcs_bases_s)

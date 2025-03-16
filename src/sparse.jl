@@ -71,7 +71,7 @@ function get_term_sparsity_graph(cons_support::Vector{Monomial{C}}, activated_su
     G = SimpleGraph(nterms)
     for i in 1:nterms, j in i+1:nterms
         for supp in cons_support
-            if neat_dot(basis[i], supp * basis[j]) in activated_supp
+            if symmetric_canonicalize(neat_dot(basis[i], supp * basis[j])) in activated_supp
                 add_edge!(G, i, j)
                 continue
             end
