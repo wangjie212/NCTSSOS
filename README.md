@@ -25,18 +25,45 @@ using NCTSSOS
 using DynamicPolynomials
 @ncpolyvar x[1:3]
 f = 1 + x[1]^4 + x[2]^4 + x[3]^4 + x[1]*x[2] + x[2]*x[1] + x[2]*x[3] + x[3]*x[2]
-opt,data = nctssos_first(f, x, obj="eigen")
+
+pop = PolynomialOptimizationProblem(f, typeof(f)[])
+
+corr_sparsity = correlative_sparsity(pop.variables, pop.objective, pop.constraints, order, nothing)
+
+cliques_term_sparsities = [
+    [TermSparsity(Vector{Monomial{false}}(),[basis]) for basis in idx_basis]
+        for idx_basis in corr_sparsity.cliques_idcs_bases
+]
+
+moment_problem = moment_relax(pop, corr_sparsity.cliques_cons, cliques_term_sparsities)
+
+set_optimizer(moment_problem.model, Clarabel.Optimizer)
+optimize!(moment_problem.model)
 ```
 
-To sovle higher steps of the NCTSSOS hierarchy, repeatedly run
+To use term sparsity 
 
 ```Julia
-opt,data = nctssos_higher!(data)
-```
+using CliqueTrees
+ts_algo = MMD()
 
-Options:  
-**obj**: "eigen" by default (perform eigenvalue minimization), "trace" (perform trace minimization)  
-**TS**: "block" by default (maximal chordal extension), "MD" (approximately smallest chordal extension), false (invalidating term sparsity iterations)   
+cliques_objective = [reduce(+, [issubset(effective_variables(mono), clique) ? coef * mono : zero(mono) for (coef, mono) in zip(coefficients(pop.objective), monomials(pop.objective))]) for clique in corr_sparsity.cliques]
+
+# prepare the support for each term sparse localizing moment
+initial_activated_supp = [
+    # why does order matter here?
+    sorted_union(symmetric_canonicalize.(monomials(obj_part)), [neat_dot(b, b) for b in idcs_bases[1]])
+    for (obj_part, cons_idx, idcs_bases) in zip(cliques_objective, corr_sparsity.cliques_cons, corr_sparsity.cliques_idcs_bases)
+]
+
+cliques_term_sparsities_s = map(zip(initial_activated_supp, corr_sparsity.cliques_cons, corr_sparsity.cliques_idcs_bases)) do (activated_supp, cons_idx, idcs_bases)
+    [iterate_term_sparse_supp(activated_supp, poly, basis, ts_algo) for (poly, basis) in zip([one(pop.objective); pop.constraints[cons_idx]], idcs_bases)]
+end
+
+moment_problem_s = moment_relax(pop, corr_sparsity.cliques_cons, cliques_term_sparsities_s)
+set_optimizer(moment_problem_s.model, Clarabel.Optimizer)
+optimize!(moment_problem_s.model)
+```
 
 ### Constrained non-commutative polynomial optimization
 Taking the objective $f=2-x_1^2+x_1x_2^2x_1-x_2^2$ and constraints $g=4-x_1^2-x_2^2\ge0$, $h=x_1x_2+x_2x_1-2=0$ as an example, to solve the first step of the NCTSSOS hierarchy, run
@@ -44,35 +71,53 @@ Taking the objective $f=2-x_1^2+x_1x_2^2x_1-x_2^2$ and constraints $g=4-x_1^2-x_
 ```Julia
 @ncpolyvar x[1:2]
 f = 2 - x[1]^2 + x[1]*x[2]^2*x[1] - x[2]^2
-ineq = [4 - x[1]^2 - x[2]^2]
-eq = [x[1]*x[2] + x[2]*x[1] - 2]
-pop = [f; ineq; eq]
-d = 2 # set the relaxation order
-opt,data = nctssos_first(pop, x, d, numeq=1, obj="eigen")
+g = 4 - x[1]^2 - x[2]^2
+h = x[1]*x[2] + x[2]*x[1] - 2
+h2 = -h
+order = 2
+
+pop = PolynomialOptimizationProblem(f, [g, h1, h2])
 ```
 
-To solve higher steps of the NCTSSOS hierarchy, repeatedly run
+To use Correlative Sparsity
 
 ```Julia
-opt,data = nctssos_higher!(data)
+cs_algo = MD()
+corr_sparsity = correlative_sparsity(pop.variables, pop.objective, pop.constraints, order, cs_algo)
+
+cliques_term_sparsities = [
+    [TermSparsity(Vector{Monomial{false}}(),[basis]) for basis in idx_basis]
+    for idx_basis in corr_sparsity.cliques_idcs_bases
+]
+
+moment_problem = moment_relax(pop, corr_sparsity.cliques_cons, cliques_term_sparsities)
+
+set_optimizer(moment_problem.model, Clarabel.Optimizer)
+optimize!(moment_problem.model)
 ```
 
-Options:  
-**obj**: "eigen" by default (perform eigenvalue minimization), "trace" (perform trace minimization)  
-**TS**: "block" by default (maximal chordal extension), "MD" (approximately smallest chordal extension), false (invalidating term sparsity iterations)  
-
-To exploit correlative sparsity and term sparsity simultaneously, run
+To exploit correlative sparsity and term sparsity simultaneously, do
 
 ```Julia
-opt,data = cs_nctssos_first(pop, x, d, obj="eigen")
-opt,data = cs_nctssos_higher!(data)
+ts_algo = MMD()
+
+cliques_objective = [reduce(+, [issubset(effective_variables(mono), clique) ? coef * mono : zero(mono) for (coef, mono) in zip(coefficients(pop.objective), monomials(pop.objective))]) for clique in corr_sparsity.cliques]
+
+# prepare the support for each term sparse localizing moment
+initial_activated_supp = [
+    # why does order matter here?
+    sorted_union(symmetric_canonicalize.(monomials(obj_part)), mapreduce(a -> monomials(a), vcat, pop.constraints[cons_idx]), [neat_dot(b, b) for b in idcs_bases[1]])
+    for (obj_part, cons_idx, idcs_bases) in zip(cliques_objective, corr_sparsity.cliques_cons, corr_sparsity.cliques_idcs_bases)
+]
+
+cliques_term_sparsities_s = map(zip(initial_activated_supp, corr_sparsity.cliques_cons, corr_sparsity.cliques_idcs_bases)) do (activated_supp, cons_idx, idcs_bases)
+    [iterate_term_sparse_supp(activated_supp, poly, basis, ts_algo) for (poly, basis) in zip([one(pop.objective); pop.constraints[cons_idx]], idcs_bases)]
+end
+
+moment_problem_s = moment_relax(pop, corr_sparsity.cliques_cons, cliques_term_sparsities_s)
+set_optimizer(moment_problem_s.model, Clarabel.Optimizer)
+optimize!(moment_problem_s.model)
 ```
-
-### Trace polynomial optimization
-Check out /examples/traceopt.jl.
-
-### State polynomial optimization
-Check out /examples/stateopt.jl for state polynomial optimization over real numbers and /examples/state_complex.jl for state polynomial optimization over complex numbers.
 
 ## References
 [1] [Exploiting Term Sparsity in Noncommutative Polynomial Optimization](https://arxiv.org/abs/2010.06956), 2021.  
