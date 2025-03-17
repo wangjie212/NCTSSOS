@@ -1,9 +1,7 @@
 # C: is the varaibles commuting
 # T: type of the coefficients
-# order: order of the moment problem
 # monomap: map from monomials in DynamicPolynomials to variables in JuMP
 struct MomentProblem{C,T,CR<:ConstraintRef} <: OptimizationProblem
-    order::Int
     model::GenericModel{T}
     constraints::Vector{CR}
     monomap::Dict{Monomial{C},GenericVariableRef{T}}  # TODO: maybe refactor.
@@ -13,9 +11,10 @@ function substitute_variables(poly::Polynomial{C,T}, monomap::Dict{Monomial{C},G
     mapreduce(x -> (coefficient(x) * monomap[monomial(x)]), +, terms(poly))
 end
 
+# order: order of the moment problem
 # clique_alg: algorithm for clique decomposition
 # cliques_sub_mtx_col_basis: each clique, each obj/constraint, each ts_clique, each basis needed to index moment matrix
-function moment_relax(pop::PolynomialOptimizationProblem{C,T}, order::Int, cliques_cons::Vector{Vector{Int}}, cliques_term_sparsities::Vector{Vector{TermSparsity{C}}}) where {C,T}
+function moment_relax(pop::PolynomialOptimizationProblem{C,T}, cliques_cons::Vector{Vector{Int}}, cliques_term_sparsities::Vector{Vector{TermSparsity{C}}}) where {C,T}
 
     # NOTE: objective and constraints may have integer coefficients, but popular JuMP solvers does not support integer coefficients
     # left type here to support BigFloat model for higher precision
@@ -52,7 +51,7 @@ function moment_relax(pop::PolynomialOptimizationProblem{C,T}, order::Int, cliqu
 
     @objective(model, Min, substitute_variables(symmetric_canonicalize(pop.objective), monomap))
 
-    return MomentProblem(order, model, constraint_matrices, monomap)
+    return MomentProblem(model, constraint_matrices, monomap)
 end
 
 function constrain_moment_matrix!(

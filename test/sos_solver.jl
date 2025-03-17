@@ -85,7 +85,7 @@ end
         for idx_basis in corr_sparsity.cliques_idcs_bases
     ]
 
-    moment_problem = moment_relax(pop, order, corr_sparsity.cliques_cons, cliques_term_sparsities)
+    moment_problem = moment_relax(pop, corr_sparsity.cliques_cons, cliques_term_sparsities)
 
     sos_problem = sos_dualize(moment_problem)
 
@@ -120,7 +120,7 @@ end
             for idx_basis in corr_sparsity.cliques_idcs_bases
         ]
 
-        moment_problem = moment_relax(pop, order, corr_sparsity.cliques_cons, cliques_term_sparsities)
+        moment_problem = moment_relax(pop, corr_sparsity.cliques_cons, cliques_term_sparsities)
         sos_problem = sos_dualize(moment_problem)
 
         set_optimizer(sos_problem.model, Clarabel.Optimizer)
@@ -146,7 +146,7 @@ end
             [iterate_term_sparse_supp(activated_supp, poly, basis, ts_algo) for (poly, basis) in zip([one(pop.objective); pop.constraints[cons_idx]], idcs_bases)]
         end
 
-        moment_problem = moment_relax(pop, order, corr_sparsity.cliques_cons, cliques_term_sparsities)
+        moment_problem = moment_relax(pop, corr_sparsity.cliques_cons, cliques_term_sparsities)
         sos_problem = sos_dualize(moment_problem)
         set_optimizer(sos_problem.model, Clarabel.Optimizer)
         optimize!(sos_problem.model)
@@ -173,7 +173,7 @@ end
         for idx_basis in corr_sparsity.cliques_idcs_bases
     ]
 
-    moment_method = moment_relax(pop, order, corr_sparsity.cliques_cons, cliques_term_sparsities)
+    moment_method = moment_relax(pop, corr_sparsity.cliques_cons, cliques_term_sparsities)
 
     sos_method = sos_dualize(moment_method)
 
@@ -205,7 +205,7 @@ end
         for idx_basis in corr_sparsity.cliques_idcs_bases
     ]
 
-    moment_problem = moment_relax(pop, order, corr_sparsity.cliques_cons, cliques_term_sparsities)
+    moment_problem = moment_relax(pop, corr_sparsity.cliques_cons, cliques_term_sparsities)
 
     sos_problem = sos_dualize(moment_problem)
 
@@ -264,7 +264,7 @@ end
         for idx_basis in corr_sparsity.cliques_idcs_bases
     ]
 
-    moment_problem = moment_relax(pop, order, corr_sparsity.cliques_cons, cliques_term_sparsities)
+    moment_problem = moment_relax(pop, corr_sparsity.cliques_cons, cliques_term_sparsities)
 
     sos_problem = sos_dualize(moment_problem)
 
@@ -295,7 +295,7 @@ end
         for idx_basis in corr_sparsity.cliques_idcs_bases
     ]
 
-    moment_problem = moment_relax(pop, order, corr_sparsity.cliques_cons, cliques_term_sparsities)
+    moment_problem = moment_relax(pop, corr_sparsity.cliques_cons, cliques_term_sparsities)
 
     sos_problem = sos_dualize(moment_problem)
 
@@ -335,9 +335,9 @@ end
         for idx_basis in corr_sparsity.cliques_idcs_bases
     ]
 
-    moment_problem = moment_relax(pop, order, corr_sparsity.cliques_cons, cliques_term_sparsities)
+    moment_problem = moment_relax(pop, corr_sparsity.cliques_cons, cliques_term_sparsities)
 
-    moment_problem_s = moment_relax(pop, order, corr_sparsity_s.cliques_cons, cliques_term_sparsities_s)
+    moment_problem_s = moment_relax(pop, corr_sparsity_s.cliques_cons, cliques_term_sparsities_s)
 
     set_optimizer(moment_problem.model, Clarabel.Optimizer)
     set_optimizer(moment_problem_s.model, Clarabel.Optimizer)
