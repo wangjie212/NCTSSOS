@@ -15,19 +15,19 @@ end
 
 # clique_alg: algorithm for clique decomposition
 # cliques_sub_mtx_col_basis: each clique, each obj/constraint, each ts_clique, each basis needed to index moment matrix
-function moment_relax(pop::PolynomialOptimizationProblem{C,T}, order::Int, cliques_cons::Vector{Vector{Int}}, cliques_mtcs_bases::Vector{Vector{Vector{Vector{Monomial{C}}}}}) where {C,T}
+function moment_relax(pop::PolynomialOptimizationProblem{C,T}, order::Int, cliques_cons::Vector{Vector{Int}}, cliques_term_sparsities::Vector{Vector{TermSparsity{C}}}) where {C,T}
 
     # NOTE: objective and constraints may have integer coefficients, but popular JuMP solvers does not support integer coefficients
     # left type here to support BigFloat model for higher precision
     model = GenericModel{T}()
 
     # the union of clique_total_basis
-    total_basis = sorted_union(map(zip(cliques_cons, cliques_mtcs_bases)) do (cons_idx, mtcs_bases)
+    total_basis = sorted_union(map(zip(cliques_cons, cliques_term_sparsities)) do (cons_idx, term_sparsities)
         union(vec(reduce(vcat, [
             map(monomials(poly)) do m
                 neat_dot(rol_idx, m * col_idx)
             end
-            for (poly, bases) in zip([one(pop.objective); pop.constraints[cons_idx]], mtcs_bases) for basis in bases for rol_idx in basis for col_idx in basis
+            for (poly, term_sparsity) in zip([one(pop.objective); pop.constraints[cons_idx]], term_sparsities) for basis in term_sparsity.block_bases for rol_idx in basis for col_idx in basis
         ])))
     end...)
 
@@ -38,9 +38,9 @@ function moment_relax(pop::PolynomialOptimizationProblem{C,T}, order::Int, cliqu
     monomap = Dict(zip(total_basis, y))
 
     constraint_matrices =
-        mapreduce(vcat, zip(cliques_mtcs_bases, cliques_cons)) do (mtcs_bases, cons_idx)
-            mapreduce(vcat, zip(mtcs_bases, [one(pop.objective), pop.constraints[cons_idx]...])) do (ts_cliques, poly)
-                map(ts_cliques) do ts_sub_basis
+        mapreduce(vcat, zip(cliques_term_sparsities, cliques_cons)) do (term_sparsities, cons_idx)
+            mapreduce(vcat, zip(term_sparsities, [one(pop.objective), pop.constraints[cons_idx]...])) do (term_sparsity, poly)
+                map(term_sparsity.block_bases) do ts_sub_basis
                     constrain_moment_matrix!(
                         model,
                         poly,
@@ -55,7 +55,6 @@ function moment_relax(pop::PolynomialOptimizationProblem{C,T}, order::Int, cliqu
 
     return MomentProblem(order, model, constraint_matrices, monomap)
 end
-
 
 function constrain_moment_matrix!(
     model::GenericModel{T},

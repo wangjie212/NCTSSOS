@@ -1,4 +1,9 @@
 = TODOs
+- [ ] Make a flowchart of work precedure
+    - [ ] Procedure
+        - [ ] What are the test cases and their results
+        - [ ] Explain Usage
+    - [ ] Key components
 - [x] Remove unnecessary exports
 - [x] Group Exports together in the NCTSSOS.jl file
 - [x] Change some TODOs to NOTEs
@@ -7,14 +12,30 @@
 
 - [ ] Verify no un-necessary files in the PR
 
-= API Redesign
+== File Went Over
+=== Src
+- [ ] `pop.jl`
+- [ ] `solver_utils.jl`
+- [ ] `moment_solver.jl`
+- [ ] `sos_solver.jl`
+- [ ] `sparse.jl`
+
+=== Test
+- [ ] `pop.jl`
+- [ ] `solver_utils.jl`
+- [ ] `moment_solver.jl`
+- [ ] `sos_solver.jl`
+- [ ] `sparse.jl`
+
+= Workflow Redesign 
 
 ```mermaid
 flowchart TD
-    A[Polynomial Optimization Problem] -->|_moment_relax_| B[Moment Problem]
+    A[Polynomial Optimization <br/> Problem] -->|_moment_relax_| B[Moment Problem]
     B -->|_apply_sparsity_| C[Moment Problems]
     C -->|_sos_dualize_| D[SOS Problem]
 ```
+
 
 = API Naming Changes
 
@@ -42,6 +63,7 @@ required for comparison of two monomials' equality.
 
 == Order in Construction of Localizing Matrix
 - Are $L_(bold(y)) (u^* g v)$ and $L_(bold(y)) (g u^* v)$ lead to the same relaxation?
+- What is the motivation for `UInt16`
 
 == `assign_constraint` returns pairwise non-disjoint cliques
 In contrary to pp30 on Sparse Polynomial Optimization.
