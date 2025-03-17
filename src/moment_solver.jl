@@ -31,7 +31,6 @@ function moment_relax(pop::PolynomialOptimizationProblem{C,T}, order::Int, cliqu
         ])))
     end...)
 
-
     # map the monomials to JuMP variables, the first variable must be 1
     @variable(model, y[1:length(total_basis)])
     @constraint(model, first(y) == 1)
