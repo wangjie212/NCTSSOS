@@ -31,15 +31,6 @@ using NCTSSOS: assign_constraint, get_correlative_graph, clique_decomp, get_term
     @test sort(term_sparsity_graph_supp(G_tsp, mtx_basis, 1.0 - x^2)) == sort([one(x * y), x^2, y^2, y * x * y * x, y * x^2 * y, y^3 * x, y^4, x * y^2 * x, x^2 * y^2, x^3 * y, x^4, y * x^3 * y * x, y * x^4 * y, y^2 * x^2 * y * x, y^2 * x^2 * y^2, x * y * x^2 * y * x, x^5 * y, x^6])
 end
 
-
-@testset "Get Term Sparsity Graph" begin
-    n = 4
-    @ncpolyvar x[1:n]
-    f = sum(x[i] * x[mod1(i + 1, n)] for i in 1:n)
-    order = 1
-    
-end
-
 @testset "Assign Constraint" begin
     n = 4
     @ncpolyvar x[1:n]

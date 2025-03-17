@@ -11,7 +11,7 @@ struct CorrelativeSparsity{C}
 end
 
 # ordered_vars: variables in the order to be appeared in graph
-# polys: objective + constraints order is important
+# polys: objective + constraints, order is important
 # order: order of the moment problem
 function get_correlative_graph(ordered_vars::Vector{PolyVar{C}}, obj::Polynomial{C,T}, cons::Vector{Polynomial{C,T}}, order::Int) where {C,T}
     # NOTE: Ordering in DynamicPolynomials is funky
