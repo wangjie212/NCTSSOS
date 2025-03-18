@@ -97,6 +97,14 @@ function get_term_sparsity_graph(cons_support::Vector{Monomial{C}}, activated_su
     return G
 end
 
+# returns: F (the chordal graph), blocks in basis
+function iterate_term_sparse_supp(activated_supp::Vector{Monomial{C}}, poly::Polynomial, basis::Vector{Monomial{C}}, elim_algo::EliminationAlgorithm) where {C}
+    F = get_term_sparsity_graph(collect(monomials(poly)), activated_supp, basis)
+    blocks = clique_decomp(F, elim_algo)
+    map(block -> add_clique!(F, block), blocks)
+    return TermSparsity(term_sparsity_graph_supp(F, basis, poly), map(x -> basis[x], blocks))
+end
+
 # supp(G,g): monomials that are either v^† g_supp v where v is a vertex in G, or β^† g_supp γ where {β,γ} is an edge in G following (10,4)
 # given term sparsity graph G, which terms needs to be considered as a variable for describing the localizing/moment matrix with respect to g
 function term_sparsity_graph_supp(G::SimpleGraph, basis::Vector{Monomial{C}}, g::Polynomial) where {C}
@@ -104,13 +112,4 @@ function term_sparsity_graph_supp(G::SimpleGraph, basis::Vector{Monomial{C}}, g:
     # NOTE: Do I need to symmetric canonicalize it?
     gsupp(a, b) = map(g_supp -> neat_dot(a, g_supp * b), monomials(g))
     return union([gsupp(basis[v], basis[v]) for v in vertices(G)]..., [gsupp(basis[e.src], basis[e.dst]) for e in edges(G)]...)
-end
-
-
-# returns: F (the chordal graph), blocks in basis
-function iterate_term_sparse_supp(activated_supp::Vector{Monomial{C}}, poly::Polynomial, basis::Vector{Monomial{C}}, elim_algo::EliminationAlgorithm) where {C}
-    F = get_term_sparsity_graph(collect(monomials(poly)), activated_supp, basis)
-    blocks = clique_decomp(F, elim_algo)
-    map(block -> add_clique!(F, block), blocks)
-    return TermSparsity(term_sparsity_graph_supp(F, basis, poly), map(x -> basis[x], blocks))
 end

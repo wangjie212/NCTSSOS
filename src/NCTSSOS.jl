@@ -14,8 +14,6 @@ export PolynomialOptimizationProblem
 export moment_relax
 export sos_dualize
 export cs_nctssos
-export cs_nctssos_higher!
-export solve_problem
 
 include("pop.jl")
 

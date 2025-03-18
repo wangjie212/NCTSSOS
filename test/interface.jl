@@ -12,9 +12,7 @@ using Clarabel
     h2 = -h1
     pop = PolynomialOptimizationProblem(f, [g, h1, h2])
 
-    problem = cs_nctssos(pop; mom_order=2, ts_order=1, cs_algo=MF(), ts_algo=MMD())
-
-    myans = solve_problem(problem,Clarabel.Optimizer)
+    myans = cs_nctssos(pop; optimizer=Clarabel.Optimizer, mom_order=2, cs_algo=MF(), ts_algo=MMD())
     @test isapprox(myans.objective, -1.0, atol=1e-4)
 end
 
