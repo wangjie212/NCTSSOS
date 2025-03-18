@@ -17,6 +17,11 @@ function PolynomialOptimizationProblem(objective::Polynomial{C,T}, constraints) 
     return PolynomialOptimizationProblem(objective, cons, vars)
 end
 
+# for user, unconstrained pop
+function PolynomialOptimizationProblem(objective::Polynomial{C,T}) where {C,T}
+    return PolynomialOptimizationProblem(objective, Polynomial{C,T}[])
+end
+
 nvariables(pop::PolynomialOptimizationProblem) = length(pop.variables)
 nconstraints(pop::PolynomialOptimizationProblem) = length(pop.constraints)
 iscommutative(::PolynomialOptimizationProblem{C}) where {C} = C

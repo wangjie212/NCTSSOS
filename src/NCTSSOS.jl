@@ -13,6 +13,9 @@ using Graphs
 export PolynomialOptimizationProblem
 export moment_relax
 export sos_dualize
+export cs_nctssos
+export cs_nctssos_higher!
+export solve_problem
 
 include("pop.jl")
 
@@ -23,5 +26,7 @@ include("moment_solver.jl")
 include("sos_solver.jl")
 
 include("solver_utils.jl")
+
+include("interface.jl")
 
 end
