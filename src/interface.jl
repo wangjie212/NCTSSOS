@@ -1,9 +1,9 @@
-#TODO: add user interface
+# TODO: add user interface
 # learn from OMEinsum.jl
 # consider adding Solver Interface
 # consider obtaining enough information on Moment matrix etc to check if problem solved correctly
 
-function cs_nctssos(pop::PolynomialOptimizationProblem{C,T}, mom_order::Int; ts_order::Int=0, cs_algo::Union{Nothing,EliminationAlgorithm}=nothing, ts_algo::Union{Nothing,EliminationAlgorithm}=nothing) where {C,T}
+function cs_nctssos(pop::PolynomialOptimizationProblem{C,T}; mom_order::Int, ts_order::Int=0, cs_algo::Union{Nothing,EliminationAlgorithm}=nothing, ts_algo::Union{Nothing,EliminationAlgorithm}=nothing) where {C,T}
     isnothing(ts_algo) && (@assert iszero(ts_order) "No Chordal Decomposition Algorithm provided for Term Sparsity, ts_order needs to be zero")
     @assert mom_order >= maximum([ceil(Int, maxdegree(poly) / 2) for poly in [pop.objective; pop.constraints]]) "Moment Matrix Order Must be large enough to include all monomials in problem"
 
@@ -19,12 +19,10 @@ function cs_nctssos(pop::PolynomialOptimizationProblem{C,T}, mom_order::Int; ts_
 
         # prepare the support for each term sparse localizing moment
         initial_activated_supp = [
-            # why does order matter here?
-            sorted_union(symmetric_canonicalize.(monomials(obj_part)), mapreduce(a -> monomials(a), vcat, pop.constraints[cons_idx]), [neat_dot(b, b) for b in idcs_bases[1]])
+            sorted_union(symmetric_canonicalize.(monomials(obj_part)), mapreduce(a -> monomials(a), vcat, pop.constraints[cons_idx];init = Monomial{C}[]), [neat_dot(b, b) for b in idcs_bases[1]])
             for (obj_part, cons_idx, idcs_bases) in zip(cliques_objective, corr_sparsity.cliques_cons, corr_sparsity.cliques_idcs_bases)
         ]
 
-        # need to iterate
         cliques_term_sparsities = map(zip(initial_activated_supp, corr_sparsity.cliques_cons, corr_sparsity.cliques_idcs_bases)) do (activated_supp, cons_idx, idcs_bases)
             [iterate_term_sparse_supp(activated_supp, poly, basis, ts_algo) for (poly, basis) in zip([one(pop.objective); pop.constraints[cons_idx]], idcs_bases)]
         end
@@ -48,6 +46,7 @@ function solve_problem(problem::Union{MomentProblem,SOSProblem}, optimizer)
     return Answer(objective_value(problem.model))
 end
 
+# TODO: implement this
 function cs_nctssos_higher!()
 
 end

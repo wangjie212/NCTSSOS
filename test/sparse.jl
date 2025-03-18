@@ -62,7 +62,7 @@ end
         [3, 4, 5, 6, 7, 8, 9],
         [2, 3, 4, 5, 6, 7, 8],
         [1, 2, 3, 4, 5, 6, 7]]
-    
+
     @test sort!(map(x -> sort!(x),clique_decomp(G,MF()))) == sort!(true_cliques)
 
     # TODO: add more test
@@ -98,7 +98,7 @@ end
     order = 1
 
     G = get_correlative_graph(x, f, typeof(f)[], order)
-    @test_throws AssertionError get_correlative_graph(sort(x), f, typeof(f)[], order)
+    # @test_throws AssertionError get_correlative_graph(sort(x), f, typeof(f)[], order)
     @test G.fadjlist == map(x -> sort!(x), [[2, 4], [1, 3], [2, 4], [1, 3]])
 
     n = 3

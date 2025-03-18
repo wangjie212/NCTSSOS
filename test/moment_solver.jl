@@ -90,7 +90,7 @@ end
     cs_algo = MF()
 
     corr_sparsity = correlative_sparsity(pop.variables, pop.objective, pop.constraints, order, cs_algo)
-    
+
     cliques_term_sparsities = [
         [TermSparsity(Vector{Monomial{false}}(),[basis]) for basis in idx_basis]
         for idx_basis in corr_sparsity.cliques_idcs_bases
@@ -146,7 +146,7 @@ end
     true_localizing_matrix = [mapreduce(
         a -> (monomap[prod([iszero(b[2]) ? one(x[1]) : x[b[1]]^b[2] for b in enumerate(a)])]), -, myexponents[i]) for i in eachindex(myexponents)]
 
-    @test true_localizing_matrix == ((x -> getfield(x, :func)) ∘ JuMP.constraint_object)(localizing_matrix_constraint)
+    @test true_localizing_matrix == JuMP.constraint_object(localizing_matrix_constraint).func
 end
 
 @testset "Moment Method Example 1" begin

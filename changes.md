@@ -45,5 +45,5 @@ and a vector of polynomials denoting constraints.
 # TODOs
 - [ ] Verify no un-necessary files in the PR
 - [ ] performance benchmarking, does $C_{\alpha,j}$ get cast into dense formulation
-- [ ] a set of commuting and noncommuting variables
+- [ ] a set of commuting and noncommuting variables and some variables being non-commuting
 - [ ] polynomial optimization problem on LJ Potential

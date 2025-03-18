@@ -28,34 +28,27 @@ using DynamicPolynomials
 using Clarabel
 
 @ncpolyvar x[1:3]
-f = 1 + x[1]^4 + x[2]^4 + x[3]^4 + x[1]*x[2] + x[2]*x[1] + x[2]*x[3] + x[3]*x[2]
+f = 1.0 + x[1]^4 + x[2]^4 + x[3]^4 + x[1]*x[2] + x[2]*x[1] + x[2]*x[3] + x[3]*x[2]
 
 pop = PolynomialOptimizationProblem(f)
 
-mom_order = 2
-
-problem = cs_nctssos(pop, mom_order)
+problem = cs_nctssos(pop; mom_order=2)
 myans = solve_problem(problem,Clarabel.Optimizer)
-```
-
-To use term sparsity
-
-```Julia
-using CliqueTrees
-ts_order = 1
-ts_algo = MMD()
-
-problem = cs_nctssos(pop, mom_order, ts_order=ts_order, ts_algo=ts_algo)
 ```
 
 To use correlative sparsity
 
 ```Julia
-using CorrelativeSparsity
-cs_algo = MMD()
-
-problem = cs_nctssos(pop, mom_order, cs_algo=cs_algo)
+using CliqueTrees
+problem = cs_nctssos(pop; mom_order=2, cs_algo=MF())
 ```
+
+To use term sparsity
+
+```Julia
+problem = cs_nctssos(pop; mom_order=2, ts_order=1, ts_algo=MMD())
+```
+
 
 ### Constrained non-commutative polynomial optimization
 Taking the objective $f=2-x_1^2+x_1x_2^2x_1-x_2^2$ and constraints $g=4-x_1^2-x_2^2\ge0$, $h=x_1x_2+x_2x_1-2=0$ as an example, to solve the first step of the NCTSSOS hierarchy, run
@@ -66,31 +59,25 @@ f = 2 - x[1]^2 + x[1]*x[2]^2*x[1] - x[2]^2
 g = 4 - x[1]^2 - x[2]^2
 h = x[1]*x[2] + x[2]*x[1] - 2
 h2 = -h
-order = 2
 
 pop = PolynomialOptimizationProblem(f, [g, h1, h2])
 
-problem = cs_nctssos(pop, mom_order)
+problem = cs_nctssos(pop; mom_order=2)
 myans = solve_problem(problem,Clarabel.Optimizer)
 ```
 
 To use Correlative Sparsity
 
 ```Julia
-cs_algo = MD()
-
-problem = cs_nctssos(pop, order, cs_algo=cs_algo)
+problem = cs_nctssos(pop; mom_order=2, cs_algo=MF())
 myans = solve_problem(problem,Clarabel.Optimizer)
 ```
 
 To exploit correlative sparsity and term sparsity simultaneously, do
 
 ```Julia
-ts_algo = MMD()
-ts_algo = 1
-
-problem = cs_nctssos(pop, order, cs_algo=cs_algo,ts_order=1, ts_algo=ts_algo)
-myans = solve_problem(problem,Clarabel.Optimizer)
+problem = cs_nctssos(pop; mom_order=2, cs_algo=MF(), ts_order=1, ts_algo=MMD())
+myans = solve_problem(problem, Clarabel.Optimizer)
 ```
 
 ## References

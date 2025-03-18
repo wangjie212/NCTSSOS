@@ -14,8 +14,8 @@ end
 # polys: objective + constraints, order is important
 # order: order of the moment problem
 function get_correlative_graph(ordered_vars::Vector{PolyVar{C}}, obj::Polynomial{C,T}, cons::Vector{Polynomial{C,T}}, order::Int) where {C,T}
-    # NOTE: Ordering in DynamicPolynomials is funky
-    @assert issorted(ordered_vars, rev=true) "Variables must be sorted"
+    # NOTE: code will be buggy is ordered_vars is not the same as the one reference in other functions
+    # @assert issorted(ordered_vars, rev=true) "Variables must be sorted"
 
     nvars = length(ordered_vars)
     G = SimpleGraph(nvars)
