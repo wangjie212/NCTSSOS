@@ -11,9 +11,10 @@ using ChordalGraph
 using Graphs
 
 export PolynomialOptimizationProblem
+export NoElimination, SolverConfig
 export moment_relax
 export sos_dualize
-export cs_nctssos
+export cs_nctssos,cs_nctssos_higher
 
 include("pop.jl")
 
