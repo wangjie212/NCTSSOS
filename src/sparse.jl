@@ -56,8 +56,8 @@ function assign_constraint(cliques::Vector{Vector{PolyVar{C}}}, cons::Vector{Pol
     return clique_cons, setdiff(1:length(cons), union(clique_cons...))
 end
 
-function correlative_sparsity(variables::Vector{PolyVar{C}}, objective::Polynomial{C,T}, cons::Vector{Polynomial{C,T}}, order::Int, elim_algo::Union{Nothing,EliminationAlgorithm}) where {C,T}
-    cliques = isnothing(elim_algo) ? [variables] : map(x -> variables[x], clique_decomp(get_correlative_graph(variables, objective, cons, order), elim_algo))
+function correlative_sparsity(variables::Vector{PolyVar{C}}, objective::Polynomial{C,T}, cons::Vector{Polynomial{C,T}}, order::Int, elim_algo::EliminationAlgorithm) where {C,T}
+    cliques = map(x -> variables[x], clique_decomp(get_correlative_graph(variables, objective, cons, order), elim_algo))
 
     cliques_cons, discarded_cons = assign_constraint(cliques, cons)
 

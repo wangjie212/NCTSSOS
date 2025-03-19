@@ -14,8 +14,8 @@ using Clarabel
 
     solver_config = SolverConfig(optimizer=Clarabel.Optimizer, mom_order=2, cs_algo=MF(), ts_algo=MMD())
 
-    myans = cs_nctssos(pop, solver_config)
-    @test isapprox(myans.objective, -1.0, atol=1e-4)
+    result = cs_nctssos(pop, solver_config)
+    @test isapprox(result.objective, -1.0, atol=1e-4)
 end
 
 @testset "README Example Unconstrained" begin
@@ -24,19 +24,17 @@ end
 
     pop = PolynomialOptimizationProblem(f)
 
-    problem = cs_nctssos(pop; mom_order=2)
-    myans = solve_problem(problem,Clarabel.Optimizer)
+    solver_config_dense = SolverConfig(optimizer=Clarabel.Optimizer, mom_order=2, cs_algo=NoElimination(), ts_algo=NoElimination())
 
-    problem = cs_nctssos(pop; mom_order=2, cs_algo=MF())
+    result_dense = cs_nctssos(pop, solver_config_dense)
 
-    myans_cs = solve_problem(problem, Clarabel.Optimizer)
+    result_cs = cs_nctssos(pop, SolverConfig(optimizer=Clarabel.Optimizer, mom_order=2, cs_algo=MF(), ts_algo=NoElimination()))
 
-    @test isapprox(myans.objective, myans_cs.objective, atol=1e-4)
+    @test isapprox(result_dense.objective, result_cs.objective, atol=1e-4)
 
-    problem = cs_nctssos(pop; mom_order=2, ts_order=1, ts_algo=MMD())
-    myans_ts = solve_problem(problem, Clarabel.Optimizer)
+    result_cs_ts = cs_nctssos(pop, SolverConfig(optimizer=Clarabel.Optimizer, mom_order=2, cs_algo=MF(), ts_algo=MMD()))
 
-    @test isapprox(myans.objective, myans_ts.objective, atol=1e-4)
+    @test isapprox(result_cs.objective, result_cs_ts.objective, atol=1e-4)
 end
 
 @testset "README Example Constrained" begin
@@ -48,14 +46,13 @@ end
 
     pop = PolynomialOptimizationProblem(f, [g, h1, h2])
 
-    problem = cs_nctssos(pop; mom_order=2)
-    myans = solve_problem(problem,Clarabel.Optimizer)
+    result_dense = cs_nctssos(pop, SolverConfig(optimizer=Clarabel.Optimizer, mom_order=2))
 
-    problem = cs_nctssos(pop; mom_order=2, cs_algo=MF())
-    myans_cs = solve_problem(problem,Clarabel.Optimizer)
-    @test isapprox(myans.objective, myans_cs.objective, atol=1e-4)
+    result_cs = cs_nctssos(pop, SolverConfig(optimizer=Clarabel.Optimizer,mom_order=2, cs_algo=MF()))
 
-    problem = cs_nctssos(pop; mom_order=2, cs_algo=MF(), ts_order=1, ts_algo=MMD())
-    myans_csts = solve_problem(problem, Clarabel.Optimizer)
-    @test isapprox(myans.objective, myans_csts.objective, atol=1e-4)
+    @test isapprox(result_dense.objective, result_cs.objective, atol=1e-4)
+
+    result_cs_ts = cs_nctssos(pop, SolverConfig(optimizer=Clarabel.Optimizer,mom_order=2, cs_algo=MF(), ts_algo=MMD()))
+
+    @test isapprox(result_cs.objective, result_cs_ts.objective, atol=1e-4)
 end

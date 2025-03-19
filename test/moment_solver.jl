@@ -162,7 +162,7 @@ end
 
     pop = PolynomialOptimizationProblem(f, typeof(f)[])
 
-    corr_sparsity = correlative_sparsity(pop.variables, pop.objective, pop.constraints, order, nothing)
+    corr_sparsity = correlative_sparsity(pop.variables, pop.objective, pop.constraints, order, NoElimination())
 
     @testset "Dense" begin
         cliques_term_sparsities = [
@@ -216,7 +216,7 @@ end
     h2 = -h1
     pop = PolynomialOptimizationProblem(f, [g, h1, h2])
 
-    corr_sparsity = correlative_sparsity(pop.variables, pop.objective, pop.constraints, order, nothing)
+    corr_sparsity = correlative_sparsity(pop.variables, pop.objective, pop.constraints, order, NoElimination())
 
     @testset "Dense" begin
         cliques_term_sparsities = [

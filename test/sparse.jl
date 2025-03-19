@@ -1,4 +1,5 @@
 using Test, NCTSSOS
+using DynamicPolynomials
 using Graphs
 using CliqueTrees
 using NCTSSOS: assign_constraint, get_correlative_graph, clique_decomp, get_term_sparsity_graph, term_sparsity_graph_supp
@@ -58,12 +59,15 @@ end
 @testset "Clique Decomposition" begin
     G = SimpleGraph(Edge.([(1, 2), (1, 3), (1, 4), (1, 5), (1, 6), (1, 7), (2, 3), (2, 4), (2, 5), (2, 6), (2, 7), (2, 8), (3, 4), (3, 5), (3, 6), (3, 7), (3, 8), (3, 9), (4, 5), (4, 6), (4, 7), (4, 8), (4, 9), (4, 10), (5, 6), (5, 7), (5, 8), (5, 9), (5, 10), (6, 7), (6, 8), (6, 9), (6, 10), (7, 8), (7, 9), (7, 10), (8, 9), (8, 10), (9, 10)]))
 
+    @test sort!(map(x -> sort!(x),clique_decomp(G, NoElimination()))) == sort!(map(x -> sort!(x), [collect(1:10)]))
+
     true_cliques = [[4, 5, 6, 7, 8, 9, 10],
         [3, 4, 5, 6, 7, 8, 9],
         [2, 3, 4, 5, 6, 7, 8],
         [1, 2, 3, 4, 5, 6, 7]]
 
     @test sort!(map(x -> sort!(x),clique_decomp(G,MF()))) == sort!(true_cliques)
+
 
     # TODO: add more test
     G = SimpleGraph(Edge.([(1, 2), (1, 4), (2, 3), (3, 4)]))

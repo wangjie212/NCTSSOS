@@ -78,10 +78,10 @@ end
     pop = PolynomialOptimizationProblem(f, [g1, g2, g3, g4])
     order = 2
 
-    corr_sparsity = correlative_sparsity(pop.variables, pop.objective, pop.constraints, order, nothing)
+    corr_sparsity = correlative_sparsity(pop.variables, pop.objective, pop.constraints, order, NoElimination())
 
     cliques_term_sparsities = [
-        [TermSparsity(Vector{Monomial{false}}(),[basis]) for basis in idx_basis]
+        [TermSparsity(Vector{Monomial{false}}(), [basis]) for basis in idx_basis]
         for idx_basis in corr_sparsity.cliques_idcs_bases
     ]
 
@@ -112,11 +112,11 @@ end
 
     order = 2
 
-    corr_sparsity = correlative_sparsity(pop.variables, pop.objective, pop.constraints, order, nothing)
+    corr_sparsity = correlative_sparsity(pop.variables, pop.objective, pop.constraints, order, NoElimination())
 
     @testset "Dense" begin
         cliques_term_sparsities = [
-            [TermSparsity(Vector{Monomial{false}}(),[basis]) for basis in idx_basis]
+            [TermSparsity(Vector{Monomial{false}}(), [basis]) for basis in idx_basis]
             for idx_basis in corr_sparsity.cliques_idcs_bases
         ]
 
@@ -166,10 +166,10 @@ end
     pop = PolynomialOptimizationProblem(f, typeof(f)[])
     order = 2
 
-    corr_sparsity = correlative_sparsity(pop.variables, pop.objective, pop.constraints, order, nothing)
+    corr_sparsity = correlative_sparsity(pop.variables, pop.objective, pop.constraints, order, NoElimination())
 
     cliques_term_sparsities = [
-        [TermSparsity(Vector{Monomial{false}}(),[basis]) for basis in idx_basis]
+        [TermSparsity(Vector{Monomial{false}}(), [basis]) for basis in idx_basis]
         for idx_basis in corr_sparsity.cliques_idcs_bases
     ]
 
@@ -198,10 +198,10 @@ end
     pop = PolynomialOptimizationProblem(f, typeof(f)[])
     order = 2
 
-    corr_sparsity = correlative_sparsity(pop.variables, pop.objective, pop.constraints, order, nothing)
+    corr_sparsity = correlative_sparsity(pop.variables, pop.objective, pop.constraints, order, NoElimination())
 
     cliques_term_sparsities = [
-        [TermSparsity(Vector{Monomial{false}}(),[basis]) for basis in idx_basis]
+        [TermSparsity(Vector{Monomial{false}}(), [basis]) for basis in idx_basis]
         for idx_basis in corr_sparsity.cliques_idcs_bases
     ]
 
@@ -257,10 +257,10 @@ end
 
     order = 1
 
-    corr_sparsity = correlative_sparsity(pop.variables, pop.objective, pop.constraints, order, nothing)
+    corr_sparsity = correlative_sparsity(pop.variables, pop.objective, pop.constraints, order, NoElimination())
 
     cliques_term_sparsities = [
-        [TermSparsity(Vector{Monomial{false}}(),[basis]) for basis in idx_basis]
+        [TermSparsity(Vector{Monomial{false}}(), [basis]) for basis in idx_basis]
         for idx_basis in corr_sparsity.cliques_idcs_bases
     ]
 
@@ -291,7 +291,7 @@ end
     corr_sparsity = correlative_sparsity(pop.variables, pop.objective, pop.constraints, order, cs_algo)
 
     cliques_term_sparsities = [
-        [TermSparsity(Vector{Monomial{false}}(),[basis]) for basis in idx_basis]
+        [TermSparsity(Vector{Monomial{false}}(), [basis]) for basis in idx_basis]
         for idx_basis in corr_sparsity.cliques_idcs_bases
     ]
 
@@ -324,14 +324,14 @@ end
     corr_sparsity_s = correlative_sparsity(pop.variables, pop.objective, pop.constraints, order, cs_algo)
 
     cliques_term_sparsities_s = [
-        [TermSparsity(Vector{Monomial{false}}(),[basis]) for basis in idx_basis]
+        [TermSparsity(Vector{Monomial{false}}(), [basis]) for basis in idx_basis]
         for idx_basis in corr_sparsity_s.cliques_idcs_bases
     ]
 
-    corr_sparsity = correlative_sparsity(pop.variables, pop.objective, pop.constraints, order, nothing)
+    corr_sparsity = correlative_sparsity(pop.variables, pop.objective, pop.constraints, order, NoElimination())
 
     cliques_term_sparsities = [
-        [TermSparsity(Vector{Monomial{false}}(),[basis]) for basis in idx_basis]
+        [TermSparsity(Vector{Monomial{false}}(), [basis]) for basis in idx_basis]
         for idx_basis in corr_sparsity.cliques_idcs_bases
     ]
 
