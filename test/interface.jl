@@ -16,6 +16,9 @@ using Clarabel
 
     result = cs_nctssos(pop, solver_config)
     @test isapprox(result.objective, -1.0, atol=1e-4)
+
+    result_higher = cs_nctssos_higher(pop, result, SolverConfig(optimizer=Clarabel.Optimizer, mom_order=2, cs_algo=MF(), ts_algo=MMD()))
+    @test isapprox(result.objective, result_higher.objective, atol=1e-4)
 end
 
 @testset "README Example Unconstrained" begin

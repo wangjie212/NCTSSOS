@@ -1,6 +1,6 @@
 struct PolyOptResult{C,T}
     objective::T # support for high precision solution
-    cliques_cons::CorrelativeSparsity{C}
+    corr_sparsity::CorrelativeSparsity{C}
     cliques_term_sparsities::Vector{Vector{TermSparsity{C}}}
     # should contain objective and moment matrix or gram matrix for manually checking what happened
 end
@@ -49,8 +49,13 @@ function cs_nctssos(pop::PolynomialOptimizationProblem{C,T}, solver_config::Solv
 end
 
 function cs_nctssos_higher(pop::PolynomialOptimizationProblem{C,T}, prev_res::PolyOptResult, solver_config::SolverConfig) where {C,T}
-    cliques_term_sparsities = [sorted_union([poly_term_sparsity.term_sparse_graph_supp for poly_term_sparsity in term_sparsities])
-                               for term_sparsities in prev_ans.cliques_term_sparsities]
+    initial_activated_supp = [sorted_union([poly_term_sparsity.term_sparse_graph_supp for poly_term_sparsity in term_sparsities]...)
+                              for term_sparsities in prev_res.cliques_term_sparsities]
+    @show typeof(initial_activated_supp)
+
+    cliques_term_sparsities = map(zip(initial_activated_supp, prev_res.corr_sparsity.cliques_cons, prev_res.corr_sparsity.cliques_idcs_bases)) do (activated_supp, cons_idx, idcs_bases)
+        [iterate_term_sparse_supp(activated_supp, poly, basis, solver_config.ts_algo) for (poly, basis) in zip([one(pop.objective); pop.constraints[cons_idx]], idcs_bases)]
+    end
 
     moment_problem = moment_relax(pop, prev_res.corr_sparsity.cliques_cons, cliques_term_sparsities)
     sos_problem = sos_dualize(moment_problem)
