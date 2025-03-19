@@ -26,27 +26,27 @@ Taking $f=1+x_1^4+x_2^4+x_3^4+x_1x_2+x_2x_1+x_2x_3+x_3x_2$ as an example, to com
 using NCTSSOS
 using DynamicPolynomials
 using Clarabel
-
 @ncpolyvar x[1:3]
 f = 1.0 + x[1]^4 + x[2]^4 + x[3]^4 + x[1]*x[2] + x[2]*x[1] + x[2]*x[3] + x[3]*x[2]
 
 pop = PolynomialOptimizationProblem(f)
 
-problem = cs_nctssos(pop; mom_order=2)
-myans = solve_problem(problem,Clarabel.Optimizer)
+solver_config_dense = SolverConfig(optimizer=Clarabel.Optimizer, mom_order=2)
+
+result_dense = cs_nctssos(pop, solver_config_dense)
 ```
 
 To use correlative sparsity
 
 ```Julia
 using CliqueTrees
-problem = cs_nctssos(pop; mom_order=2, cs_algo=MF())
+result_cs = cs_nctssos(pop, SolverConfig(optimizer=Clarabel.Optimizer, mom_order=2, cs_algo=MF(), ts_algo=NoElimination()))
 ```
 
 To use term sparsity
 
 ```Julia
-problem = cs_nctssos(pop; mom_order=2, ts_order=1, ts_algo=MMD())
+result_cs_ts = cs_nctssos(pop, SolverConfig(optimizer=Clarabel.Optimizer, mom_order=2, cs_algo=MF(), ts_algo=MMD()))
 ```
 
 
@@ -55,29 +55,32 @@ Taking the objective $f=2-x_1^2+x_1x_2^2x_1-x_2^2$ and constraints $g=4-x_1^2-x_
 
 ```Julia
 @ncpolyvar x[1:2]
-f = 2 - x[1]^2 + x[1]*x[2]^2*x[1] - x[2]^2
-g = 4 - x[1]^2 - x[2]^2
-h = x[1]*x[2] + x[2]*x[1] - 2
-h2 = -h
+f = 2.0 - x[1]^2 + x[1]*x[2]^2*x[1] - x[2]^2
+g = 4.0 - x[1]^2 - x[2]^2
+h1 = x[1]*x[2] + x[2]*x[1] - 2.0
+h2 = -h1
 
 pop = PolynomialOptimizationProblem(f, [g, h1, h2])
 
-problem = cs_nctssos(pop; mom_order=2)
-myans = solve_problem(problem,Clarabel.Optimizer)
+result_dense = cs_nctssos(pop, SolverConfig(optimizer=Clarabel.Optimizer, mom_order=2))
 ```
 
 To use Correlative Sparsity
 
 ```Julia
-problem = cs_nctssos(pop; mom_order=2, cs_algo=MF())
-myans = solve_problem(problem,Clarabel.Optimizer)
+result_cs = cs_nctssos(pop, SolverConfig(optimizer=Clarabel.Optimizer,mom_order=2, cs_algo=MF()))
 ```
 
 To exploit correlative sparsity and term sparsity simultaneously, do
 
 ```Julia
-problem = cs_nctssos(pop; mom_order=2, cs_algo=MF(), ts_order=1, ts_algo=MMD())
-myans = solve_problem(problem, Clarabel.Optimizer)
+result_cs_ts = cs_nctssos(pop, SolverConfig(optimizer=Clarabel.Optimizer,mom_order=2, cs_algo=MF(), ts_algo=MMD()))
+```
+
+To exploit higher iteration of term sparsity, do
+
+```Julia
+result_cs_ts_higher = cs_nctssos_higher(pop, result_cs_ts, SolverConfig(optimizer=Clarabel.Optimizer, mom_order=2, cs_algo=MF(), ts_algo=MMD()))
 ```
 
 ## References
