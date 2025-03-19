@@ -51,7 +51,6 @@ end
 function cs_nctssos_higher(pop::PolynomialOptimizationProblem{C,T}, prev_res::PolyOptResult, solver_config::SolverConfig) where {C,T}
     initial_activated_supp = [sorted_union([poly_term_sparsity.term_sparse_graph_supp for poly_term_sparsity in term_sparsities]...)
                               for term_sparsities in prev_res.cliques_term_sparsities]
-    @show typeof(initial_activated_supp)
 
     cliques_term_sparsities = map(zip(initial_activated_supp, prev_res.corr_sparsity.cliques_cons, prev_res.corr_sparsity.cliques_idcs_bases)) do (activated_supp, cons_idx, idcs_bases)
         [iterate_term_sparse_supp(activated_supp, poly, basis, solver_config.ts_algo) for (poly, basis) in zip([one(pop.objective); pop.constraints[cons_idx]], idcs_bases)]

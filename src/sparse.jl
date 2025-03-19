@@ -65,7 +65,7 @@ function correlative_sparsity(variables::Vector{PolyVar{C}}, objective::Polynomi
     # depending on the clique's varaibles each is slightly different
     cliques_idx_basis = map(zip(cliques, cliques_cons)) do (clique, clique_cons)
         # get the basis of the moment matrix in a clique, then sort it
-        [[get_basis(clique, order)]; get_basis.(Ref(clique), order .- ceil.(Int, maxdegree.(cons[clique_cons]) / 2))]
+        [[get_basis(sort(clique, rev=true), order)]; get_basis.(Ref(sort(clique, rev=true)), order .- ceil.(Int, maxdegree.(cons[clique_cons]) / 2))]
     end
 
     return CorrelativeSparsity{C}(cliques, cliques_cons, discarded_cons, cliques_idx_basis)

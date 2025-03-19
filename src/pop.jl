@@ -13,7 +13,7 @@ end
 function PolynomialOptimizationProblem(objective::Polynomial{C,T}, constraints) where {C,T}
     @assert !(T isa Integer) "The polynomial coefficients can not be integers (not supported by JuMP solvers)."
     cons = collect(Polynomial{C,T}, constraints)
-    vars = union(variables(objective), [variables(c) for c in cons]...)
+    vars = sorted_union(variables(objective), [variables(c) for c in cons]...)
     return PolynomialOptimizationProblem(objective, cons, vars)
 end
 
