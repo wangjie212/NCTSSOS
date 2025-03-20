@@ -15,7 +15,7 @@ mutable struct struct_data
 end
 
 """
-    model,info = add_psatz!(model, nonneg, vars, ineq_cons, eq_cons, order; obj="eigen", CS=false, cliques=[], TS="block", 
+    info = add_psatz!(model, nonneg, vars, ineq_cons, eq_cons, order; obj="eigen", CS=false, cliques=[], TS="block", 
     SO=1, partition=0, constraint=nothing, QUIET=false, constrs=nothing)
 
 Add a Putinar's style SOHS representation of the nc polynomial `nonneg` to the JuMP `model`.
@@ -197,12 +197,12 @@ function add_psatz!(model, nonneg, vars, ineq_cons, eq_cons, order; obj="eigen",
         end
     end
     if constrs !== nothing
-        @constraint(model, [i=1:ltsupp], cons[i]==bc[i], base_name=constrs)
+        @constraint(model, cons==bc, base_name=constrs)
     else
-        @constraint(model, cons.==bc)
+        @constraint(model, cons==bc)
     end
     info = struct_data(cql,cliquesize,cliques,basis,cl,blocksize,blocks,eblocks,tsupp,I,J,pos,constrs)
-    return model,info
+    return info
 end
 
 function get_blocks(I, J, m, l, fsupp::Vector{Vector{UInt16}}, gsupp::Vector{Vector{Vector{UInt16}}}, hsupp::Vector{Vector{Vector{UInt16}}}, basis, cliques, cql; tsupp=[], TS="block", SO=1, QUIET=false, obj="eigen", partition=0, constraint=nothing)
@@ -364,16 +364,16 @@ function clique_decomp(n, m, l, fsupp::Vector{Vector{UInt16}}, gsupp::Vector{Vec
     return cliques,cql,cliquesize
 end
 
-function get_moment_matrix(moment, tsupp, cql, basis; obj="eigen", partition=0, constraint=nothing)
-    MomMat = Vector{Union{Float64, Symmetric{Float64}, Array{Float64,2}}}(undef, cql)
-    ltsupp = length(tsupp)
-    for i = 1:cql
-        lb = length(basis[i][1])
+function get_moment_matrix(moment, info; obj="eigen", partition=0, constraint=nothing)
+    MomMat = Vector{Union{Float64, Symmetric{Float64}, Array{Float64,2}}}(undef, info.cql)
+    ltsupp = length(info.tsupp)
+    for i = 1:info.cql
+        lb = length(info.basis[i][1])
         MomMat[i] = zeros(Float64, lb, lb)
         for j = 1:lb, k = j:lb
-            bi = [basis[i][1][j][end:-1:1]; basis[i][1][k]]
+            bi = [info.basis[i][1][j][end:-1:1]; info.basis[i][1][k]]
             bi = reduce!(bi, obj=obj, partition=partition, constraint=constraint)
-            Locb = bfind(tsupp, ltsupp, bi)
+            Locb = bfind(info.tsupp, ltsupp, bi)
             if Locb !== nothing
                 MomMat[i][j,k] = moment[Locb]
             end

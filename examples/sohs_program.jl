@@ -18,24 +18,24 @@ opt,data = nctssos_first([f;g;h], x, d, numeq=1, TS=false)
 model = Model(optimizer_with_attributes(Mosek.Optimizer))
 set_optimizer_attribute(model, MOI.Silent(), false)
 λ = @variable(model)
-model,info1 = add_psatz!(model, f - λ, x, [g], [h], d, QUIET=true, TS=false, constrs="con1")
+info = add_psatz!(model, f - λ, x, [g], [h], d, QUIET=true, TS=false, constrs="con")
 @objective(model, Max, λ)
 optimize!(model)
 objv = objective_value(model)
 @show objv
 
 # retrieve Gram matrices
-GramMat = Vector{Vector{Vector{Union{Float64,Matrix{Float64}}}}}(undef, info1.cql)
-for i = 1:info1.cql
-    GramMat[i] = Vector{Vector{Union{Float64,Matrix{Float64}}}}(undef, 1+length(info1.I[i])+length(info1.J[i]))
-    for j = 1:1+length(info1.I[i])+length(info1.J[i])
-        GramMat[i][j] = [value.(info1.gram[i][j][l]) for l = 1:info1.cl[i][j]]
+GramMat = Vector{Vector{Vector{Union{Float64,Matrix{Float64}}}}}(undef, info.cql)
+for i = 1:info.cql
+    GramMat[i] = Vector{Vector{Union{Float64,Matrix{Float64}}}}(undef, 1+length(info.I[i]))
+    for j = 1:1+length(info.I[i])
+        GramMat[i][j] = [value.(info.gram[i][j][l]) for l = 1:info.cl[i][j]]
     end
 end
 
 # retrieve moment matrices
-moment = [-dual(constraint_by_name(model, "con1[$i]")) for i=1:length(info1.tsupp)]
-MomMat = get_moment_matrix(moment, info1.tsupp, info1.cql, info1.basis)
+moment = -dual(constraint_by_name(model, "con"))
+MomMat = get_moment_matrix(moment, info)
 
 
 # modelling with add_SOHS!

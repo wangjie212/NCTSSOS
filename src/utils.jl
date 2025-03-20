@@ -134,6 +134,9 @@ function reduce_cons!(word::Vector{UInt16}; constraint="unipotent")
             deleteat!(word, i)
             if constraint == "unipotent"
                 deleteat!(word, i)
+                if i > 1
+                     i -= 1
+                end
             end
         else
             i += 1
@@ -143,11 +146,11 @@ function reduce_cons!(word::Vector{UInt16}; constraint="unipotent")
 end
 
 function reduce_cons(w::Monomial{false}; constraint="unipotent")
-    ind = w.z .> 1
     if constraint == "unipotent"
-        w.z[ind] .= 0
+        w.z[iseven(w.z)] .= 0
+        w.z[isodd(w.z)] .= 1
     else
-        w.z[ind] .= 1
+        w.z[w.z .> 1] .= 1
     end
     return prod(w.vars .^ w.z)
 end
