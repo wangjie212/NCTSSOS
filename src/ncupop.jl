@@ -16,7 +16,7 @@ mutable struct cosmo_para
     max_iter::Int64
 end
 
-cosmo_para() = cosmo_para(1e-5, 1e-5, 1e4)
+cosmo_para() = cosmo_para(1e-8, 1e-8, 1e4)
 
 """
     opt,data = nctssos_first(f::Polynomial{false, T} where T<:Number, x::Vector{PolyVar{false}};
