@@ -78,7 +78,7 @@ function nctssos_first(supp::Vector{Vector{UInt16}}, coe, n::Int; order=0, newto
             ksupp = _comm.(ksupp, partition)
         end
         if constraint !== nothing
-            reduce_cons!.(ksupp, constraint = constraint)
+            constraint_reduce!.(ksupp, constraint = constraint)
         end
         sort!(ksupp)
         unique!(ksupp)

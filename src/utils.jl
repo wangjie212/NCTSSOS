@@ -127,7 +127,7 @@ function _get_ncbasis_deg(n, d; ind=Vector{UInt16}(1:n), binary=false)
     end
 end
 
-function reduce_cons!(word::Vector{UInt16}; constraint="unipotent")
+function constraint_reduce!(word::Vector{UInt16}; constraint="unipotent")
     i = 1
     while i < length(word)
         if word[i] == word[i+1]
@@ -145,7 +145,7 @@ function reduce_cons!(word::Vector{UInt16}; constraint="unipotent")
     return word
 end
 
-function reduce_cons(w::Monomial{false}; constraint="unipotent")
+function constraint_reduce(w::Monomial{false}; constraint="unipotent")
     if constraint == "unipotent"
         w.z[iseven(w.z)] .= 0
         w.z[isodd(w.z)] .= 1
@@ -163,9 +163,9 @@ function reduce!(word::Vector{UInt16}; obj="eigen", partition=0, constraint=noth
             word = min(_comm(word, partition), _comm(reverse(word), partition))
         elseif partition == 0 && constraint !== nothing
             cword = copy(word)
-            word = min(reduce_cons!(word, constraint = constraint), reduce_cons!(reverse(cword), constraint = constraint))
+            word = min(constraint_reduce!(word, constraint = constraint), constraint_reduce!(reverse(cword), constraint = constraint))
         elseif partition > 0 && constraint !== nothing
-            word = min(reduce_cons!(_comm(word, partition), constraint = constraint), reduce_cons!(_comm(reverse(word), partition), constraint = constraint))
+            word = min(constraint_reduce!(_comm(word, partition), constraint = constraint), constraint_reduce!(_comm(reverse(word), partition), constraint = constraint))
         else
             word = _sym_canon(word)
         end
@@ -180,9 +180,9 @@ function reduce(word::Monomial{false}, x; obj="eigen", partition=0, constraint=n
         if partition > 0 && constraint === nothing
             word = min(_comm(word, x, partition), _comm(star(word), x, partition))
         elseif partition == 0 && constraint !== nothing
-            word = min(reduce_cons(word, constraint = constraint), reduce_cons(star(word), constraint = constraint))
+            word = min(constraint_reduce(word, constraint = constraint), constraint_reduce(star(word), constraint = constraint))
         elseif partition > 0 && constraint !== nothing
-            word = min(reduce_cons(_comm(word, x, partition), constraint = constraint), reduce_cons(_comm(star(word), x, partition), constraint = constraint))
+            word = min(constraint_reduce(_comm(word, x, partition), constraint = constraint), constraint_reduce(_comm(star(word), x, partition), constraint = constraint))
         else
             word = _sym_canon(word)
         end

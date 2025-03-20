@@ -528,22 +528,6 @@ function trace_reduce(word1, word2, ptsupp; constraint=nothing)
     return sort([word1; ind])
 end
 
-function constraint_reduce!(word; constraint="unipotent")
-    i = 1
-    while i < length(word)
-        if word[i] == word[i+1]
-            deleteat!(word, i)
-            if constraint == "unipotent"
-                deleteat!(word, i)
-            end
-            i = 1
-        else
-            i += 1
-        end
-    end
-    return word
-end
-
 function get_graph(ksupp, ptsupp, wbasis, tbasis, basis; vargroup=nothing, constraint=nothing, type="trace", bilocal=false, zero_moments=false)
     lb = length(wbasis)
     G = SimpleGraph(lb)
