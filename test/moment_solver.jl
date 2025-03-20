@@ -1,11 +1,9 @@
 using Test, NCTSSOS
-using DynamicPolynomials
 using JuMP
 using Clarabel
 using Graphs
-using NCTSSOS: get_basis, substitute_variables, constrain_moment_matrix!, remove_zero_degree, star, get_correlative_graph, assign_constraint, clique_decomp, get_term_sparsity_graph, term_sparsity_graph_supp
-using NCTSSOS: sorted_union, sorted_unique, neat_dot, sorted_unique, correlative_sparsity, iterate_term_sparse_supp, symmetric_canonicalize, TermSparsity
-using CliqueTrees
+using DynamicPolynomials
+using NCTSSOS: correlative_sparsity, sorted_union, symmetric_canonicalize, neat_dot, iterate_term_sparse_supp, moment_relax, TermSparsity, get_basis, substitute_variables, star, remove_zero_degree, constrain_moment_matrix!
 
 @testset "CS TS Example" begin
     order = 3
@@ -24,7 +22,9 @@ using CliqueTrees
     # take away some support in the polynomial
     cons = vcat([(1 - x[i]^2) for i in 1:n], [(x[i] - 1 / 3) for i in 1:n])
 
-    pop = PolynomialOptimizationProblem(f, cons)
+    pop = PolyOpt(f, cons)
+
+    solver_config = SolverConfig(optimizer=Clarabel.Optimizer; cs_algo=MF(), ts_algo=MMD())
     cs_algo = MF()
     ts_algo = MMD()
 
@@ -85,7 +85,7 @@ end
         ]
     ]
 
-    pop = PolynomialOptimizationProblem(objective, gs)
+    pop = PolyOpt(objective, gs)
     order = 1
     cs_algo = MF()
 
@@ -97,7 +97,6 @@ end
     ]
 
     moment_problem = moment_relax(pop, corr_sparsity.cliques_cons, cliques_term_sparsities)
-
 
     set_optimizer(moment_problem.model, Clarabel.Optimizer)
     optimize!(moment_problem.model)
@@ -117,7 +116,7 @@ end
 
     monomap = Dict(get_basis([x, y, z], 2) .=> jm)
 
-    @test substitute_variables(poly, monomap) == 1.0 * jm[5] - 2.0 * jm[6] - jm[1]
+    @test substitute_variables(poly, monomap) == 1.0 * jm[13] - 2.0 * jm[12] - jm[1]
 end
 
 @testset "Constrain Moment Matrix" begin
@@ -160,7 +159,7 @@ end
         9x[2]^2 * x[3] +
         9x[3] * x[2]^2 - 54x[3] * x[2] * x[3] + 142x[3] * x[2]^2 * x[3]
 
-    pop = PolynomialOptimizationProblem(f, typeof(f)[])
+    pop = PolyOpt(f, typeof(f)[])
 
     corr_sparsity = correlative_sparsity(pop.variables, pop.objective, pop.constraints, order, NoElimination())
 
@@ -214,7 +213,7 @@ end
     g = 4.0 - x[1]^2 - x[2]^2
     h1 = x[1] * x[2] + x[2] * x[1] - 2.0
     h2 = -h1
-    pop = PolynomialOptimizationProblem(f, [g, h1, h2])
+    pop = PolyOpt(f, [g, h1, h2])
 
     corr_sparsity = correlative_sparsity(pop.variables, pop.objective, pop.constraints, order, NoElimination())
 
@@ -268,7 +267,7 @@ end
     order = 3
     cs_algo = MF()
 
-    pop = PolynomialOptimizationProblem(f, cons)
+    pop = PolyOpt(f, cons)
 
     corr_sparsity = correlative_sparsity(pop.variables, pop.objective, pop.constraints, order, cs_algo)
 

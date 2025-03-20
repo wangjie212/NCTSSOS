@@ -29,9 +29,9 @@ using Clarabel
 @ncpolyvar x[1:3]
 f = 1.0 + x[1]^4 + x[2]^4 + x[3]^4 + x[1]*x[2] + x[2]*x[1] + x[2]*x[3] + x[3]*x[2]
 
-pop = PolynomialOptimizationProblem(f)
+pop =  PolyOpt(f)
 
-solver_config_dense = SolverConfig(optimizer=Clarabel.Optimizer, mom_order=2)
+solver_config_dense = SolverConfig(optimizer=Clarabel.Optimizer)
 
 result_dense = cs_nctssos(pop, solver_config_dense)
 ```
@@ -39,14 +39,13 @@ result_dense = cs_nctssos(pop, solver_config_dense)
 To use correlative sparsity
 
 ```Julia
-using CliqueTrees
-result_cs = cs_nctssos(pop, SolverConfig(optimizer=Clarabel.Optimizer, mom_order=2, cs_algo=MF(), ts_algo=NoElimination()))
+result_cs = cs_nctssos(pop, SolverConfig(optimizer=Clarabel.Optimizer; cs_algo=MF()))
 ```
 
 To use term sparsity
 
 ```Julia
-result_cs_ts = cs_nctssos(pop, SolverConfig(optimizer=Clarabel.Optimizer, mom_order=2, cs_algo=MF(), ts_algo=MMD()))
+result_cs_ts = cs_nctssos(pop, SolverConfig(optimizer=Clarabel.Optimizer; cs_algo=MF(), ts_algo=MMD()))
 ```
 
 
@@ -60,21 +59,21 @@ g = 4.0 - x[1]^2 - x[2]^2
 h1 = x[1]*x[2] + x[2]*x[1] - 2.0
 h2 = -h1
 
-pop = PolynomialOptimizationProblem(f, [g, h1, h2])
+pop =  PolyOpt(f, [g, h1, h2])
 
-result_dense = cs_nctssos(pop, SolverConfig(optimizer=Clarabel.Optimizer, mom_order=2))
+result_dense = cs_nctssos(pop, SolverConfig(optimizer=Clarabel.Optimizer))
 ```
 
 To use Correlative Sparsity
 
 ```Julia
-result_cs = cs_nctssos(pop, SolverConfig(optimizer=Clarabel.Optimizer,mom_order=2, cs_algo=MF()))
+result_cs = cs_nctssos(pop, SolverConfig(optimizer=Clarabel.Optimizer; cs_algo=MF()))
 ```
 
 To exploit correlative sparsity and term sparsity simultaneously, do
 
 ```Julia
-result_cs_ts = cs_nctssos(pop, SolverConfig(optimizer=Clarabel.Optimizer,mom_order=2, cs_algo=MF(), ts_algo=MMD()))
+result_cs_ts = cs_nctssos(pop, SolverConfig(optimizer=Clarabel.Optimizer; cs_algo=MF(), ts_algo=MMD()))
 ```
 
 To exploit higher iteration of term sparsity, do

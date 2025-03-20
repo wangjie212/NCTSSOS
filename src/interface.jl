@@ -27,16 +27,11 @@ Configuration for solving polynomial optimization problems.
 
 
 # Examples
-```jldoctest
-julia> using NCTSSOS, Clarabel
-
-
+```jldoctest; setup=:(using NCTSSOS, Clarabel)
 julia> solver_config = SolverConfig(optimizer=Clarabel.Optimizer, mom_order=2) # default elimination algorithms
-
-# output
-
 SolverConfig(Clarabel.MOIwrapper.Optimizer, 2, NoElimination(), NoElimination())
 ```
+
 """
 @kwdef struct SolverConfig
     optimizer
@@ -51,7 +46,7 @@ end
 # consider obtaining enough information on Moment matrix etc to check if problem solved correctly
 # prev_ans::Union{Nothing,PolyOptResult{C,T}}=nothing
 function cs_nctssos(pop::PolyOpt{C,T}, solver_config::SolverConfig) where {C,T}
-    mom_order = iszero(solver_config.mom_order) ? maximum([ceil(Int, maxdegree(poly) / 2) for poly in [pop.objective; pop.constraints]]) : solver_config.mom_order 
+    mom_order = iszero(solver_config.mom_order) ? maximum([ceil(Int, maxdegree(poly) / 2) for poly in [pop.objective; pop.constraints]]) : solver_config.mom_order
 
     corr_sparsity = correlative_sparsity(pop.variables, pop.objective, pop.constraints, mom_order, solver_config.cs_algo)
 

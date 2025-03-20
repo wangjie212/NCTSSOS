@@ -4,7 +4,7 @@ using SparseArrays
 using JuMP
 using Graphs
 using CliqueTrees
-using NCTSSOS: get_Cαj, clique_decomp, correlative_sparsity, sorted_union, neat_dot, iterate_term_sparse_supp, symmetric_canonicalize
+using NCTSSOS: get_Cαj, clique_decomp, correlative_sparsity, sorted_union, neat_dot, iterate_term_sparse_supp, symmetric_canonicalize, TermSparsity, moment_relax, sos_dualize
 
 # NOTE: sos_dualize has performance issue have verified locally it's correct
 # @testset "CS TS Example" begin
@@ -75,7 +75,7 @@ end
     g3 = x[1] - r
     g4 = x[2] - r
 
-    pop = PolynomialOptimizationProblem(f, [g1, g2, g3, g4])
+    pop = PolyOpt(f, [g1, g2, g3, g4])
     order = 2
 
     corr_sparsity = correlative_sparsity(pop.variables, pop.objective, pop.constraints, order, NoElimination())
@@ -108,7 +108,7 @@ end
     g = 4.0 - x[1]^2 - x[2]^2
     h1 = x[1] * x[2] + x[2] * x[1] - 2.0
     h2 = -h1
-    pop = PolynomialOptimizationProblem(f, [g, h1, h2])
+    pop = PolyOpt(f, [g, h1, h2])
 
     order = 2
 
@@ -163,7 +163,7 @@ end
 
     f = x[1]^2 + x[1] * x[2] + x[2] * x[1] + x[2]^2 + true_min
 
-    pop = PolynomialOptimizationProblem(f, typeof(f)[])
+    pop = PolyOpt(f, typeof(f)[])
     order = 2
 
     corr_sparsity = correlative_sparsity(pop.variables, pop.objective, pop.constraints, order, NoElimination())
@@ -195,7 +195,7 @@ end
         9x[2]^2 * x[3] +
         9x[3] * x[2]^2 - 54x[3] * x[2] * x[3] + 142x[3] * x[2]^2 * x[3]
 
-    pop = PolynomialOptimizationProblem(f, typeof(f)[])
+    pop = PolyOpt(f, typeof(f)[])
     order = 2
 
     corr_sparsity = correlative_sparsity(pop.variables, pop.objective, pop.constraints, order, NoElimination())
@@ -253,7 +253,7 @@ end
         ]
     ]
 
-    pop = PolynomialOptimizationProblem(objective, gs)
+    pop = PolyOpt(objective, gs)
 
     order = 1
 
@@ -286,7 +286,7 @@ end
 
     cs_algo = MF()
 
-    pop = PolynomialOptimizationProblem(f, cons)
+    pop = PolyOpt(f, cons)
 
     corr_sparsity = correlative_sparsity(pop.variables, pop.objective, pop.constraints, order, cs_algo)
 
@@ -319,7 +319,7 @@ end
 
     cs_algo = MF()
 
-    pop = PolynomialOptimizationProblem(f, cons)
+    pop = PolyOpt(f, cons)
 
     corr_sparsity_s = correlative_sparsity(pop.variables, pop.objective, pop.constraints, order, cs_algo)
 

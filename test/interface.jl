@@ -57,4 +57,8 @@ end
     result_cs_ts = cs_nctssos(pop, SolverConfig(optimizer=Clarabel.Optimizer; cs_algo=MF(), ts_algo=MMD()))
 
     @test isapprox(result_cs.objective, result_cs_ts.objective, atol=1e-4)
+
+    result_cs_ts_higher = cs_nctssos_higher(pop, result_cs_ts, SolverConfig(optimizer=Clarabel.Optimizer; cs_algo=MF(), ts_algo=MMD()))
+
+    @test isapprox(result_dense.objective, result_cs_ts_higher.objective, atol=1e-4)
 end
