@@ -52,32 +52,24 @@ function sos_dualize(moment_problem::MomentProblem{C,T}) where {C,T}
     # specify constraints
     fα_constraints = [AffExpr(get(primal_objective_terms, α, zero(T))) for α in symmetric_variables]
 
-    @show symmetric_basis
-    imterm =  map(x -> searchsortedfirst(symmetric_basis, symmetric_canonicalize(x)), unsymmetrized_basis)
-    interm= getindex.(Ref(symmetric_basis), imterm)
-    @assert interm == symmetric_canonicalize.(unsymmetrized_basis)
-
-
-    symmetrized_α2cons_dict = Dict(zip(unsymmetrized_basis, map(x -> fα_constraints[searchsortedfirst(symmetric_basis, symmetric_canonicalize(x))], unsymmetrized_basis)))
+    symmetrized_α2cons_dict = Dict(zip(unsymmetrized_basis, map(x -> searchsortedfirst(symmetric_basis, symmetric_canonicalize(x)), unsymmetrized_basis)))
 
     fα_constraints[1] -= b   # constant term in the primal objective
     for (i, sdp_constraint) in enumerate(moment_problem.constraints)
         Cαj = get_Cαj(getindex.(Ref(moment_problem.monomap), unsymmetrized_basis), constraint_object(sdp_constraint))
         for (k, α) in enumerate(unsymmetrized_basis)
-            # sub_trace_mul!(symmetrized_α2cons_dict[α], Cαj[k], dual_variables[i])
-            symmetrized_α2cons_dict[α] -= LinearAlgebra.tr(Cαj[k] * dual_variables[i])
+            fα_constraints[symmetrized_α2cons_dict[α]] -= sub_trace_mul(Cαj[k], dual_variables[i])
         end
     end
-    @show fα_constraints
     @constraint(dual_model, fα_constraints .== 0)
 
     return SOSProblem(dual_model)
 end
 
-function sub_trace_mul!(output, A::SparseMatrixCSC{T}, B) where T
-    for j in 1:size(A, 2)
-        for i in nzrange(A, j)
-            output -= A[i, j] * B[j, i]
-        end
+function sub_trace_mul(A::SparseMatrixCSC{T}, B::LinearAlgebra.Symmetric{VariableRef,Matrix{VariableRef}}) where T
+    output = AffExpr(zero(T))
+    for (i, j, v) in zip(findnz(A)...)
+        output += v * B[i, j]
     end
+    return output
 end

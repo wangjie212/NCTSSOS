@@ -87,6 +87,11 @@ end
 
     moment_problem = moment_relax(pop, corr_sparsity.cliques_cons, cliques_term_sparsities)
 
+    # Cαj = sparse([2, 1], [1, 2], [1.0, 1.0], 7, 7)
+    # for (i, j, v) in zip(findnz(Cαj)...)
+    #     @show i, j, v
+    # end
+
     sos_problem = sos_dualize(moment_problem)
 
     set_optimizer(sos_problem.model, Clarabel.Optimizer)
