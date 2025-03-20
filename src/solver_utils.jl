@@ -22,7 +22,8 @@ end
 #NOTE: I did not consider binary variable but it's easy to extend, just filter out in monomial z==2 && vars in binary set
 function get_basis(vars::Vector{PolyVar{C}}, d::Int) where {C}
     # need to remove zero degree other wise sortting fails
-    return mapreduce(cur_d -> remove_zero_degree.(monomials(vars, cur_d)), vcat, 0:d)
+    # return mapreduce(cur_d -> remove_zero_degree.(monomials(vars, cur_d)), vcat, 0:d)
+    return remove_zero_degree.(monomials(vars, 0:d))
 end
 
 function support(poly::Polynomial{C,T}, canonicalize::Function) where {C,T}

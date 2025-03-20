@@ -13,9 +13,34 @@ function cliquetree(graph, alg::NoElimination, snd::SupernodeType)
     return cliquetree(complete_graph(nv(graph)), BFS(), snd)
 end
 
+
+"""
+    SolverConfig(; optimizer, mom_order, cs_algo=NoElimination(), ts_algo=NoElimination())
+
+Configuration for solving polynomial optimization problems.
+
+# Keyword Arguments
+- `optimizer` (required): The optimizer to use for solving the SDP problem (e.g. Clarabel.Optimizer)
+- `mom_order::Int`: The order of the moment relaxation (default: 0)
+- `cs_algo::EliminationAlgorithm`: Algorithm for correlative sparsity exploitation (default: NoElimination())
+- `ts_algo::EliminationAlgorithm`: Algorithm for term sparsity exploitation (default: NoElimination())
+
+
+# Examples
+```jldoctest
+julia> using NCTSSOS, Clarabel
+
+
+julia> solver_config = SolverConfig(optimizer=Clarabel.Optimizer, mom_order=2) # default elimination algorithms
+
+# output
+
+SolverConfig(Clarabel.MOIwrapper.Optimizer, 2, NoElimination(), NoElimination())
+```
+"""
 @kwdef struct SolverConfig
     optimizer
-    mom_order::Int
+    mom_order::Int = 0
     cs_algo::EliminationAlgorithm = NoElimination()
     ts_algo::EliminationAlgorithm = NoElimination()
 end
@@ -25,10 +50,10 @@ end
 # consider adding Solver Interface
 # consider obtaining enough information on Moment matrix etc to check if problem solved correctly
 # prev_ans::Union{Nothing,PolyOptResult{C,T}}=nothing
-function cs_nctssos(pop::PolynomialOptimizationProblem{C,T}, solver_config::SolverConfig) where {C,T}
-    @assert solver_config.mom_order >= maximum([ceil(Int, maxdegree(poly) / 2) for poly in [pop.objective; pop.constraints]]) "Moment Matrix Order Must be large enough to include all monomials in problem"
+function cs_nctssos(pop::PolyOpt{C,T}, solver_config::SolverConfig) where {C,T}
+    mom_order = iszero(solver_config.mom_order) ? maximum([ceil(Int, maxdegree(poly) / 2) for poly in [pop.objective; pop.constraints]]) : solver_config.mom_order 
 
-    corr_sparsity = correlative_sparsity(pop.variables, pop.objective, pop.constraints, solver_config.mom_order, solver_config.cs_algo)
+    corr_sparsity = correlative_sparsity(pop.variables, pop.objective, pop.constraints, mom_order, solver_config.cs_algo)
 
     cliques_objective = [reduce(+, [issubset(effective_variables(mono), clique) ? coef * mono : zero(mono) for (coef, mono) in zip(coefficients(pop.objective), monomials(pop.objective))]) for clique in corr_sparsity.cliques]
 
@@ -48,7 +73,7 @@ function cs_nctssos(pop::PolynomialOptimizationProblem{C,T}, solver_config::Solv
     return PolyOptResult(objective_value(sos_problem.model), corr_sparsity, cliques_term_sparsities)
 end
 
-function cs_nctssos_higher(pop::PolynomialOptimizationProblem{C,T}, prev_res::PolyOptResult, solver_config::SolverConfig) where {C,T}
+function cs_nctssos_higher(pop::PolyOpt{C,T}, prev_res::PolyOptResult, solver_config::SolverConfig) where {C,T}
     initial_activated_supp = [sorted_union([poly_term_sparsity.term_sparse_graph_supp for poly_term_sparsity in term_sparsities]...)
                               for term_sparsities in prev_res.cliques_term_sparsities]
 

@@ -27,7 +27,7 @@ using NCTSSOS: remove_zero_degree, star, symmetric_canonicalize, get_basis, supp
         # NOTE: I am assuming all variables are Hermitian
         mono1_star = star(mono1)
 
-        @test mono1_star == z*x^2
+        @test mono1_star == z * x^2
 
         mono2 = Monomial{false}([x, y, z], [0, 0, 0])
         mono2_star = star(mono2)
@@ -36,7 +36,7 @@ using NCTSSOS: remove_zero_degree, star, symmetric_canonicalize, get_basis, supp
 
         mono3 = x * y * z
         mono3_star = star(mono3)
-        @test mono3_star == z*y*x
+        @test mono3_star == z * y * x
     end
 
     @testset "Symmetric Canonical Form" begin
@@ -103,14 +103,14 @@ using NCTSSOS: remove_zero_degree, star, symmetric_canonicalize, get_basis, supp
     @testset "get support" begin
         poly = 0.1 * x^2 * y + 0.2 * x - 0.1
 
-        @test sort(support(poly, identity)) ==  sort([one(x), x, x^2 * y])
+        @test sort(support(poly, identity)) == sort([one(x), x, x^2 * y])
     end
 
     @testset "neat_dot" begin
-        mono1 = Monomial{false}([x,y],[1,0])
+        mono1 = Monomial{false}([x, y], [1, 0])
 
-        mono2 = Monomial{false}([x,y],[1,1])
+        mono2 = Monomial{false}([x, y], [1, 1])
 
-        @test neat_dot(mono1,mono2) == Monomial{false}([x,y],[2,1])
+        @test neat_dot(mono1, mono2) == Monomial{false}([x, y], [2, 1])
     end
 end

@@ -11,11 +11,13 @@ import CliqueTrees.cliquetree
 using ChordalGraph
 using Graphs
 
-export PolynomialOptimizationProblem
-export NoElimination, SolverConfig
-export moment_relax
-export sos_dualize
+export PolyOpt
+export SolverConfig
 export cs_nctssos, cs_nctssos_higher
+
+# TODO: include other methods in docs
+export MF, MMD, NoElimination
+export @ncpolyvar, @polyvar
 
 include("pop.jl")
 
