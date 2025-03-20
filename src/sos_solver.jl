@@ -43,22 +43,33 @@ function sos_dualize(moment_problem::MomentProblem{C,T}) where {C,T}
 
     # NOTE: objective is Symmetric, hence when comparing polynomials, we need to canonicalize them first
     # TODO: fix this for trace
-    symmetric_basis = sort(unique!([symmetric_canonicalize(basis) for basis in keys(moment_problem.monomap)]))
+    unsymmetrized_basis = sort(collect(keys(moment_problem.monomap)))
+    symmetric_basis = sort(unique!([symmetric_canonicalize(basis) for basis in unsymmetrized_basis]))
 
     # JuMP variables corresponding to symmetric_basis
     symmetric_variables = getindex.(Ref(moment_problem.monomap), symmetric_basis)
 
     # specify constraints
     fα_constraints = [AffExpr(get(primal_objective_terms, α, zero(T))) for α in symmetric_variables]
+
+    symmetrized_α2cons_dict = Dict(zip(unsymmetrized_basis, map(x -> searchsortedfirst(symmetric_basis, symmetric_canonicalize(x)), unsymmetrized_basis)))
+
     fα_constraints[1] -= b   # constant term in the primal objective
     for (i, sdp_constraint) in enumerate(moment_problem.constraints)
-        Cαj = get_Cαj(collect(values(moment_problem.monomap)), constraint_object(sdp_constraint))
-        for (k, α) in enumerate(keys(moment_problem.monomap))
-            l = findfirst(==(moment_problem.monomap[symmetric_canonicalize(α)]), symmetric_variables)
-            fα_constraints[l] -= LinearAlgebra.tr(Cαj[k] * dual_variables[i])
+        Cαj = get_Cαj(getindex.(Ref(moment_problem.monomap), unsymmetrized_basis), constraint_object(sdp_constraint))
+        for (k, α) in enumerate(unsymmetrized_basis)
+            fα_constraints[symmetrized_α2cons_dict[α]] -= sub_trace_mul(Cαj[k], dual_variables[i])
         end
     end
     @constraint(dual_model, fα_constraints .== 0)
 
     return SOSProblem(dual_model)
+end
+
+function sub_trace_mul(A::SparseMatrixCSC{T}, B::LinearAlgebra.Symmetric{VariableRef,Matrix{VariableRef}}) where T
+    output = AffExpr(zero(T))
+    for (i, j, v) in zip(findnz(A)...)
+        output += v * B[i, j]
+    end
+    return output
 end
