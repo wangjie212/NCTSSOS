@@ -1,3 +1,16 @@
+# Plan
+- Code Example & Discussion
+- Register 
+- Questions
+
+# Features
+- Minimum Eigenvalue Objectives 
+# TODO: trace polynomial, complex field, state polynomial, trace, variables some commutes with all and square to one
+# TODO: TSSOS: another package b/c it considers a lot of traditional optimization problem
+- Noncommuting and commuting variables (using `DynamicPolynomials.jl`)
+- Moment Problem and Sum of Square Problem
+- Correlative Sparsity and Term Sparsity to any order (using `CliqueTrees.jl`)
+
 # Test Cases and Usage Example
 
 All test cases included in the `test.jl` in `NCTSSOS` are tested.
@@ -9,11 +22,6 @@ Utilies and other helper functions are tested based on outputs of `NCTSSOS`.
 ## Sum of Square Problem
 - See the `CS TS Example` test case in `test/sos_solver.jl`
 
-# Features
-- Minimum Eigenvalue Objectives
-- Noncommuting and commuting variables (using `DynamicPolynomials.jl`)
-- Moment Problem and Sum of Square Problem
-- Correlative Sparsity and Term Sparsity to any order (using `CliqueTrees.jl`)
 
 # Workflow Redesign
 
@@ -44,7 +52,8 @@ and a vector of polynomials denoting constraints.
 - `nctssos_higher` -> `iterate_term_sparse_supp`
 
 # TODOs
-- [ ] Verify no un-necessary files in the PR
-- [ ] performance benchmarking, does $C_{\alpha,j}$ get cast into dense formulation
-- [ ] a set of commuting and noncommuting variables and some variables being non-commuting
-- [ ] polynomial optimization problem on LJ Potential
+- [x] polynomial optimization problem on LJ Potential
+- [x] Register Package, change to `NCTSSOS.jl`
+
+- [ ] Add Clarbel.jl to recommended list
+- [ ] Try Rational function objective in `TSSOS.jl`

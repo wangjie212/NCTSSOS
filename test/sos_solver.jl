@@ -6,6 +6,8 @@ using Graphs
 using CliqueTrees
 using NCTSSOS: get_Cαj, clique_decomp, correlative_sparsity, sorted_union, neat_dot, iterate_term_sparse_supp, symmetric_canonicalize, TermSparsity, moment_relax, sos_dualize
 
+# TODO: add Broyden banded for larger test case
+
 # NOTE: sos_dualize has performance issue have verified locally it's correct
 @testset "CS TS Example" begin
     order = 3

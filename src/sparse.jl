@@ -6,6 +6,7 @@
 struct CorrelativeSparsity{C}
     cliques::Vector{Vector{PolyVar{C}}}
     cliques_cons::Vector{Vector{Int}}
+    # FIXME: add this constraint to global scope and add test case for difference
     discarded_cons::Vector{Int}
     cliques_idcs_bases::Vector{Vector{Vector{Monomial{C}}}}
 end
