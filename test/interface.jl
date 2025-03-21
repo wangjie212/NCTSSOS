@@ -1,10 +1,6 @@
 using Test, NCTSSOS
 using Clarabel
 
-# API 
-# Performance
-# Correctness
-
 @testset "Problem Creation Interface" begin
     n = 2
     @ncpolyvar x[1:n]

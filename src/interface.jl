@@ -60,7 +60,7 @@ function cs_nctssos(pop::PolyOpt{C,T}, solver_config::SolverConfig) where {C,T}
         [iterate_term_sparse_supp(activated_supp, poly, basis, solver_config.ts_algo) for (poly, basis) in zip([one(pop.objective); pop.constraints[cons_idx]], idcs_bases)]
     end
 
-    moment_problem = moment_relax(pop, corr_sparsity.cliques_cons, cliques_term_sparsities)
+    moment_problem = moment_relax(pop, corr_sparsity.cliques_cons, corr_sparsity.global_cons, cliques_term_sparsities)
     sos_problem = sos_dualize(moment_problem)
     set_optimizer(sos_problem.model, solver_config.optimizer)
 
@@ -76,7 +76,7 @@ function cs_nctssos_higher(pop::PolyOpt{C,T}, prev_res::PolyOptResult, solver_co
         [iterate_term_sparse_supp(activated_supp, poly, basis, solver_config.ts_algo) for (poly, basis) in zip([one(pop.objective); pop.constraints[cons_idx]], idcs_bases)]
     end
 
-    moment_problem = moment_relax(pop, prev_res.corr_sparsity.cliques_cons, cliques_term_sparsities)
+    moment_problem = moment_relax(pop, prev_res.corr_sparsity.cliques_cons, prev_res.corr_sparsity.global_cons, cliques_term_sparsities)
     sos_problem = sos_dualize(moment_problem)
     set_optimizer(sos_problem.model, solver_config.optimizer)
     optimize!(sos_problem.model)
