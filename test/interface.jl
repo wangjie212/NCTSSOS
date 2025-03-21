@@ -1,6 +1,10 @@
 using Test, NCTSSOS
 using Clarabel
 
+# API 
+# Performance
+# Correctness
+
 @testset "Problem Creation Interface" begin
     n = 2
     @ncpolyvar x[1:n]
@@ -19,6 +23,7 @@ using Clarabel
     result_higher = cs_nctssos_higher(pop, result, solver_config)
     @test isapprox(result.objective, result_higher.objective; atol=1e-4)
 end
+
 
 @testset "README Example Unconstrained" begin
     @ncpolyvar x[1:3]

@@ -41,7 +41,7 @@ using NCTSSOS: get_Cαj, clique_decomp, correlative_sparsity, sorted_union, neat
     end
 
     moment_problem = moment_relax(pop, corr_sparsity.cliques_cons,  cliques_term_sparsities)
-    @time sos_problem = sos_dualize(moment_problem)
+    sos_problem = sos_dualize(moment_problem)
 
     set_optimizer(sos_problem.model, Clarabel.Optimizer)
     optimize!(sos_problem.model)
@@ -86,11 +86,6 @@ end
     ]
 
     moment_problem = moment_relax(pop, corr_sparsity.cliques_cons, cliques_term_sparsities)
-
-    # Cαj = sparse([2, 1], [1, 2], [1.0, 1.0], 7, 7)
-    # for (i, j, v) in zip(findnz(Cαj)...)
-    #     @show i, j, v
-    # end
 
     sos_problem = sos_dualize(moment_problem)
 

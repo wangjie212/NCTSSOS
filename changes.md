@@ -1,3 +1,14 @@
+# Test Cases and Usage Example
+
+All test cases included in the `test.jl` in `NCTSSOS` are tested.
+Utilies and other helper functions are tested based on outputs of `NCTSSOS`.
+
+## Moment Problem
+- See the `CS TS Example` testcase in `test/moment_solver.jl`
+
+## Sum of Square Problem
+- See the `CS TS Example` test case in `test/sos_solver.jl`
+
 # Features
 - Minimum Eigenvalue Objectives
 - Noncommuting and commuting variables (using `DynamicPolynomials.jl`)
@@ -15,16 +26,6 @@ flowchart TD
 ```
 
 
-# Test Cases and Usage Example
-
-All test cases included in the `test.jl` in `NCTSSOS` are tested.
-Utilies and other helper functions are tested based on outputs of `NCTSSOS`.
-
-## Moment Problem
-- See the `CS TS Example` testcase in `test/moment_solver.jl`
-
-## Sum of Square Problem
-- See the `CS TS Example` test case in `test/sos_solver.jl`
 
 # Questions
 
