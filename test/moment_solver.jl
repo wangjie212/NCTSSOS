@@ -42,7 +42,7 @@ using NCTSSOS: correlative_sparsity, sorted_union, symmetric_canonicalize, neat_
         [iterate_term_sparse_supp(activated_supp, poly, basis, ts_algo) for (poly, basis) in zip([one(pop.objective); pop.constraints[cons_idx]], idcs_bases)]
     end
 
-    moment_problem = moment_relax(pop, corr_sparsity.cliques_cons,  cliques_term_sparsities)
+    moment_problem = moment_relax(pop, corr_sparsity.cliques_cons, corr_sparsity.global_cons, cliques_term_sparsities)
     set_optimizer(moment_problem.model, Clarabel.Optimizer)
     optimize!(moment_problem.model)
     @test isapprox(objective_value(moment_problem.model), 3.011288, atol=1e-4)
@@ -96,7 +96,7 @@ end
         for idx_basis in corr_sparsity.cliques_idcs_bases
     ]
 
-    moment_problem = moment_relax(pop, corr_sparsity.cliques_cons, cliques_term_sparsities)
+    moment_problem = moment_relax(pop, corr_sparsity.cliques_cons, corr_sparsity.global_cons, cliques_term_sparsities)
 
     set_optimizer(moment_problem.model, Clarabel.Optimizer)
     optimize!(moment_problem.model)
@@ -137,16 +137,19 @@ end
 
     g1 = 1.0 * x[1] - x[1]^2
     local_basis = [one(x[1]), x[1], x[2]]
-    localizing_matrix_constraint = constrain_moment_matrix!(model, g1, local_basis, monomap)
-
+    localizing_matrix_constraint_ineq = constrain_moment_matrix!(model, g1, local_basis, monomap, PSDCone())
+    localizing_matrix_constraint_eq = constrain_moment_matrix!(model, g1, local_basis, monomap, Zeros())
 
     myexponents = [([1, 0], [2, 0]) ([2, 0], [3, 0]) ([1, 1], [2, 1]); ([2, 0], [3, 0]) ([3, 0], [4, 0]) ([2, 1], [3, 1]); ([1, 1], [2, 1]) ([2, 1], [3, 1]) ([1, 2], [2, 2])]
 
     true_localizing_matrix = [mapreduce(
         a -> (monomap[prod([iszero(b[2]) ? one(x[1]) : x[b[1]]^b[2] for b in enumerate(a)])]), -, myexponents[i]) for i in eachindex(myexponents)]
 
-    @test true_localizing_matrix == JuMP.constraint_object(localizing_matrix_constraint).func
-end
+    @test true_localizing_matrix == JuMP.constraint_object(localizing_matrix_constraint_ineq).func
+    @test true_localizing_matrix == JuMP.constraint_object(localizing_matrix_constraint_eq).func
+    @test JuMP.constraint_object(localizing_matrix_constraint_ineq).set == MOI.PositiveSemidefiniteConeSquare(length(local_basis))
+    @test JuMP.constraint_object(localizing_matrix_constraint_eq).set == MOI.Zeros(length(local_basis)^2)
+ end
 
 @testset "Moment Method Example 1" begin
     order = 2
@@ -169,7 +172,7 @@ end
             for idx_basis in corr_sparsity.cliques_idcs_bases
         ]
 
-        moment_problem = moment_relax(pop, corr_sparsity.cliques_cons, cliques_term_sparsities)
+        moment_problem = moment_relax(pop, corr_sparsity.cliques_cons, corr_sparsity.global_cons, cliques_term_sparsities)
 
         set_optimizer(moment_problem.model, Clarabel.Optimizer)
         optimize!(moment_problem.model)
@@ -196,7 +199,7 @@ end
             [iterate_term_sparse_supp(activated_supp, poly, basis, ts_algo) for (poly, basis) in zip([one(pop.objective); pop.constraints[cons_idx]], idcs_bases)]
         end
 
-        moment_problem_s = moment_relax(pop, corr_sparsity.cliques_cons, cliques_term_sparsities_s)
+        moment_problem_s = moment_relax(pop, corr_sparsity.cliques_cons, corr_sparsity.global_cons, cliques_term_sparsities_s)
         set_optimizer(moment_problem_s.model, Clarabel.Optimizer)
         optimize!(moment_problem_s.model)
 
@@ -223,7 +226,7 @@ end
             for idx_basis in corr_sparsity.cliques_idcs_bases
         ]
 
-        moment_problem = moment_relax(pop, corr_sparsity.cliques_cons, cliques_term_sparsities)
+        moment_problem = moment_relax(pop, corr_sparsity.cliques_cons, corr_sparsity.global_cons, cliques_term_sparsities)
 
         set_optimizer(moment_problem.model, Clarabel.Optimizer)
         optimize!(moment_problem.model)
@@ -248,7 +251,7 @@ end
             [iterate_term_sparse_supp(activated_supp, poly, basis, ts_algo) for (poly, basis) in zip([one(pop.objective); pop.constraints[cons_idx]], idcs_bases)]
         end
 
-        moment_problem_s = moment_relax(pop, corr_sparsity.cliques_cons, cliques_term_sparsities_s)
+        moment_problem_s = moment_relax(pop, corr_sparsity.cliques_cons, corr_sparsity.global_cons, cliques_term_sparsities_s)
         set_optimizer(moment_problem_s.model, Clarabel.Optimizer)
         optimize!(moment_problem_s.model)
 
@@ -277,7 +280,7 @@ end
             for idx_basis in corr_sparsity.cliques_idcs_bases
         ]
 
-        moment_problem = moment_relax(pop, corr_sparsity.cliques_cons, cliques_term_sparsities)
+        moment_problem = moment_relax(pop, corr_sparsity.cliques_cons, corr_sparsity.global_cons, cliques_term_sparsities)
 
         set_optimizer(moment_problem.model, Clarabel.Optimizer)
 
@@ -304,7 +307,7 @@ end
             [iterate_term_sparse_supp(activated_supp, poly, basis, ts_algo) for (poly, basis) in zip([one(pop.objective); pop.constraints[cons_idx]], idcs_bases)]
         end
 
-        moment_problem_s = moment_relax(pop, corr_sparsity.cliques_cons, cliques_term_sparsities_s)
+        moment_problem_s = moment_relax(pop, corr_sparsity.cliques_cons, corr_sparsity.global_cons, cliques_term_sparsities_s)
 
         set_optimizer(moment_problem_s.model, Clarabel.Optimizer)
         optimize!(moment_problem_s.model)

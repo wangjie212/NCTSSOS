@@ -36,6 +36,8 @@ solver_config_dense = SolverConfig(optimizer=Clarabel.Optimizer)
 result_dense = cs_nctssos(pop, solver_config_dense)
 ```
 
+Recommended solver for SDP problem is `Mosek.jl` and `Clarabel.jl`
+
 To use correlative sparsity
 
 ```Julia

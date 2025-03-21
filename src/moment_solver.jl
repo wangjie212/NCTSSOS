@@ -11,11 +11,11 @@ function substitute_variables(poly::Polynomial{C,T}, monomap::Dict{Monomial{C},G
     mapreduce(x -> (coefficient(x) * monomap[monomial(x)]), +, terms(poly))
 end
 
-# order: order of the moment problem
-# clique_alg: algorithm for clique decomposition
-# cliques_sub_mtx_col_basis: each clique, each obj/constraint, each ts_clique, each basis needed to index moment matrix
-function moment_relax(pop::PolyOpt{C,T}, cliques_cons::Vector{Vector{Int}}, cliques_term_sparsities::Vector{Vector{TermSparsity{C}}}) where {C,T}
-
+# cliques_cons: groups constraints according to cliques,
+# global_cons: constraints that are not in any single clique
+# cliques_term_sparsities: each clique, each obj/constraint, each ts_clique, each basis needed to index moment matrix
+# FIXME: should I use CorrelativeSparsity here?
+function moment_relax(pop::PolyOpt{C,T}, cliques_cons::Vector{Vector{Int}}, global_cons::Vector{Int}, cliques_term_sparsities::Vector{Vector{TermSparsity{C}}}) where {C,T}
     # NOTE: objective and constraints may have integer coefficients, but popular JuMP solvers does not support integer coefficients
     # left type here to support BigFloat model for higher precision
     model = GenericModel{T}()
@@ -36,18 +36,27 @@ function moment_relax(pop::PolyOpt{C,T}, cliques_cons::Vector{Vector{Int}}, cliq
     monomap = Dict(zip(total_basis, y))
 
     constraint_matrices =
-        mapreduce(vcat, zip(cliques_term_sparsities, cliques_cons)) do (term_sparsities, cons_idx)
-            mapreduce(vcat, zip(term_sparsities, [one(pop.objective), pop.constraints[cons_idx]...])) do (term_sparsity, poly)
-                map(term_sparsity.block_bases) do ts_sub_basis
-                    constrain_moment_matrix!(
-                        model,
-                        poly,
-                        ts_sub_basis,
-                        monomap,
-                    )
+        [mapreduce(vcat, zip(cliques_term_sparsities, cliques_cons)) do (term_sparsities, cons_idx)
+                mapreduce(vcat, zip(term_sparsities, [one(pop.objective), pop.constraints[cons_idx]...], [false; pop.is_equality[cons_idx]])) do (term_sparsity, poly, is_eq)
+                    map(term_sparsity.block_bases) do ts_sub_basis
+                        constrain_moment_matrix!(
+                            model,
+                            poly,
+                            ts_sub_basis,
+                            monomap,
+                            is_eq ? Zeros() : PSDCone())
+                    end
                 end
             end
-        end
+            map(global_cons) do global_con
+                constrain_moment_matrix!(
+                    model,
+                    pop.constraints[global_con],
+                    [one(pop.objective)],
+                    monomap,
+                    pop.is_equality[global_con] ? Zeros() : PSDCone()
+                )
+            end]
 
     @objective(model, Min, substitute_variables(symmetric_canonicalize(pop.objective), monomap))
 
@@ -59,10 +68,11 @@ function constrain_moment_matrix!(
     poly::Polynomial{C,T},
     local_basis::Vector{Monomial{C}},
     monomap::Dict{Monomial{C},GenericVariableRef{T}},
+    cone # FIXME: which type should I use?
 ) where {C,T}
     moment_mtx = [
         substitute_variables(sum([coef * neat_dot(row_idx, mono * col_idx) for (coef, mono) in zip(coefficients(poly), monomials(poly))]), monomap) for
         row_idx in local_basis, col_idx in local_basis
     ]
-    return @constraint(model, moment_mtx in PSDCone())
+    return @constraint(model, moment_mtx in cone)
 end
