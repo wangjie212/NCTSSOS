@@ -1,6 +1,7 @@
 using Test, NCTSSOS
 using DynamicPolynomials
-using NCTSSOS: remove_zero_degree, star, symmetric_canonicalize, get_basis, support, neat_dot
+using JuMP
+using NCTSSOS: remove_zero_degree, star, symmetric_canonicalize, get_basis, support, neat_dot, get_dim
 
 @testset "Utilities" begin
     @ncpolyvar x y z
@@ -112,5 +113,18 @@ using NCTSSOS: remove_zero_degree, star, symmetric_canonicalize, get_basis, supp
         mono2 = Monomial{false}([x, y], [1, 1])
 
         @test neat_dot(mono1, mono2) == Monomial{false}([x, y], [2, 1])
+    end
+
+    @testset "VectorConstraint Dim" begin
+        model = Model()
+        n = 5
+        var1 = @variable(model, [1:n, 1:n])
+        var2 = @variable(model, [1:2*n, 1:2*n])
+
+        cons1 = @constraint(model, var1 in PSDCone())
+        cons2 = @constraint(model, var2 in Zeros())
+
+        @test get_dim(constraint_object(cons1)) == n
+        @test get_dim(constraint_object(cons2)) == 2 * n
     end
 end

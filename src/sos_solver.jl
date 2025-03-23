@@ -6,7 +6,7 @@ end
 # j: index of the constraint
 # α: the monomial (JuMP variable)
 function get_Cαj(basis::Vector{GenericVariableRef{T}}, localizing_mtx::VectorConstraint{F,S,Shape}) where {T,F,S,Shape}
-    dim = JuMP.shape(localizing_mtx).side_dimension
+    dim = get_dim(localizing_mtx)
     cis = CartesianIndices((dim, dim))
     nbasis = length(basis)
 
@@ -30,9 +30,10 @@ function sos_dualize(moment_problem::MomentProblem{C,T}) where {C,T}
     dual_model = GenericModel{T}()
 
     # Initialize Gj as variables
-    dual_variables = map(moment_problem.constraints) do cons
-        G_dim = JuMP.shape(constraint_object(cons)).side_dimension
-        @variable(dual_model, [1:G_dim, 1:G_dim] in PSDCone())
+    dual_variables = map(constraint_object.(moment_problem.constraints)) do cons
+        # FIXME: HEDIOUS
+        G_dim = get_dim(cons)
+        @variable(dual_model, [1:G_dim, 1:G_dim] in ((cons.set isa MOI.Zeros) ? SymmetricMatrixSpace() : PSDCone()))
     end
 
     # b: to bound the minimum value of the primal problem

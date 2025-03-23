@@ -37,3 +37,5 @@ end
 
 sorted_unique(xs) = sort(unique(xs))
 sorted_union(xs...) = sort(union(xs...))
+
+get_dim(cons::VectorConstraint) = cons.set isa MOI.PositiveSemidefiniteConeSquare ? JuMP.shape(cons).side_dimension : JuMP.shape(cons).dims[1]

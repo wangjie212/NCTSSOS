@@ -64,7 +64,6 @@ end
 
     gs = [
         [(pij[findvaridx(i, j)]^2 - 1.0) for i in 1:num_sites for j in (i+1):num_sites]
-        [-(pij[findvaridx(i, j)]^2 - 1.0) for i in 1:num_sites for j in (i+1):num_sites]
         [
             (
                 pij[findvaridx(sort([i, j])...)] * pij[findvaridx(sort([j, k])...)] +
@@ -74,18 +73,9 @@ end
             ) for i in 1:num_sites, j in 1:num_sites, k in 1:num_sites if
             (i != j && j != k && i != k)
         ]
-        [
-            -(
-                pij[findvaridx(sort([i, j])...)] * pij[findvaridx(sort([j, k])...)] +
-                pij[findvaridx(sort([j, k])...)] * pij[findvaridx(sort([i, j])...)] -
-                pij[findvaridx(sort([i, j])...)] - pij[findvaridx(sort([j, k])...)] -
-                pij[findvaridx(sort([i, k])...)] + 1.0
-            ) for i in 1:num_sites, j in 1:num_sites, k in 1:num_sites if
-            (i != j && j != k && i != k)
-        ]
     ]
 
-    pop = PolyOpt(objective, gs)
+    pop = PolyOpt(objective, gs, [true for _ in gs])
     order = 1
     cs_algo = MF()
 
@@ -215,8 +205,7 @@ end
     f = 2.0 - x[1]^2 + x[1] * x[2]^2 * x[1] - x[2]^2
     g = 4.0 - x[1]^2 - x[2]^2
     h1 = x[1] * x[2] + x[2] * x[1] - 2.0
-    h2 = -h1
-    pop = PolyOpt(f, [g, h1, h2])
+    pop = PolyOpt(f, [g, h1], [false, true])
 
     corr_sparsity = correlative_sparsity(pop.variables, pop.objective, pop.constraints, order, NoElimination())
 

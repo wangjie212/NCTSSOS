@@ -109,8 +109,9 @@ end
     f = 2.0 - x[1]^2 + x[1] * x[2]^2 * x[1] - x[2]^2
     g = 4.0 - x[1]^2 - x[2]^2
     h1 = x[1] * x[2] + x[2] * x[1] - 2.0
-    h2 = -h1
-    pop = PolyOpt(f, [g, h1, h2])
+    pop = PolyOpt(f, [g, h1], [false, true])
+    # h2 = -h1
+    # pop = PolyOpt(f, [g, h1, h2])
 
     order = 2
 
