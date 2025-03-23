@@ -14,17 +14,18 @@ end
 # cliques_cons: groups constraints according to cliques,
 # global_cons: constraints that are not in any single clique
 # cliques_term_sparsities: each clique, each obj/constraint, each ts_clique, each basis needed to index moment matrix
-# FIXME: should I use CorrelativeSparsity here?
+# FIXME: should I use CorrelativeSparsity here instead of cliques_cons and global_cons
 function moment_relax(pop::PolyOpt{C,T}, cliques_cons::Vector{Vector{Int}}, global_cons::Vector{Int}, cliques_term_sparsities::Vector{Vector{TermSparsity{C}}}) where {C,T}
     # NOTE: objective and constraints may have integer coefficients, but popular JuMP solvers does not support integer coefficients
     # left type here to support BigFloat model for higher precision
     model = GenericModel{T}()
 
+    reduce_func = pop.is_projective ? _projective : (pop.is_unipotent ? _unipotent : identity)
     # the union of clique_total_basis
     total_basis = sorted_union(map(zip(cliques_cons, cliques_term_sparsities)) do (cons_idx, term_sparsities)
         union(vec(reduce(vcat, [
             map(monomials(poly)) do m
-                neat_dot(rol_idx, m * col_idx)
+                reduce_func(_comm(neat_dot(rol_idx, m * col_idx),pop.comm_gp))
             end
             for (poly, term_sparsity) in zip([one(pop.objective); pop.constraints[cons_idx]], term_sparsities) for basis in term_sparsity.block_bases for rol_idx in basis for col_idx in basis
         ])))
@@ -44,7 +45,7 @@ function moment_relax(pop::PolyOpt{C,T}, cliques_cons::Vector{Vector{Int}}, glob
                             poly,
                             ts_sub_basis,
                             monomap,
-                            is_eq ? Zeros() : PSDCone())
+                            is_eq ? Zeros() : PSDCone(),pop)
                     end
                 end
             end
@@ -68,10 +69,12 @@ function constrain_moment_matrix!(
     poly::Polynomial{C,T},
     local_basis::Vector{Monomial{C}},
     monomap::Dict{Monomial{C},GenericVariableRef{T}},
-    cone # FIXME: which type should I use?
+    cone, # FIXME: which type should I use?
+    pop::PolyOpt{C,T}
 ) where {C,T}
+    reduce_func = pop.is_unipotent ? _unipotent : (pop.is_projective ? _projective : identity)
     moment_mtx = [
-        substitute_variables(sum([coef * neat_dot(row_idx, mono * col_idx) for (coef, mono) in zip(coefficients(poly), monomials(poly))]), monomap) for
+        substitute_variables(sum([coef * reduce_func(_comm(neat_dot(row_idx, mono * col_idx),pop.comm_gp)) for (coef, mono) in zip(coefficients(poly), monomials(poly))]), monomap) for
         row_idx in local_basis, col_idx in local_basis
     ]
     return @constraint(model, moment_mtx in cone)

@@ -5,6 +5,35 @@ using Graphs
 using DynamicPolynomials
 using NCTSSOS: correlative_sparsity, sorted_union, symmetric_canonicalize, neat_dot, iterate_term_sparse_supp, moment_relax, TermSparsity, get_basis, substitute_variables, star, remove_zero_degree, constrain_moment_matrix!
 
+@testset "Special Constraint Type " begin
+    @testset "CHSH Inequality" begin
+        @ncpolyvar x[1:2]
+        @ncpolyvar y[1:2]
+        f = 1.0*x[1]*y[1] + x[1]*y[2] + x[2]*y[1] - x[2]*y[2]
+        # FIXME: specifying commuting variables is troublesome
+        pop = PolyOpt(f, Polynomial{false,Float64}[], Bool[], PolyVar{false}[], true, false)
+
+        solver_config = SolverConfig(optimizer=Clarabel.Optimizer; mom_order=1)
+
+        result = cs_nctssos(pop, solver_config)
+
+        @test isapprox(result.objective,-2.8284271321623193,atol=1e-6)
+    end
+
+    @testset "I_3322 inequality" begin
+        @ncpolyvar x[1:3]
+        @ncpolyvar y[1:3]
+        f = 1.0*x[1]*(y[1] + y[2] + y[3]) + x[2]*(y[1] + y[2] - y[3]) + x[3]*(y[1] - y[2]) - x[1] - 2*y[1] - y[2]
+        pop = PolyOpt(-f, Polynomial{false,Float64}[], Bool[], PolyVar{false}[], false, true)
+
+        solver_config = SolverConfig(optimizer=Clarabel.Optimizer; mom_order=1)
+
+        result = cs_nctssos(pop, solver_config)
+
+        @test_broken isapprox(result.objective, -0.2508753049688358,atol=1e-6)
+    end
+end
+
 @testset "CS TS Example" begin
     order = 3
     n = 10

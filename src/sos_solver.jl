@@ -57,7 +57,8 @@ function sos_dualize(moment_problem::MomentProblem{C,T}) where {C,T}
 
     unsymmetrized_basis_vals = getindex.(Ref(moment_problem.monomap), unsymmetrized_basis)
 
-    fα_constraints[1] -= b   # constant term in the primal objective
+    add_to_expression!(fα_constraints[1], -1.0 ,b)
+
     for (i, sdp_constraint) in enumerate(moment_problem.constraints)
         Cαj = get_Cαj(unsymmetrized_basis_vals, constraint_object(sdp_constraint))
         for (k, α) in enumerate(unsymmetrized_basis)

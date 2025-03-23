@@ -48,7 +48,7 @@ end
 function cs_nctssos(pop::PolyOpt{C,T}, solver_config::SolverConfig) where {C,T}
     mom_order = iszero(solver_config.mom_order) ? maximum([ceil(Int, maxdegree(poly) / 2) for poly in [pop.objective; pop.constraints]]) : solver_config.mom_order
 
-    corr_sparsity = correlative_sparsity(pop.variables, pop.objective, pop.constraints, mom_order, solver_config.cs_algo)
+    corr_sparsity = correlative_sparsity(pop, mom_order, solver_config.cs_algo)
 
     cliques_objective = [reduce(+, [issubset(effective_variables(mono), clique) ? coef * mono : zero(mono) for (coef, mono) in zip(coefficients(pop.objective), monomials(pop.objective))]) for clique in corr_sparsity.cliques]
 

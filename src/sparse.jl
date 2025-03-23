@@ -57,19 +57,20 @@ function assign_constraint(cliques::Vector{Vector{PolyVar{C}}}, cons::Vector{Pol
     return clique_cons, setdiff(1:length(cons), union(clique_cons...))
 end
 
-function correlative_sparsity(variables::Vector{PolyVar{C}}, objective::Polynomial{C,T}, cons::Vector{Polynomial{C,T}}, order::Int, elim_algo::EliminationAlgorithm) where {C,T}
-    cliques = map(x -> variables[x], clique_decomp(get_correlative_graph(variables, objective, cons, order), elim_algo))
+function correlative_sparsity(pop::PolyOpt{C,T}, order::Int, elim_algo::EliminationAlgorithm) where {C,T}
+    cliques = map(x -> pop.variables[x], clique_decomp(get_correlative_graph(pop.variables, pop.objective, pop.constraints, order), elim_algo))
 
-    cliques_cons, discarded_cons = assign_constraint(cliques, cons)
+    cliques_cons, global_cons = assign_constraint(cliques, pop.constraints)
 
+    reduce_func = pop.is_unipotent ? _unipotent : (pop.is_projective ? _projective : identity)
     # get the operators needed to index columns of moment/localizing mtx in each clique
     # depending on the clique's varaibles each is slightly different
     cliques_idx_basis = map(zip(cliques, cliques_cons)) do (clique, clique_cons)
         # get the basis of the moment matrix in a clique, then sort it
-        [[get_basis(sort(clique, rev=true), order)]; get_basis.(Ref(sort(clique, rev=true)), order .- ceil.(Int, maxdegree.(cons[clique_cons]) / 2))]
+        [[reduce!(get_basis(sort(clique, rev=true), order),pop.comm_gp, reduce_func)]; reduce!.(get_basis.(Ref(sort(clique, rev=true)), order .- ceil.(Int, maxdegree.(pop.constraints[clique_cons]) / 2)), Ref(pop.comm_gp), Ref(reduce_func))]
     end
 
-    return CorrelativeSparsity{C}(cliques, cliques_cons, discarded_cons, cliques_idx_basis)
+    return CorrelativeSparsity{C}(cliques, cliques_cons, global_cons, cliques_idx_basis)
 end
 
 
@@ -111,6 +112,7 @@ end
 function term_sparsity_graph_supp(G::SimpleGraph, basis::Vector{Monomial{C}}, g::Polynomial) where {C}
     # following (10.4) in Sparse Polynomial Optimization: Theory and Practise
     # NOTE: Do I need to symmetric canonicalize it?
+    # TODO: add reduce! here
     gsupp(a, b) = map(g_supp -> neat_dot(a, g_supp * b), monomials(g))
     return union([gsupp(basis[v], basis[v]) for v in vertices(G)]..., [gsupp(basis[e.src], basis[e.dst]) for e in edges(G)]...)
 end

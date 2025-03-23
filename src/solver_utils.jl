@@ -39,3 +39,31 @@ sorted_unique(xs) = sort(unique(xs))
 sorted_union(xs...) = sort(union(xs...))
 
 get_dim(cons::VectorConstraint) = cons.set isa MOI.PositiveSemidefiniteConeSquare ? JuMP.shape(cons).side_dimension : JuMP.shape(cons).dims[1]
+
+function _comm(mono::Monomial{C}, comm_gp::Vector{PolyVar{C}}) where {C}
+    return prod(zip(mono.vars, mono.z)) do (var, expo)
+        var in comm_gp ? var^expo : var^(zero(expo))
+    end *
+    prod(zip(mono.vars, mono.z)) do (var, expo)
+        !(var in comm_gp) ? var^expo : var^(zero(expo))
+    end
+end
+
+function _unipotent(mono::Monomial)
+    prev_mono = mono
+    local cur_mono
+    while true
+        cur_mono = prod(zip(prev_mono.vars, prev_mono.z)) do (var, expo)
+            var^(expo % 2)
+        end
+        cur_mono == prev_mono && break
+        prev_mono = cur_mono
+    end
+    return cur_mono
+end
+
+_projective(mono::Monomial) = prod(zip(mono.vars, mono.z)) do (var, expo)
+        var^(iszero(expo) ? expo : one(expo))
+    end
+
+reduce!(basis::Vector{Monomial{C}},comm_gp::Vector{PolyVar{C}}, reduce_func::Function) where {C} = unique!(map!(m->reduce_func(_comm(m, comm_gp)), basis, basis))
