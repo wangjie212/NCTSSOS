@@ -1,4 +1,5 @@
 using Test, NCTSSOS
+using DynamicPolynomials
 
 @testset "PolyOpt Constructor" begin
     nvars = 10
@@ -7,42 +8,46 @@ using Test, NCTSSOS
     objective = 1.0 * sum(x .^ 2)
     constraints = [1.0 * sum(i .* x) for i in 1:ncons]
 
-    @testset "Invalid Input" begin
-        @test_throws AssertionError PolyOpt(x[1]*x[2]+x[3]*x[2])
-        @test_throws AssertionError PolyOpt(objective, constraints, fill(false,ncons), x[1:2] ,true,true)
-    end
-
     @testset "Unconstrained" begin
         pop = PolyOpt(objective)
 
         @test pop.is_equality == Bool[]
+        @test sort(pop.variables) == sort(x)
+        @test pop.comm_gp == Set{PolyVar{false}}()
+        @test !pop.is_unipotent 
+        @test !pop.is_projective
 
-        pop = PolyOpt(objective)
+        pop = PolyOpt(objective; comm_gp=[x[1]], obj_type=NCTSSOS.TRACE)
 
-        @test pop.is_equality == Bool[]
+        @test pop.comm_gp == Set([x[1]])
+        @test pop isa PolyOpt{false,Float64,NCTSSOS.TRACE} 
+
     end
 
-    @testset "Constraints All Inequality" begin
-        pop = PolyOpt(objective, constraints)
+    @testset "Constrainted Optimization Problem" begin
+        pop = PolyOpt(objective; constraints=constraints)
 
+        @test pop.constraints == constraints
         @test pop.is_equality == fill(false, ncons)
 
-        pop = PolyOpt(objective, Set([constraints; sum(x)]))
+        pop = PolyOpt(objective; constraints=Set([constraints; sum(x)]))
 
+        @test length(pop.constraints) == ncons
         @test pop.is_equality == fill(false, ncons)
-    end
 
-    @testset "Constraints Mixed Equality and Inequality and Constraint Reduction" begin
         is_equality = [isodd(i) ? true : false for i in 1:ncons]
-        pop = PolyOpt(objective, constraints, is_equality, x[1:2] , false, false)
-
+        pop = PolyOpt(objective; constraints=constraints, is_equality=is_equality,is_unipotent=false,is_projective=true)
+        @test pop.is_unipotent == false
+        @test pop.is_projective == true
         @test pop.is_equality == is_equality
-
-        pop = PolyOpt(objective, Set([constraints; sum(x)]), is_equality, x[1:2], false, false)
-
-        @test pop.is_equality == is_equality
-
-        @test_throws AssertionError PolyOpt(objective, constraints, fill(true, ncons + 1), x[1:2], false, false)
     end
 
+    @testset "Invalid Input" begin
+        @test_throws AssertionError PolyOpt(objective; is_equality= [true])
+        @test_throws AssertionError PolyOpt(objective; constraints= constraints, is_equality=fill(true, ncons + 1), is_unipotent=false, is_projective=false)
+        @test_throws AssertionError PolyOpt(objective; constraints= constraints, is_unipotent=true, is_projective=true)
+        @test_throws AssertionError PolyOpt(x[1]*x[2]+x[3]*x[2])
+        @ncpolyvar y[1:nvars]
+        @test_throws AssertionError PolyOpt(objective; comm_gp=y)
+    end
 end

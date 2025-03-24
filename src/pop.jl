@@ -14,24 +14,14 @@ struct PolyOpt{C,T,OBJ} <: OptimizationProblem
     is_projective::Bool # X^2 = X. Is projective.
 end
 
-# for user convenience
-# be as general as possible
-function PolyOpt(objective::Polynomial{C,T}, constraints, is_equality, comm_gp, is_unipotent::Bool, is_projective::Bool, obj_type::Objective) where {C,T}
+# FIXME: is this default parameters make sense?
+function PolyOpt(objective::Polynomial{C,T}; constraints=Any[], is_equality=fill(false, length(constraints)), comm_gp=PolyVar{C}[], is_unipotent::Bool=false, is_projective::Bool=false, obj_type::Objective=EIGEN) where {C,T}
     @assert !(T <: Integer) "The polynomial coefficients can not be integers (not supported by JuMP solvers)."
     cons = collect(Polynomial{C,T}, constraints)
-    comm_vars = collect(PolyVar{C}, comm_gp)
-    @assert length(is_equality) == length(cons) "The number of constraints must be the same as the number of equality conditions."
+    is_eq = collect(Bool, is_equality)
+    @assert length(is_eq) == length(cons) "The number of constraints must be the same as the number of equality conditions."
     vars = sorted_union(variables(objective), [variables(c) for c in cons]...)
-    @assert issubset(comm_vars, vars) "The commutative variables must be a subset of the variables."
+    @assert issubset(comm_gp, vars) "The commutative variables must be a subset of the variables."
     @assert !(is_unipotent && is_projective) "The problem cannot be both unipotent and projective."
-    return PolyOpt{C,T,obj_type}(objective, cons, is_equality, vars, Set(comm_vars), is_unipotent, is_projective)
-end
-
-function PolyOpt(objective::Polynomial{C,T}, constraints) where {C,T}
-    return PolyOpt(objective, constraints, fill(false, length(constraints)), PolyVar{C}[], false, false, EIGEN)
-end
-
-# for user, unconstrained pop
-function PolyOpt(objective::Polynomial{C,T}) where {C,T}
-    return PolyOpt(objective, Polynomial{C,T}[], Bool[], PolyVar{C}[], false, false, EIGEN)
+    return PolyOpt{C,T,obj_type}(objective, cons, is_eq, vars, Set(comm_gp), is_unipotent, is_projective)
 end
