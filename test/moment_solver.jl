@@ -11,7 +11,7 @@ using NCTSSOS: correlative_sparsity, sorted_union, symmetric_canonicalize, neat_
         @ncpolyvar y[1:2]
         f = 1.0 * x[1] * y[1] + x[1] * y[2] + x[2] * y[1] - x[2] * y[2]
         # FIXME: specifying commuting variables is troublesome, some basis cannot be found
-        pop = PolyOpt(f, Polynomial{false,Float64}[], Bool[], PolyVar{false}[], true, false)
+        pop = PolyOpt(f; comm_gp= Set(x), is_unipotent=true)
 
         solver_config = SolverConfig(optimizer=Clarabel.Optimizer; mom_order=1)
 
@@ -24,13 +24,13 @@ using NCTSSOS: correlative_sparsity, sorted_union, symmetric_canonicalize, neat_
         @ncpolyvar x[1:3]
         @ncpolyvar y[1:3]
         f = 1.0 * x[1] * (y[1] + y[2] + y[3]) + x[2] * (y[1] + y[2] - y[3]) + x[3] * (y[1] - y[2]) - x[1] - 2 * y[1] - y[2]
-        pop = PolyOpt(-f, Polynomial{false,Float64}[], Bool[], PolyVar{false}[], false, true)
+        pop = PolyOpt(-f; comm_gp= Set(x), is_projective=true)
 
-        solver_config = SolverConfig(optimizer=Clarabel.Optimizer; mom_order=1)
+        solver_config = SolverConfig(optimizer=Clarabel.Optimizer; mom_order=3)
 
         result = cs_nctssos(pop, solver_config)
 
-        @test_broken isapprox(result.objective, -0.2508753049688358, atol=1e-6)
+        @test isapprox(result.objective, -0.2508753049688358, atol=1e-6)
     end
 end
 
@@ -51,13 +51,13 @@ end
     # take away some support in the polynomial
     cons = vcat([(1 - x[i]^2) for i in 1:n], [(x[i] - 1 / 3) for i in 1:n])
 
-    pop = PolyOpt(f, cons)
+    pop = PolyOpt(f; constraints=cons)
 
     solver_config = SolverConfig(optimizer=Clarabel.Optimizer; cs_algo=MF(), ts_algo=MMD())
     cs_algo = MF()
     ts_algo = MMD()
 
-    corr_sparsity = correlative_sparsity(pop.variables, pop.objective, pop.constraints, order, cs_algo)
+    corr_sparsity = correlative_sparsity(pop, order, cs_algo)
 
     cliques_objective = [reduce(+, [issubset(effective_variables(mono), clique) ? coef * mono : zero(mono) for (coef, mono) in zip(coefficients(pop.objective), monomials(pop.objective))]) for clique in corr_sparsity.cliques]
 
@@ -78,7 +78,7 @@ end
 end
 
 @testset "Moment Method Heisenberg Model on Star Graph" begin
-    num_sites = 6
+    num_sites = 10 
     g = star_graph(num_sites)
 
     true_ans = -1.0
@@ -91,8 +91,7 @@ end
 
     objective = sum(1.0 * pij[[findvaridx(ee.src, ee.dst) for ee in edges(g)]])
 
-    gs = [
-        [(pij[findvaridx(i, j)]^2 - 1.0) for i in 1:num_sites for j in (i+1):num_sites]
+    gs = 
         [
             (
                 pij[findvaridx(sort([i, j])...)] * pij[findvaridx(sort([j, k])...)] +
@@ -102,13 +101,13 @@ end
             ) for i in 1:num_sites, j in 1:num_sites, k in 1:num_sites if
             (i != j && j != k && i != k)
         ]
-    ]
+    
 
-    pop = PolyOpt(objective, gs, [true for _ in gs])
+    pop = PolyOpt(objective; constraints=gs, is_equality=[true for _ in gs], is_unipotent=true)
     order = 1
     cs_algo = MF()
 
-    corr_sparsity = correlative_sparsity(pop.variables, pop.objective, pop.constraints, order, cs_algo)
+    corr_sparsity = correlative_sparsity(pop, order, cs_algo)
 
     cliques_term_sparsities = [
         [TermSparsity(Vector{Monomial{false}}(), [basis]) for basis in idx_basis]
@@ -156,8 +155,8 @@ end
 
     g1 = 1.0 * x[1] - x[1]^2
     local_basis = [one(x[1]), x[1], x[2]]
-    localizing_matrix_constraint_ineq = constrain_moment_matrix!(model, g1, local_basis, monomap, PSDCone())
-    localizing_matrix_constraint_eq = constrain_moment_matrix!(model, g1, local_basis, monomap, Zeros())
+    localizing_matrix_constraint_ineq = constrain_moment_matrix!(model, g1, local_basis, monomap, PSDCone(),identity)
+    localizing_matrix_constraint_eq = constrain_moment_matrix!(model, g1, local_basis, monomap, Zeros(),identity)
 
     myexponents = [([1, 0], [2, 0]) ([2, 0], [3, 0]) ([1, 1], [2, 1]); ([2, 0], [3, 0]) ([3, 0], [4, 0]) ([2, 1], [3, 1]); ([1, 1], [2, 1]) ([2, 1], [3, 1]) ([1, 2], [2, 2])]
 
@@ -181,9 +180,9 @@ end
         9x[2]^2 * x[3] +
         9x[3] * x[2]^2 - 54x[3] * x[2] * x[3] + 142x[3] * x[2]^2 * x[3]
 
-    pop = PolyOpt(f, typeof(f)[])
+    pop = PolyOpt(f)
 
-    corr_sparsity = correlative_sparsity(pop.variables, pop.objective, pop.constraints, order, NoElimination())
+    corr_sparsity = correlative_sparsity(pop, order, NoElimination())
 
     @testset "Dense" begin
         cliques_term_sparsities = [
@@ -234,9 +233,9 @@ end
     f = 2.0 - x[1]^2 + x[1] * x[2]^2 * x[1] - x[2]^2
     g = 4.0 - x[1]^2 - x[2]^2
     h1 = x[1] * x[2] + x[2] * x[1] - 2.0
-    pop = PolyOpt(f, [g, h1], [false, true])
+    pop = PolyOpt(f; constraints=[g, h1], is_equality=[false, true])
 
-    corr_sparsity = correlative_sparsity(pop.variables, pop.objective, pop.constraints, order, NoElimination())
+    corr_sparsity = correlative_sparsity(pop, order, NoElimination())
 
     @testset "Dense" begin
         cliques_term_sparsities = [
@@ -288,9 +287,9 @@ end
     order = 3
     cs_algo = MF()
 
-    pop = PolyOpt(f, cons)
+    pop = PolyOpt(f; constraints=cons)
 
-    corr_sparsity = correlative_sparsity(pop.variables, pop.objective, pop.constraints, order, cs_algo)
+    corr_sparsity = correlative_sparsity(pop, order, cs_algo)
 
     @testset "Correlative Sparse" begin
         cliques_term_sparsities = [

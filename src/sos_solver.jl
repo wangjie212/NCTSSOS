@@ -45,7 +45,8 @@ function sos_dualize(moment_problem::MomentProblem{C,T}) where {C,T}
     # NOTE: objective is Symmetric, hence when comparing polynomials, we need to canonicalize them first
     # TODO: fix this for trace
     unsymmetrized_basis = sort(collect(keys(moment_problem.monomap)))
-    symmetric_basis = sort(unique!([symmetric_canonicalize(basis) for basis in unsymmetrized_basis]))
+
+    symmetric_basis = sort(unique!([moment_problem.reduce_func(symmetric_canonicalize(basis)) for basis in unsymmetrized_basis]))
 
     # JuMP variables corresponding to symmetric_basis
     symmetric_variables = getindex.(Ref(moment_problem.monomap), symmetric_basis)
@@ -53,11 +54,11 @@ function sos_dualize(moment_problem::MomentProblem{C,T}) where {C,T}
     # specify constraints
     fα_constraints = [AffExpr(get(primal_objective_terms, α, zero(T))) for α in symmetric_variables]
 
-    symmetrized_α2cons_dict = Dict(zip(unsymmetrized_basis, map(x -> searchsortedfirst(symmetric_basis, symmetric_canonicalize(x)), unsymmetrized_basis)))
+    symmetrized_α2cons_dict = Dict(zip(unsymmetrized_basis, map(x -> searchsortedfirst(symmetric_basis, moment_problem.reduce_func(symmetric_canonicalize(x))), unsymmetrized_basis)))
 
     unsymmetrized_basis_vals = getindex.(Ref(moment_problem.monomap), unsymmetrized_basis)
 
-    add_to_expression!(fα_constraints[1], -1.0 ,b)
+    add_to_expression!(fα_constraints[1], -1.0, b)
 
     for (i, sdp_constraint) in enumerate(moment_problem.constraints)
         Cαj = get_Cαj(unsymmetrized_basis_vals, constraint_object(sdp_constraint))

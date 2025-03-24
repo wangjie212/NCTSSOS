@@ -24,11 +24,11 @@ using NCTSSOS: get_Cαj, clique_decomp, correlative_sparsity, sorted_union, neat
 
     cons = vcat([(1 - x[i]^2) for i in 1:n], [(x[i] - 1 / 3) for i in 1:n])
 
-    pop = PolyOpt(f, cons)
+    pop = PolyOpt(f; constraints=cons)
     cs_algo = MF()
     ts_algo = MMD()
 
-    corr_sparsity = correlative_sparsity(pop.variables, pop.objective, pop.constraints, order, cs_algo)
+    corr_sparsity = correlative_sparsity(pop, order, cs_algo)
 
     cliques_objective = [reduce(+, [issubset(effective_variables(mono), clique) ? coef * mono : zero(mono) for (coef, mono) in zip(coefficients(pop.objective), monomials(pop.objective))]) for clique in corr_sparsity.cliques]
 
@@ -77,10 +77,10 @@ end
     g3 = x[1] - r
     g4 = x[2] - r
 
-    pop = PolyOpt(f, [g1, g2, g3, g4])
+    pop = PolyOpt(f; constraints=[g1, g2, g3, g4])
     order = 2
 
-    corr_sparsity = correlative_sparsity(pop.variables, pop.objective, pop.constraints, order, NoElimination())
+    corr_sparsity = correlative_sparsity(pop, order, NoElimination())
 
     cliques_term_sparsities = [
         [TermSparsity(Vector{Monomial{false}}(), [basis]) for basis in idx_basis]
@@ -109,11 +109,11 @@ end
     f = 2.0 - x[1]^2 + x[1] * x[2]^2 * x[1] - x[2]^2
     g = 4.0 - x[1]^2 - x[2]^2
     h1 = x[1] * x[2] + x[2] * x[1] - 2.0
-    pop = PolyOpt(f, [g, h1], [false, true])
+    pop = PolyOpt(f; constraints=[g, h1], is_equality=[false, true])
 
     order = 2
 
-    corr_sparsity = correlative_sparsity(pop.variables, pop.objective, pop.constraints, order, NoElimination())
+    corr_sparsity = correlative_sparsity(pop, order, NoElimination())
 
     @testset "Dense" begin
         cliques_term_sparsities = [
@@ -164,10 +164,10 @@ end
 
     f = x[1]^2 + x[1] * x[2] + x[2] * x[1] + x[2]^2 + true_min
 
-    pop = PolyOpt(f, typeof(f)[])
+    pop = PolyOpt(f)
     order = 2
 
-    corr_sparsity = correlative_sparsity(pop.variables, pop.objective, pop.constraints, order, NoElimination())
+    corr_sparsity = correlative_sparsity(pop, order, NoElimination())
 
     cliques_term_sparsities = [
         [TermSparsity(Vector{Monomial{false}}(), [basis]) for basis in idx_basis]
@@ -196,10 +196,10 @@ end
         9x[2]^2 * x[3] +
         9x[3] * x[2]^2 - 54x[3] * x[2] * x[3] + 142x[3] * x[2]^2 * x[3]
 
-    pop = PolyOpt(f, typeof(f)[])
+    pop = PolyOpt(f)
     order = 2
 
-    corr_sparsity = correlative_sparsity(pop.variables, pop.objective, pop.constraints, order, NoElimination())
+    corr_sparsity = correlative_sparsity(pop, order, NoElimination())
 
     cliques_term_sparsities = [
         [TermSparsity(Vector{Monomial{false}}(), [basis]) for basis in idx_basis]
@@ -231,8 +231,7 @@ end
 
     objective = sum(1.0 * pij[[findvaridx(ee.src, ee.dst) for ee in edges(star)]])
 
-    gs = [
-        [(pij[findvaridx(i, j)]^2 - 1.0) for i in 1:num_sites for j in (i+1):num_sites]
+    gs = 
         [
             (
                 pij[findvaridx(sort([i, j])...)] * pij[findvaridx(sort([j, k])...)] +
@@ -242,13 +241,13 @@ end
             ) for i in 1:num_sites, j in 1:num_sites, k in 1:num_sites if
             (i != j && j != k && i != k)
         ]
-    ]
+    
 
-    pop = PolyOpt(objective, gs, fill(true, length(gs)))
+    pop = PolyOpt(objective; constraints=gs, is_equality=[true for _ in gs],is_unipotent=true)
 
     order = 1
 
-    corr_sparsity = correlative_sparsity(pop.variables, pop.objective, pop.constraints, order, NoElimination())
+    corr_sparsity = correlative_sparsity(pop, order, NoElimination())
 
     cliques_term_sparsities = [
         [TermSparsity(Vector{Monomial{false}}(), [basis]) for basis in idx_basis]
@@ -277,9 +276,9 @@ end
 
     cs_algo = MF()
 
-    pop = PolyOpt(f, cons)
+    pop = PolyOpt(f; constraints=cons)
 
-    corr_sparsity = correlative_sparsity(pop.variables, pop.objective, pop.constraints, order, cs_algo)
+    corr_sparsity = correlative_sparsity(pop, order, cs_algo)
 
     cliques_term_sparsities = [
         [TermSparsity(Vector{Monomial{false}}(), [basis]) for basis in idx_basis]
@@ -310,16 +309,16 @@ end
 
     cs_algo = MF()
 
-    pop = PolyOpt(f, cons)
+    pop = PolyOpt(f; constraints=cons)
 
-    corr_sparsity_s = correlative_sparsity(pop.variables, pop.objective, pop.constraints, order, cs_algo)
+    corr_sparsity_s = correlative_sparsity(pop, order, cs_algo)
 
     cliques_term_sparsities_s = [
         [TermSparsity(Vector{Monomial{false}}(), [basis]) for basis in idx_basis]
         for idx_basis in corr_sparsity_s.cliques_idcs_bases
     ]
 
-    corr_sparsity = correlative_sparsity(pop.variables, pop.objective, pop.constraints, order, NoElimination())
+    corr_sparsity = correlative_sparsity(pop, order, NoElimination())
 
     cliques_term_sparsities = [
         [TermSparsity(Vector{Monomial{false}}(), [basis]) for basis in idx_basis]

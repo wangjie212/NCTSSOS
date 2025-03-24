@@ -31,19 +31,6 @@ function cyclic_canonicalize(poly::Polynomial)
     return mapreduce(p -> coefficient(p) * cyclic_canonicalize(monomial(p)), +, terms(poly); init=zero(poly))
 end
 
-#NOTE: I did not consider binary variable but it's easy to extend, just filter out in monomial z==2 && vars in binary set
-# function get_basis(PolyOpt{C,T,EIGEN}) where {C,T}
-
-# end
-
-# function get_basis(PolyOpt{C,T,TRACE}) where {C,T}
-
-# end
-
-# function get_basis(PolyOpt{C,T,STATE}) where {C,T}
-
-# end
-
 function get_basis(vars::Vector{PolyVar{C}}, d::Int) where {C}
     # need to remove zero degree other wise sortting fails
     # return mapreduce(cur_d -> remove_zero_degree.(monomials(vars, cur_d)), vcat, 0:d)
@@ -64,7 +51,7 @@ sorted_union(xs...) = sort(union(xs...))
 
 get_dim(cons::VectorConstraint) = cons.set isa MOI.PositiveSemidefiniteConeSquare ? JuMP.shape(cons).side_dimension : JuMP.shape(cons).dims[1]
 
-function _comm(mono::Monomial{C}, comm_gp::Vector{PolyVar{C}}) where {C}
+function _comm(mono::Monomial{C}, comm_gp::Set{PolyVar{C}}) where {C}
     return prod(zip(mono.vars, mono.z)) do (var, expo)
         var in comm_gp ? var^expo : var^(zero(expo))
     end *
@@ -90,8 +77,6 @@ _projective(mono::Monomial) =
     prod(zip(mono.vars, mono.z)) do (var, expo)
         var^(iszero(expo) ? expo : one(expo))
     end
-
-reduce!(basis::Vector{Monomial{C}}, comm_gp::Vector{PolyVar{C}}, reduce_func::Function) where {C} = unique!(map!(m -> reduce_func(_comm(m, comm_gp)), basis, basis))
 
 function reducer(pop::PolyOpt)
     function (x)

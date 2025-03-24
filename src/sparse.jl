@@ -62,12 +62,12 @@ function correlative_sparsity(pop::PolyOpt{C,T}, order::Int, elim_algo::Eliminat
 
     cliques_cons, global_cons = assign_constraint(cliques, pop.constraints)
 
-    reduce_func = pop.is_unipotent ? _unipotent : (pop.is_projective ? _projective : identity)
+    reduce_func = reducer(pop)
     # get the operators needed to index columns of moment/localizing mtx in each clique
     # depending on the clique's varaibles each is slightly different
     cliques_idx_basis = map(zip(cliques, cliques_cons)) do (clique, clique_cons)
         # get the basis of the moment matrix in a clique, then sort it
-        [[reduce!(get_basis(sort(clique, rev=true), order),pop.comm_gp, reduce_func)]; reduce!.(get_basis.(Ref(sort(clique, rev=true)), order .- ceil.(Int, maxdegree.(pop.constraints[clique_cons]) / 2)), Ref(pop.comm_gp), Ref(reduce_func))]
+        [[sorted_unique(reduce_func.(get_basis(sort(clique, rev=true), order)))]; map(b -> sorted_unique(reduce_func.(b)), get_basis.(Ref(sort(clique, rev=true)), order .- ceil.(Int, maxdegree.(pop.constraints[clique_cons]) / 2)))]
     end
 
     return CorrelativeSparsity{C}(cliques, cliques_cons, global_cons, cliques_idx_basis)

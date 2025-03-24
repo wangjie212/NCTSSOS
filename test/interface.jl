@@ -1,5 +1,40 @@
 using Test, NCTSSOS
 using Clarabel
+using Graphs
+
+@testset "Jun Problem" begin
+    num_sites = 10 
+    g = star_graph(num_sites)
+
+    true_ans = -1.0
+
+    vec_idx2ij = [(i, j) for i in 1:num_sites for j in (i+1):num_sites]
+
+    findvaridx(i, j) = findfirst(x -> x == (i, j), vec_idx2ij)
+
+    @ncpolyvar pij[1:length(vec_idx2ij)]
+
+    objective = sum(1.0 * pij[[findvaridx(ee.src, ee.dst) for ee in edges(g)]])
+
+    gs = 
+        [
+            (
+                pij[findvaridx(sort([i, j])...)] * pij[findvaridx(sort([j, k])...)] +
+                pij[findvaridx(sort([j, k])...)] * pij[findvaridx(sort([i, j])...)] -
+                pij[findvaridx(sort([i, j])...)] - pij[findvaridx(sort([j, k])...)] -
+                pij[findvaridx(sort([i, k])...)] + 1.0
+            ) for i in 1:num_sites, j in 1:num_sites, k in 1:num_sites if
+            (i != j && j != k && i != k)
+        ]
+    
+
+    pop = PolyOpt(objective; constraints=gs, is_equality=[true for _ in gs], is_unipotent=true)
+
+    solver_config = SolverConfig(optimizer=Clarabel.Optimizer; mom_order=1)
+
+    result = cs_nctssos(pop, solver_config)
+    @test isapprox(result.objective,true_ans; atol=1e-6)
+end
 
 @testset "Problem Creation Interface" begin
     n = 2
@@ -8,7 +43,7 @@ using Clarabel
     g = 4.0 - x[1]^2 - x[2]^2
     h1 = x[1] * x[2] + x[2] * x[1] - 2.0
     # change struct name
-    pop = PolyOpt(f, [g, h1], [false, true])
+    pop = PolyOpt(f; constraints=[g, h1], is_equality=[false, true])
 
     solver_config = SolverConfig(optimizer=Clarabel.Optimizer; mom_order=2, cs_algo=MF(), ts_algo=MMD())
 
@@ -45,7 +80,7 @@ end
     g = 4.0 - x[1]^2 - x[2]^2
     h1 = x[1]*x[2] + x[2]*x[1] - 2.0
 
-    pop =  PolyOpt(f, [g, h1], [false, true])
+    pop =  PolyOpt(f; constraints=[g, h1], is_equality=[false, true])
 
     result_dense = cs_nctssos(pop, SolverConfig(optimizer=Clarabel.Optimizer))
 

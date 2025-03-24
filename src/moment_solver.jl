@@ -5,6 +5,7 @@ struct MomentProblem{C,T,CR<:ConstraintRef} <: OptimizationProblem
     model::GenericModel{T}
     constraints::Vector{CR}
     monomap::Dict{Monomial{C},GenericVariableRef{T}}  # TODO: maybe refactor.
+    reduce_func::Function
 end
 
 function substitute_variables(poly::Polynomial{C,T}, monomap::Dict{Monomial{C},GenericVariableRef{T}}) where {C,T}
@@ -20,12 +21,12 @@ function moment_relax(pop::PolyOpt{C,T}, cliques_cons::Vector{Vector{Int}}, glob
     # left type here to support BigFloat model for higher precision
     model = GenericModel{T}()
 
-    reduce_func = pop.is_projective ? _projective : (pop.is_unipotent ? _unipotent : identity)
+    reduce_func = reducer(pop)
     # the union of clique_total_basis
     total_basis = sorted_union(map(zip(cliques_cons, cliques_term_sparsities)) do (cons_idx, term_sparsities)
         union(vec(reduce(vcat, [
             map(monomials(poly)) do m
-                reduce_func(_comm(neat_dot(rol_idx, m * col_idx),pop.comm_gp))
+                reduce_func(neat_dot(rol_idx, m * col_idx))
             end
             for (poly, term_sparsity) in zip([one(pop.objective); pop.constraints[cons_idx]], term_sparsities) for basis in term_sparsity.block_bases for rol_idx in basis for col_idx in basis
         ])))
@@ -45,7 +46,7 @@ function moment_relax(pop::PolyOpt{C,T}, cliques_cons::Vector{Vector{Int}}, glob
                             poly,
                             ts_sub_basis,
                             monomap,
-                            is_eq ? Zeros() : PSDCone(),pop)
+                            is_eq ? Zeros() : PSDCone(), reduce_func)
                     end
                 end
             end
@@ -55,13 +56,14 @@ function moment_relax(pop::PolyOpt{C,T}, cliques_cons::Vector{Vector{Int}}, glob
                     pop.constraints[global_con],
                     [one(pop.objective)],
                     monomap,
-                    pop.is_equality[global_con] ? Zeros() : PSDCone()
+                    pop.is_equality[global_con] ? Zeros() : PSDCone(),
+                    reduce_func
                 )
             end]
 
-    @objective(model, Min, substitute_variables(symmetric_canonicalize(pop.objective), monomap))
+    @objective(model, Min, substitute_variables(mapreduce(p -> coefficient(p) * reduce_func(monomial(p)), +, terms(symmetric_canonicalize(pop.objective)); init=zero(pop.objective)), monomap))
 
-    return MomentProblem(model, constraint_matrices, monomap)
+    return MomentProblem(model, constraint_matrices, monomap, reduce_func)
 end
 
 function constrain_moment_matrix!(
@@ -70,11 +72,10 @@ function constrain_moment_matrix!(
     local_basis::Vector{Monomial{C}},
     monomap::Dict{Monomial{C},GenericVariableRef{T}},
     cone, # FIXME: which type should I use?
-    pop::PolyOpt{C,T}
+    reduce_func::Function
 ) where {C,T}
-    reduce_func = pop.is_unipotent ? _unipotent : (pop.is_projective ? _projective : identity)
     moment_mtx = [
-        substitute_variables(sum([coef * reduce_func(_comm(neat_dot(row_idx, mono * col_idx),pop.comm_gp)) for (coef, mono) in zip(coefficients(poly), monomials(poly))]), monomap) for
+        substitute_variables(sum([coef * reduce_func(neat_dot(row_idx, mono * col_idx)) for (coef, mono) in zip(coefficients(poly), monomials(poly))]), monomap) for
         row_idx in local_basis, col_idx in local_basis
     ]
     return @constraint(model, moment_mtx in cone)

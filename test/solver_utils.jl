@@ -1,7 +1,7 @@
 using Test, NCTSSOS
 using DynamicPolynomials
 using JuMP
-using NCTSSOS: remove_zero_degree, star, symmetric_canonicalize, get_basis, support, neat_dot, get_dim, _comm, _unipotent, _projective, reduce!, cyclic_canonicalize
+using NCTSSOS: remove_zero_degree, star, symmetric_canonicalize, get_basis, support, neat_dot, get_dim, _comm, _unipotent, _projective, cyclic_canonicalize, reducer, sorted_unique
 
 @testset "Utilities" begin
     @ncpolyvar x y z
@@ -145,9 +145,9 @@ using NCTSSOS: remove_zero_degree, star, symmetric_canonicalize, get_basis, supp
         @ncpolyvar b[1:3]
 
         mono = a[1]^2*b[2]^2*a[2]*b[1]^3
-        @test _comm(mono,a) == a[1]^2*a[2]*b[2]^2*b[1]^3
+        @test _comm(mono,Set(a)) == a[1]^2*a[2]*b[2]^2*b[1]^3
         mono = a[1]^3*a[3]
-        @test _comm(mono,a) == a[1]^3*a[3]
+        @test _comm(mono,Set(a)) == a[1]^3*a[3]
     end
 
     @testset "_projective" begin
@@ -160,16 +160,28 @@ using NCTSSOS: remove_zero_degree, star, symmetric_canonicalize, get_basis, supp
         @test _unipotent(mono) == one(mono)
     end
 
-    @testset "reduce!" begin
+
+    @testset "reducer" begin
+        obj = 1.0 * x * y + 2.0 * y * z
+
         basis = get_basis([x,y,z],3)
-        for b in basis
-            @show b
-        end
 
-        reduce!(basis, [x], _unipotent)
-        @test sort(basis) == sort([one(x*y),z,y,x,z*y,x*y,y*z,x*z,x*z*y,z*y*z,y*z*y,x*y*z])
+        pop= PolyOpt(obj; is_unipotent=true)
+        reducer_func = reducer(pop)
+        @test reducer_func(y*x^2*y) == one(x)
 
-        reduce!(basis, [x], _projective)
-        @test sort(basis) == sort([one(x*y*z),z,y,x,z*y,x*z,x*y,y*z,x*z*y,z*y*z,x*y*z,y*z*y])
+        pop = PolyOpt(obj; is_projective=true)
+        reducer_func = reducer(pop)
+        @test reducer_func(y*x^2*y) == y*x*y
+
+        pop = PolyOpt(obj; comm_gp = Set([x]), is_unipotent=true)
+        reducer_func = reducer(pop)
+        @test reducer_func(y*x^2*y) == one(y) 
+        @test sorted_unique(reducer_func.(basis)) == sort([one(x*y),z,y,x,z*y,x*y,y*z,x*z,x*z*y,z*y*z,y*z*y,x*y*z])
+
+        pop = PolyOpt(obj; comm_gp = Set([x]), is_projective=true)
+        reducer_func = reducer(pop)
+        @test reducer_func(y*x^2*y) == x*y
+        @test sorted_unique(reducer_func.(basis)) == sort([one(x*y*z),z,y,x,z*y,x*z,x*y,y*z,x*z*y,z*y*z,x*y*z,y*z*y])
     end
 end
