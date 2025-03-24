@@ -1,39 +1,46 @@
 using Test, NCTSSOS
 using Clarabel
-using Graphs
+using MosekTools
+using Yao
+using LinearAlgebra
 
-@testset "Jun Problem" begin
-    num_sites = 10 
-    g = star_graph(num_sites)
 
-    true_ans = -1.0
+@testset "Majumdar Gosh Model" begin
+    num_sites = 32 
+    J1_interactions = unique!([tuple(sort([i, mod1(i + 1, num_sites)])...) for i in 1:num_sites])
+    J2_interactions = unique!([tuple(sort([i, mod1(i + 2, num_sites)])...) for i in 1:num_sites])
 
-    vec_idx2ij = [(i, j) for i in 1:num_sites for j in (i+1):num_sites]
+    J1 = 2.0
+    J2 = 1.0
 
-    findvaridx(i, j) = findfirst(x -> x == (i, j), vec_idx2ij)
+    # make_ham(num_sites) = sum([sum([J1 / 4 * ft_op[1] * kron(num_sites, i => ft_op[2], j => ft_op[2]) for ft_op in zip([1.0, 1.0, 1.0, -1.0], [X, Y, Z, I2])]) for (i, j) in J1_interactions]) +
+    #                       sum([sum([J2 / 4 * ft_op[1] * kron(num_sites, i => ft_op[2], j => ft_op[2]) for ft_op in zip([1.0, 1.0, 1.0, -1.0], [X, Y, Z, I2])]) for (i, j) in J2_interactions])
 
-    @ncpolyvar pij[1:length(vec_idx2ij)]
+    # myham = make_ham(num_sites)
+    true_ans = -num_sites / 4 * 6 # I guess?
+    # eigvals(Matrix(myham))[1]
 
-    objective = sum(1.0 * pij[[findvaridx(ee.src, ee.dst) for ee in edges(g)]])
+    ij2idx_dict = Dict(zip([(i,j) for i in 1:num_sites, j in 1:num_sites if j > i], 1:(num_sites*(num_sites-1)÷2)))
+    @ncpolyvar hij[1:(num_sites*(num_sites-1)÷2)]
+
+    objective = (sum([J1 * hij[ij2idx_dict[(i,j)]] for (i,j) in J1_interactions]) + sum([J2 * hij[ij2idx_dict[(i,j)]] for (i,j) in J2_interactions]))
 
     gs = 
-        [
+        unique([
             (
-                pij[findvaridx(sort([i, j])...)] * pij[findvaridx(sort([j, k])...)] +
-                pij[findvaridx(sort([j, k])...)] * pij[findvaridx(sort([i, j])...)] -
-                pij[findvaridx(sort([i, j])...)] - pij[findvaridx(sort([j, k])...)] -
-                pij[findvaridx(sort([i, k])...)] + 1.0
+                hij[ij2idx_dict[tuple(sort([i, j])...)]] * hij[ij2idx_dict[tuple(sort([j, k])...)]] +
+                hij[ij2idx_dict[tuple(sort([j, k])...)]] * hij[ij2idx_dict[tuple(sort([i, j])...)]] - 0.5 *(hij[ij2idx_dict[tuple(sort([i, j])...)]] + hij[ij2idx_dict[tuple(sort([j, k])...)]] - hij[ij2idx_dict[tuple(sort([i, k])...)]])
             ) for i in 1:num_sites, j in 1:num_sites, k in 1:num_sites if
             (i != j && j != k && i != k)
-        ]
+        ])
     
 
-    pop = PolyOpt(objective; constraints=gs, is_equality=[true for _ in gs], is_unipotent=true)
+    pop = PolyOpt(-objective; constraints=gs, is_equality=[true for _ in gs], is_projective=true)
 
-    solver_config = SolverConfig(optimizer=Clarabel.Optimizer; mom_order=1)
+    solver_config = SolverConfig(optimizer=Mosek.Optimizer; mom_order=1)
 
     result = cs_nctssos(pop, solver_config)
-    @test isapprox(result.objective,true_ans; atol=1e-6)
+    @test isapprox(result.objective, true_ans; atol=1e-4)
 end
 
 @testset "Problem Creation Interface" begin
