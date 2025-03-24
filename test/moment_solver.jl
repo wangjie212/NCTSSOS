@@ -9,28 +9,28 @@ using NCTSSOS: correlative_sparsity, sorted_union, symmetric_canonicalize, neat_
     @testset "CHSH Inequality" begin
         @ncpolyvar x[1:2]
         @ncpolyvar y[1:2]
-        f = 1.0*x[1]*y[1] + x[1]*y[2] + x[2]*y[1] - x[2]*y[2]
-        # FIXME: specifying commuting variables is troublesome
+        f = 1.0 * x[1] * y[1] + x[1] * y[2] + x[2] * y[1] - x[2] * y[2]
+        # FIXME: specifying commuting variables is troublesome, some basis cannot be found
         pop = PolyOpt(f, Polynomial{false,Float64}[], Bool[], PolyVar{false}[], true, false)
 
         solver_config = SolverConfig(optimizer=Clarabel.Optimizer; mom_order=1)
 
         result = cs_nctssos(pop, solver_config)
 
-        @test isapprox(result.objective,-2.8284271321623193,atol=1e-6)
+        @test isapprox(result.objective, -2.8284271321623193, atol=1e-6)
     end
 
     @testset "I_3322 inequality" begin
         @ncpolyvar x[1:3]
         @ncpolyvar y[1:3]
-        f = 1.0*x[1]*(y[1] + y[2] + y[3]) + x[2]*(y[1] + y[2] - y[3]) + x[3]*(y[1] - y[2]) - x[1] - 2*y[1] - y[2]
+        f = 1.0 * x[1] * (y[1] + y[2] + y[3]) + x[2] * (y[1] + y[2] - y[3]) + x[3] * (y[1] - y[2]) - x[1] - 2 * y[1] - y[2]
         pop = PolyOpt(-f, Polynomial{false,Float64}[], Bool[], PolyVar{false}[], false, true)
 
         solver_config = SolverConfig(optimizer=Clarabel.Optimizer; mom_order=1)
 
         result = cs_nctssos(pop, solver_config)
 
-        @test_broken isapprox(result.objective, -0.2508753049688358,atol=1e-6)
+        @test_broken isapprox(result.objective, -0.2508753049688358, atol=1e-6)
     end
 end
 
@@ -111,7 +111,7 @@ end
     corr_sparsity = correlative_sparsity(pop.variables, pop.objective, pop.constraints, order, cs_algo)
 
     cliques_term_sparsities = [
-        [TermSparsity(Vector{Monomial{false}}(),[basis]) for basis in idx_basis]
+        [TermSparsity(Vector{Monomial{false}}(), [basis]) for basis in idx_basis]
         for idx_basis in corr_sparsity.cliques_idcs_bases
     ]
 
@@ -168,7 +168,7 @@ end
     @test true_localizing_matrix == JuMP.constraint_object(localizing_matrix_constraint_eq).func
     @test JuMP.constraint_object(localizing_matrix_constraint_ineq).set == MOI.PositiveSemidefiniteConeSquare(length(local_basis))
     @test JuMP.constraint_object(localizing_matrix_constraint_eq).set == MOI.Zeros(length(local_basis)^2)
- end
+end
 
 @testset "Moment Method Example 1" begin
     order = 2
@@ -187,7 +187,7 @@ end
 
     @testset "Dense" begin
         cliques_term_sparsities = [
-            [TermSparsity(Vector{Monomial{false}}(),[basis]) for basis in idx_basis]
+            [TermSparsity(Vector{Monomial{false}}(), [basis]) for basis in idx_basis]
             for idx_basis in corr_sparsity.cliques_idcs_bases
         ]
 
@@ -240,7 +240,7 @@ end
 
     @testset "Dense" begin
         cliques_term_sparsities = [
-            [TermSparsity(Vector{Monomial{false}}(),[basis]) for basis in idx_basis]
+            [TermSparsity(Vector{Monomial{false}}(), [basis]) for basis in idx_basis]
             for idx_basis in corr_sparsity.cliques_idcs_bases
         ]
 
@@ -294,7 +294,7 @@ end
 
     @testset "Correlative Sparse" begin
         cliques_term_sparsities = [
-            [TermSparsity(Vector{Monomial{false}}(),[basis]) for basis in idx_basis]
+            [TermSparsity(Vector{Monomial{false}}(), [basis]) for basis in idx_basis]
             for idx_basis in corr_sparsity.cliques_idcs_bases
         ]
 

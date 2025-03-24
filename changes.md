@@ -1,5 +1,5 @@
 # Features
-- Minimum Eigenvalue Objectives 
+- Minimum Eigenvalue Objectives
 # TODO: trace polynomial, complex field, state polynomial, trace, variables some commutes with all and square to one
 # TODO: TSSOS: another package b/c it considers a lot of traditional optimization problem
 # TODO: No extension, just return cliques
@@ -31,4 +31,5 @@ and a vector of polynomials denoting constraints.
 - `nctssos_higher` -> `iterate_term_sparse_supp`
 
 # TODOs
+- [ ]
 - [ ] Try Rational function objective in `TSSOS.jl`
