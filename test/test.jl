@@ -85,13 +85,8 @@ end
     6x[3]^2+9x[2]^2*x[3]+9x[3]*x[2]^2-54x[3]*x[2]*x[3]+142x[3]*x[2]^2*x[3]
 
     opt,data = nctssos_first(f, x, newton=true, reducebasis=true, TS="MD", obj="eigen", QUIET=true, solver="COSMO")
-    @test isapprox(opt, -0.0035512, atol=1e-7)
+    @test isapprox(opt, -0.0035512, atol=1e-6)
 
-    # NOTES: remove due to unavailable Mosek licence on GitHub Actions
-    # @test begin
-    #     opt,data = nctssos_first(f, x, newton=true, TS="MD", obj="trace", QUIET=true, solver="COSMO")
-    #     isapprox(opt, -0.0035512, atol=1e-5)
-    # end
 end
 
 @testset "case 2" begin

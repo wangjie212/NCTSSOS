@@ -12,7 +12,7 @@ h = x[1]*x[2] + x[2]*x[1] - 2
 d = 2
 
 # modelling with nctssos
-opt,data = nctssos_first([f;g;h], x, d, numeq=1, TS=false)
+opt,data = nctssos_first([f;g;h], x, d, numeq=1, TS=false, Gram=true)
 
 # modelling with add_psatz!
 model = Model(optimizer_with_attributes(Mosek.Optimizer))

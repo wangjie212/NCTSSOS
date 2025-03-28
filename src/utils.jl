@@ -34,18 +34,6 @@ function _cyclic_canon(a::Vector{UInt16})
     end
 end
 
-function _cyclic_canon(w::Monomial{false})
-    ind = w.z .> 0
-    wz = w.z[ind]
-    wv = w.vars[ind]
-    lw = length(wz)
-    if lw == 0
-        return w
-    else
-        return minimum([prod([wv[i+1:lw]; wv[1:i]] .^ [wz[i+1:lw]; wz[1:i]]) for i=0:lw-1])
-    end
-end
-
 function cyclic_canon(supp, coe; type=Float64)
     nsupp = [min(_cyclic_canon(word), _cyclic_canon(reverse(word))) for word in supp]
     sort!(nsupp)
@@ -72,10 +60,6 @@ function _sym_canon(a::Vector{UInt16})
         end
     end
     return a
-end
-
-function _sym_canon(w::Monomial{false})
-    return min(w, star(w))
 end
 
 function is_sym(a::Vector{UInt16})
@@ -145,16 +129,6 @@ function constraint_reduce!(word::Vector{UInt16}; constraint="unipotent")
     return word
 end
 
-function constraint_reduce(w::Monomial{false}; constraint="unipotent")
-    if constraint == "unipotent"
-        w.z[iseven(w.z)] .= 0
-        w.z[isodd(w.z)] .= 1
-    else
-        w.z[w.z .> 1] .= 1
-    end
-    return prod(w.vars .^ w.z)
-end
-
 function reduce!(word::Vector{UInt16}; obj="eigen", partition=0, constraint=nothing)
     if obj == "trace"
         word = min(_cyclic_canon(word), _cyclic_canon(reverse(word)))
@@ -173,33 +147,24 @@ function reduce!(word::Vector{UInt16}; obj="eigen", partition=0, constraint=noth
     return word
 end
 
-function reduce(word::Monomial{false}, x; obj="eigen", partition=0, constraint=nothing)
-    if obj == "trace"
-        word = min(_cyclic_canon(word), _cyclic_canon(star(word)))
-    else
-        if partition > 0 && constraint === nothing
-            word = min(_comm(word, x, partition), _comm(star(word), x, partition))
-        elseif partition == 0 && constraint !== nothing
-            word = min(constraint_reduce(word, constraint = constraint), constraint_reduce(star(word), constraint = constraint))
-        elseif partition > 0 && constraint !== nothing
-            word = min(constraint_reduce(_comm(word, x, partition), constraint = constraint), constraint_reduce(_comm(star(word), x, partition), constraint = constraint))
-        else
-            word = _sym_canon(word)
-        end
+function reduce(w::Monomial{false}, x; obj="eigen", partition=0, constraint=nothing)
+    n = length(x)
+    ind = w.z .> 0
+    vars = w.vars[ind]
+    exp = w.z[ind]
+    word = UInt16[]
+    for j = 1:length(vars)
+        k = bfind(x, n, vars[j], rev=true)
+        append!(word, k*ones(UInt16, exp[j]))
     end
-    return word
+    word = reduce!(word, obj=obj, partition=partition, constraint=constraint)
+    return prod(x[word])
 end
 
 function _comm(word::Vector{UInt16}, partition)
     ind1 = word .<= partition
     ind2 = word .> partition
     return [word[ind1]; word[ind2]]
-end
-
-function _comm(w::Monomial{false}, x, partition)
-    ind1 = w.vars .>= x[partition]
-    ind2 = w.vars .< x[partition]
-    return prod([w.vars[ind1]; w.vars[ind2]] .^ [w.z[ind1]; w.z[ind2]])
 end
 
 function bfind(A, l, a; lt=isless, rev=false)
@@ -438,7 +403,7 @@ function arrange(p, vars; obj="eigen", partition=0, constraint=nothing)
     ncoe = zeros(typeof(coe[1]), length(nmons))
     for (i,item) in enumerate(coe)
         Locb = bfind(nmons, length(nmons), mons[i])
-        ncoe[Locb] += coe[i]
+        ncoe[Locb] += item
     end
     return nmons,ncoe
 end

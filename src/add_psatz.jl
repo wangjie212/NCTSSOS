@@ -6,10 +6,8 @@ mutable struct struct_data
     cl # number of blocks
     blocksize # size of blocks
     blocks # blocks
-    eblocks # blocks for equality constraints
     tsupp # total support
-    I # index sets of inequality constraints
-    J # index sets of equality constraints
+    I # index sets of constraints
     gram # Gram variables
     constrs # constraint name
 end
@@ -42,19 +40,24 @@ Add a Putinar's style SOHS representation of the nc polynomial `nonneg` to the J
 function add_psatz!(model, nonneg, vars, ineq_cons, eq_cons, order; obj="eigen", partition=0, constraint=nothing, CS=false, cliques=[], TS="block", SO=1, QUIET=false, constrs=nothing)
     n = length(vars)
     _,fsupp,fcoe = poly_info(nonneg, vars)
-    m = length(ineq_cons)
+    m = length(ineq_cons) + length(eq_cons)
+    numeq = length(eq_cons)
+    if numeq > 0
+        eq_constraint_type = zeros(Int, numeq)
+        for i = 1:numeq
+            temp = star(eq_cons[i])
+            if temp == eq_cons[i]
+                eq_constraint_type[i] = 1
+            elseif temp == -eq_cons[i]
+                eq_constraint_type[i] = -1
+            end
+        end
+    end
     if m > 0
-        _,gsupp,gcoe = polys_info(ineq_cons, vars)
+        _,gsupp,gcoe = polys_info([ineq_cons; eq_cons], vars)
         dg = [maximum(length.(item)) for item in gsupp]
     else
         gsupp = Vector{Vector{UInt16}}[]
-    end
-    l = length(eq_cons)
-    if l > 0
-        _,hsupp,hcoe = polys_info(eq_cons, vars)
-        dh = [maximum(length.(item)) for item in hsupp]
-    else
-        hsupp = Vector{Vector{UInt16}}[]
     end
     if obj == "trace"
         fsupp,fcoe = cyclic_canon(fsupp, fcoe, type=AffExpr)
@@ -63,7 +66,7 @@ function add_psatz!(model, nonneg, vars, ineq_cons, eq_cons, order; obj="eigen",
     end
     if CS != false
         if cliques == []
-            cliques,cql,cliquesize = clique_decomp(n, m, l, fsupp, gsupp, hsupp, alg=CS, QUIET=false)
+            cliques,cql,cliquesize = clique_decomp(n, m, fsupp, gsupp, alg=CS, QUIET=false)
         else
             cql = length(cliques)
             cliquesize = length.(cliques)
@@ -71,16 +74,13 @@ function add_psatz!(model, nonneg, vars, ineq_cons, eq_cons, order; obj="eigen",
     else
         cliques,cql,cliquesize = [Vector(1:n)],1,[n]
     end
-    I,J = assign_constraint(m, l, gsupp, hsupp, cliques, cql)
+    I = assign_constraint(m, gsupp, cliques, cql)
     basis = Vector{Vector{Vector{Vector{UInt16}}}}(undef, cql)
     for t = 1:cql
-        basis[t] = Vector{Vector{Vector{UInt16}}}(undef, length(I[t])+length(J[t])+1)
+        basis[t] = Vector{Vector{Vector{UInt16}}}(undef, length(I[t])+1)
         basis[t][1] = get_ncbasis(cliquesize[t], order, ind=cliques[t], binary=constraint!==nothing)
         for s = 1:length(I[t])
             basis[t][s+1] = get_ncbasis(cliquesize[t], order-ceil(Int, dg[I[t][s]]/2), ind=cliques[t], binary=constraint!==nothing)
-        end
-        for s = 1:length(J[t])
-            basis[t][s+length(I[t])+1] = get_ncbasis(cliquesize[t], 2*order-dh[J[t][s]], ind=cliques[t], binary=constraint!==nothing)
         end
         if partition > 0
             for ba in basis[t]
@@ -89,7 +89,7 @@ function add_psatz!(model, nonneg, vars, ineq_cons, eq_cons, order; obj="eigen",
             end
         end
     end
-    blocks,cl,blocksize,eblocks = get_blocks(I, J, m, l, fsupp, gsupp, hsupp, basis, cliques, cql, TS=TS, SO=SO, QUIET=QUIET, obj=obj, partition=partition, constraint=constraint)
+    blocks,cl,blocksize = get_blocks(I, m, fsupp, gsupp, basis, cliques, cql, TS=TS, SO=SO, QUIET=QUIET, obj=obj, partition=partition, constraint=constraint)
     tsupp = Vector{UInt16}[]
     for i = 1:cql
         for j = 1:cl[i][1], k = 1:blocksize[i][1][j], r = k:blocksize[i][1][j]
@@ -105,10 +105,6 @@ function add_psatz!(model, nonneg, vars, ineq_cons, eq_cons, order; obj="eigen",
                     push!(tsupp, bi)
                 end
             end
-            for (j, w) in enumerate(J[i]), t in eblocks[i][j], item in hsupp[w]
-                @inbounds bi = [basis[i][j+length(I[i])+1][t]; item]
-                push!(tsupp, bi)
-            end
         end
     end
     tsupp = reduce!.(tsupp, obj=obj, partition=partition, constraint=constraint)
@@ -116,13 +112,10 @@ function add_psatz!(model, nonneg, vars, ineq_cons, eq_cons, order; obj="eigen",
     unique!(tsupp)
     ltsupp = length(tsupp)
     cons = [AffExpr(0) for i=1:ltsupp]
-    pos = Vector{Vector{Vector{Union{VariableRef,Symmetric{VariableRef}}}}}(undef, cql)
-    if l > 0
-        mul = Vector{Vector{Vector{VariableRef}}}(undef, cql)
-    end
+    pos = Vector{Vector{Vector{Union{VariableRef,Vector{VariableRef},Symmetric{VariableRef},Matrix{VariableRef}}}}}(undef, cql)
     for t = 1:cql
-        pos[t] = Vector{Vector{Union{VariableRef,Symmetric{VariableRef}}}}(undef, 1+length(I[t]))
-        pos[t][1] = Vector{Union{VariableRef,Symmetric{VariableRef}}}(undef, cl[t][1])
+        pos[t] = Vector{Vector{Union{VariableRef,Vector{VariableRef},Symmetric{VariableRef},Matrix{VariableRef}}}}(undef, 1+length(I[t]))
+        pos[t][1] = Vector{Union{VariableRef,Vector{VariableRef},Symmetric{VariableRef},Matrix{VariableRef}}}(undef, cl[t][1])
         for i = 1:cl[t][1]
             bs = blocksize[t][1][i]
             if bs == 1
@@ -146,42 +139,61 @@ function add_psatz!(model, nonneg, vars, ineq_cons, eq_cons, order; obj="eigen",
             end
         end
         for k = 1:length(I[t])
-            pos[t][k+1] = Vector{Union{VariableRef,Symmetric{VariableRef}}}(undef, cl[t][k+1])
+            pos[t][k+1] = Vector{Union{VariableRef,Vector{VariableRef},Symmetric{VariableRef},Matrix{VariableRef}}}(undef, cl[t][k+1])
             for i = 1:cl[t][k+1]
                 bs = blocksize[t][k+1][i]
                 if bs == 1
-                    pos[t][k+1][i] = @variable(model, lower_bound=0)
-                    for (s, item) in enumerate(gsupp[I[t][k]])
-                        @inbounds bi = [basis[t][k+1][blocks[t][k+1][i][1]][end:-1:1]; item; basis[t][k+1][blocks[t][k+1][i][1]]]
-                        bi = reduce!(bi, obj=obj, partition=partition, constraint=constraint)
-                        Locb = bfind(tsupp, ltsupp, bi)
-                        @inbounds add_to_expression!(cons[Locb], gcoe[I[t][k]][s], pos[t][k+1][i])
+                    if k <= m-numeq
+                        pos[t][k+1][i] = @variable(model, lower_bound=0)
+                    elseif eq_constraint_type[k-(m-numeq)] != -1
+                        pos[t][k+1][i] = @variable(model)
+                    end
+                    if k <= m-numeq || eq_constraint_type[k-(m-numeq)] != -1
+                        for (s, item) in enumerate(gsupp[I[t][k]])
+                            @inbounds bi = [basis[t][k+1][blocks[t][k+1][i][1]][end:-1:1]; item; basis[t][k+1][blocks[t][k+1][i][1]]]
+                            bi = reduce!(bi, obj=obj, partition=partition, constraint=constraint)
+                            Locb = bfind(tsupp, ltsupp, bi)
+                            if k <= m-numeq || eq_constraint_type[k-(m-numeq)] == 1
+                                @inbounds add_to_expression!(cons[Locb], gcoe[I[t][k]][s], pos[t][k+1][i])
+                            else
+                                @inbounds add_to_expression!(cons[Locb], 2*gcoe[I[t][k]][s], pos[t][k+1][i])
+                            end
+                        end
                     end
                 else
-                    pos[t][k+1][i] = @variable(model, [1:bs, 1:bs], PSD)
-                    for j = 1:bs, r = j:bs, (s, item) in enumerate(gsupp[I[t][k]])
-                        @inbounds bi = [basis[t][k+1][blocks[t][k+1][i][j]][end:-1:1]; item; basis[t][k+1][blocks[t][k+1][i][r]]]
-                        bi = reduce!(bi, obj=obj, partition=partition, constraint=constraint)
-                        Locb = bfind(tsupp, ltsupp, bi)
-                        if j == r
-                            @inbounds add_to_expression!(cons[Locb], gcoe[I[t][k]][s], pos[t][k+1][i][j,r])
+                    if k <= m-numeq || eq_constraint_type[k-(m-numeq)] == 1
+                        if k <= m-numeq
+                            pos[t][k+1][i] = @variable(model, [1:bs, 1:bs], PSD)
                         else
+                            pos[t][k+1][i] = @variable(model, [1:bs, 1:bs], Symmetric)
+                        end
+                        for j = 1:bs, r = j:bs, (s, item) in enumerate(gsupp[I[t][k]])
+                            @inbounds bi = [basis[t][k+1][blocks[t][k+1][i][j]][end:-1:1]; item; basis[t][k+1][blocks[t][k+1][i][r]]]
+                            bi = reduce!(bi, obj=obj, partition=partition, constraint=constraint)
+                            Locb = bfind(tsupp, ltsupp, bi)
+                            if j == r
+                                @inbounds add_to_expression!(cons[Locb], gcoe[I[t][k]][s], pos[t][k+1][i][j,r])
+                            else
+                                @inbounds add_to_expression!(cons[Locb], 2*gcoe[I[t][k]][s], pos[t][k+1][i][j,r])
+                            end
+                        end
+                    elseif eq_constraint_type[k-(m-numeq)] == -1
+                        pos[t][k+1][i] = @variable(model, [1:Int(bs*(bs-1)/2)])
+                        for j = 1:bs-1, r = j+1:bs, (s, item) in enumerate(gsupp[I[t][k]])
+                            @inbounds bi = [basis[t][k+1][blocks[t][k+1][i][j]][end:-1:1]; item; basis[t][k+1][blocks[t][k+1][i][r]]]
+                            bi = reduce!(bi, obj=obj, partition=partition, constraint=constraint)
+                            Locb = bfind(tsupp, ltsupp, bi)
+                            @inbounds add_to_expression!(cons[Locb], 2*gcoe[I[t][k]][s], pos[t][k+1][i][Int((2bs-j)*(j-1)/2)+r-j])
+                        end
+                    else
+                        pos[t][k+1][i] = @variable(model, [1:bs, 1:bs])
+                        for j = 1:bs, r = 1:bs, (s, item) in enumerate(gsupp[I[t][k]])
+                            @inbounds bi = [basis[t][k+1][blocks[t][k+1][i][j]][end:-1:1]; item; basis[t][k+1][blocks[t][k+1][i][r]]]
+                            bi = reduce!(bi, obj=obj, partition=partition, constraint=constraint)
+                            Locb = bfind(tsupp, ltsupp, bi)
                             @inbounds add_to_expression!(cons[Locb], 2*gcoe[I[t][k]][s], pos[t][k+1][i][j,r])
                         end
                     end
-                end
-            end
-        end
-        if l > 0
-            mul[t] = Vector{Vector{VariableRef}}(undef, length(J[t]))
-            for k = 1:length(J[t])
-                bs = length(eblocks[t][k])
-                mul[t][k] = @variable(model, [1:bs])
-                for i = 1:bs, (s, item) in enumerate(hsupp[J[t][k]])
-                    bi = [basis[t][k+length(I[t])+1][eblocks[t][k][i]]; item]
-                    bi = reduce!(bi, obj=obj, partition=partition, constraint=constraint)
-                    Locb = bfind(tsupp, ltsupp, bi)
-                    @inbounds add_to_expression!(cons[Locb], hcoe[J[t][k]][s], mul[t][k][i])
                 end
             end
         end
@@ -201,13 +213,12 @@ function add_psatz!(model, nonneg, vars, ineq_cons, eq_cons, order; obj="eigen",
     else
         @constraint(model, cons==bc)
     end
-    info = struct_data(cql,cliquesize,cliques,basis,cl,blocksize,blocks,eblocks,tsupp,I,J,pos,constrs)
+    info = struct_data(cql,cliquesize,cliques,basis,cl,blocksize,blocks,tsupp,I,pos,constrs)
     return info
 end
 
-function get_blocks(I, J, m, l, fsupp::Vector{Vector{UInt16}}, gsupp::Vector{Vector{Vector{UInt16}}}, hsupp::Vector{Vector{Vector{UInt16}}}, basis, cliques, cql; tsupp=[], TS="block", SO=1, QUIET=false, obj="eigen", partition=0, constraint=nothing)
+function get_blocks(I, m, fsupp::Vector{Vector{UInt16}}, gsupp::Vector{Vector{Vector{UInt16}}}, basis, cliques, cql; tsupp=[], TS="block", SO=1, QUIET=false, obj="eigen", partition=0, constraint=nothing)
     blocks = Vector{Vector{Vector{Vector{UInt16}}}}(undef, cql)
-    eblocks = Vector{Vector{Vector{UInt16}}}(undef, cql)
     cl = Vector{Vector{Int}}(undef, cql)
     blocksize = Vector{Vector{Vector{Int}}}(undef, cql)
     status = ones(Int, cql)
@@ -215,9 +226,6 @@ function get_blocks(I, J, m, l, fsupp::Vector{Vector{UInt16}}, gsupp::Vector{Vec
         tsupp = copy(fsupp)
         for i = 1:m
             append!(tsupp, gsupp[i])
-        end
-        for i = 1:l
-            append!(tsupp, hsupp[i])
         end
         tsupp = reduce!.(tsupp, obj=obj, partition=partition, constraint=constraint)
         sort!(tsupp)
@@ -235,20 +243,18 @@ function get_blocks(I, J, m, l, fsupp::Vector{Vector{UInt16}}, gsupp::Vector{Vec
         sort!(supp)
         unique!(supp)
         blocks[i] = Vector{Vector{Vector{UInt16}}}(undef, length(I[i])+1)
-        eblocks[i] = Vector{Vector{UInt16}}(undef, length(J[i]))
         cl[i] = Vector{Int}(undef, length(I[i])+1)
         blocksize[i] = Vector{Vector{Int}}(undef, length(I[i])+1)
-        blocks[i],cl[i],blocksize[i],eblocks[i],status[i] = get_blocks(length(I[i]), length(J[i]), supp, [gsupp[I[i]]; hsupp[J[i]]], basis[i], TS=TS, SO=SO, obj=obj, partition=partition, constraint=constraint)
+        blocks[i],cl[i],blocksize[i],status[i] = get_blocks(length(I[i]), supp, gsupp[I[i]], basis[i], TS=TS, SO=SO, obj=obj, partition=partition, constraint=constraint)
     end
     if minimum(status) == 1
         println("No higher TS step of the CS-TSSOS hierarchy!")
     end
-    return blocks,cl,blocksize,eblocks
+    return blocks,cl,blocksize
 end
 
-function get_blocks(m::Int, l::Int, tsupp, supp::Vector{Vector{Vector{UInt16}}}, basis::Vector{Vector{Vector{UInt16}}}; TS="block", SO=1, merge=false, md=3, obj="eigen", partition=0, constraint=nothing)
+function get_blocks(m::Int, tsupp, supp::Vector{Vector{Vector{UInt16}}}, basis::Vector{Vector{Vector{UInt16}}}; TS="block", SO=1, merge=false, md=3, obj="eigen", partition=0, constraint=nothing)
     blocks = Vector{Vector{Vector{UInt16}}}(undef, m+1)
-    eblocks = Vector{Vector{UInt16}}(undef, l)
     blocksize = Vector{Vector{Int}}(undef, m+1)
     cl = Vector{Int}(undef, m+1)
     status = 0
@@ -256,14 +262,10 @@ function get_blocks(m::Int, l::Int, tsupp, supp::Vector{Vector{Vector{UInt16}}},
         for k = 1:m+1
             blocks[k],blocksize[k],cl[k] = [[i for i=1:length(basis[k])]],[length(basis[k])],1       
         end
-        for k = 1:l
-            eblocks[k] = [i for i=1:length(basis[k+m+1])]
-        end
     else       
         for i = 1:SO
             if i > 1
                 oblocksize = deepcopy(blocksize)
-                oeblocks = deepcopy(eblocks)
             end
             for k = 1:m+1
                 if k == 1
@@ -282,10 +284,7 @@ function get_blocks(m::Int, l::Int, tsupp, supp::Vector{Vector{Vector{UInt16}}},
                     end
                 end
             end
-            for k = 1:l
-                eblocks[k] = get_eblock(tsupp, supp[k+m], basis[k+m+1])
-            end
-            if i > 1 && blocksize == oblocksize && eblocks == oeblocks
+            if i > 1 && blocksize == oblocksize
                 status = 1
                 break
             end
@@ -303,12 +302,11 @@ function get_blocks(m::Int, l::Int, tsupp, supp::Vector{Vector{Vector{UInt16}}},
             end
         end
     end
-    return blocks,cl,blocksize,eblocks,status
+    return blocks,cl,blocksize,status
 end
 
-function assign_constraint(m, l, gsupp::Vector{Vector{Vector{UInt16}}}, hsupp::Vector{Vector{Vector{UInt16}}}, cliques, cql)
+function assign_constraint(m, gsupp::Vector{Vector{Vector{UInt16}}}, cliques, cql)
     I = [UInt16[] for i=1:cql]
-    J = [UInt16[] for i=1:cql]
     for i = 1:m
         temp = UInt16[]
         for item in gsupp[i]
@@ -318,36 +316,16 @@ function assign_constraint(m, l, gsupp::Vector{Vector{Vector{UInt16}}}, hsupp::V
         ind = findall(k->issubset(temp, cliques[k]), 1:cql)
         push!.(I[ind], i)
     end
-    for i = 1:l
-        temp = UInt16[]
-        for item in hsupp[i]
-            append!(temp, item)
-        end
-        unique!(temp)
-        ind = findall(k->issubset(temp, cliques[k]), 1:cql)
-        push!.(J[ind], i)
-    end
-    return I,J
+    return I
 end
 
-function clique_decomp(n, m, l, fsupp::Vector{Vector{UInt16}}, gsupp::Vector{Vector{Vector{UInt16}}}, hsupp::Vector{Vector{Vector{UInt16}}}; alg="MF", QUIET=false)
+function clique_decomp(n, m, fsupp::Vector{Vector{UInt16}}, gsupp::Vector{Vector{Vector{UInt16}}}; alg="MF", QUIET=false)
     G = SimpleGraph(n)
     for item in fsupp
         add_clique!(G, unique(item))
     end
     for i = 1:m
-        temp = UInt16[]
-        for item in gsupp[i]
-            append!(temp, item)
-        end
-        add_clique!(G, unique(temp))
-    end
-    for i = 1:l
-        temp = UInt16[]
-        for item in hsupp[i]
-            append!(temp, item)
-        end
-        add_clique!(G, unique(temp))
+        add_clique!(G, unique(Base.reduce(vcat, gsupp[i])))
     end
     if alg == "NC"
         cliques,cql,cliquesize = max_cliques(G)
@@ -381,21 +359,4 @@ function get_moment_matrix(moment, info; obj="eigen", partition=0, constraint=no
         MomMat[i] = Symmetric(MomMat[i], :U)
     end
     return MomMat
-end
-
-function get_eblock(tsupp::Vector{Vector{UInt16}}, hsupp::Vector{Vector{UInt16}}, basis::Vector{Vector{UInt16}}; obj="eigen", partition=0, constraint=nothing)
-    ltsupp = length(tsupp)
-    hlt = length(hsupp)
-    eblock = UInt16[]
-    for (i,item) in enumerate(basis)
-        for j = 1:hlt
-            temp = [item; hsupp[j]]
-            temp = reduce!(temp, obj=obj, partition=partition, constraint=constraint)
-            if bfind(tsupp, ltsupp, temp) !== nothing
-                push!(eblock, i)
-                break
-            end
-        end
-    end
-    return eblock
 end
