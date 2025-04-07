@@ -7,6 +7,7 @@ mutable struct nccpop_data
     supp # support data
     coe # coefficient data
     partition # the first 'partition' variables commutes with the remaining variables
+    comm_var # the first 'comm_var' variables commutes each other
     constraint # nothing or "projection" or "unipotent"
     obj # "eigen" or "trace"
     basis # monomial bases
@@ -20,7 +21,7 @@ end
 
 """
     opt,data = nctssos_first(pop::Vector{Polynomial{false, T}} where T<:Number, x::Vector{PolyVar{false}},
-        order::Int; numeq=0, reducebasis=false, TS="block", normality=false, obj="eigen", merge=false, md=3, 
+        order::Int; numeq=0, reducebasis=false, TS="block", normality=false, obj="eigen", partition=0, comm_var=0, constraint=nothing, merge=false, md=3, 
         solve=true, Gram=false, QUIET=false)
 
 Compute the first step of the NCTSSOS hierarchy for constrained noncommutative polynomial optimization with
@@ -28,15 +29,18 @@ relaxation order `order`.
 Return the optimum and other auxiliary data.
 
 # Arguments
-- `pop`: the vector of the objective function, inequality constraints, and equality constraints.
-- `x`: the set of noncommuting variables.
-- `order`: the relaxation order of the moment-SOHS hierarchy.
-- `numeq`: the number of equality constraints.
+- `pop`: the vector of the objective function, inequality constraints, and equality constraints
+- `x`: the set of noncommuting variables
+- `order`: the relaxation order of the moment-SOHS hierarchy
+- `partition`: the first 'partition' variables commutes with the remaining variables
+- `comm_var`: the first 'comm_var' variables commutes each other
+- `constraint`: nothing or "projection" or "unipotent"
+- `numeq`: the number of equality constraints
 """
 
 function nctssos_first(pop::Vector{Polynomial{false, T}} where T<:Number, x::Vector{PolyVar{false}}, order::Int; numeq=0, 
     reducebasis=false, TS="block", soc=false, obj="eigen", merge=false, md=3, solve=true, Gram=false, QUIET=false,
-    solver="Mosek", partition=0, constraint=nothing, normality=false, cosmo_setting=cosmo_para())
+    solver="Mosek", partition=0, comm_var=0, constraint=nothing, normality=false, cosmo_setting=cosmo_para())
     n,supp,coe = polys_info(pop, x)
     eq_constraint_type = nothing
     if numeq > 0
@@ -51,12 +55,12 @@ function nctssos_first(pop::Vector{Polynomial{false, T}} where T<:Number, x::Vec
         end
     end
     opt,data = nctssos_first(supp, coe, n, order, numeq=numeq, eq_constraint_type=eq_constraint_type, reducebasis=reducebasis, TS=TS, obj=obj, merge=merge, soc=soc,
-    md=md, QUIET=QUIET, solve=solve, solver=solver, Gram=Gram, partition=partition, constraint=constraint, normality=normality, cosmo_setting=cosmo_setting)
+    md=md, QUIET=QUIET, solve=solve, solver=solver, Gram=Gram, partition=partition, comm_var=comm_var, constraint=constraint, normality=normality, cosmo_setting=cosmo_setting)
     return opt,data
 end
 
 function nctssos_first(supp::Vector{Vector{Vector{UInt16}}}, coe, n::Int64, order::Int64; numeq=0, eq_constraint_type=nothing, reducebasis=false, TS="block", soc=false,
-    obj="eigen", merge=false, md=3, solve=true, solver="Mosek", Gram=false, QUIET=false, partition=0, constraint=nothing, normality=false, cosmo_setting=cosmo_para())
+    obj="eigen", merge=false, md=3, solve=true, solver="Mosek", Gram=false, QUIET=false, partition=0, comm_var=0, constraint=nothing, normality=false, cosmo_setting=cosmo_para())
     println("********************************** NCTSSOS **********************************")
     println("NCTSSOS is launching...")
     m = length(supp)-1
@@ -68,17 +72,13 @@ function nctssos_first(supp::Vector{Vector{Vector{UInt16}}}, coe, n::Int64, orde
     end
     basis = Vector{Vector{Vector{UInt16}}}(undef, m+1)
     basis[1] = get_ncbasis(n, order, binary=constraint!==nothing)
-    if partition > 0
-        ind = [_comm(basis[1][i], partition) == basis[1][i] for i=1:length(basis[1])]
-        basis[1] = basis[1][ind]
-    end
+    ind = [_comm(basis[1][i], partition, comm_var) == basis[1][i] for i=1:length(basis[1])]
+    basis[1] = basis[1][ind]
     ksupp = copy(supp[1])
     for i = 1:m
         basis[i+1] = get_ncbasis(n, order-Int(ceil(dg[i]/2)), binary=constraint!==nothing)
-        if partition > 0
-            ind = [_comm(item, partition) == item for item in basis[i+1]]
-            basis[i+1] = basis[i+1][ind]
-        end
+        ind = [_comm(item, partition, comm_var) == item for item in basis[i+1]]
+        basis[i+1] = basis[i+1][ind]
         if obj == "trace"
             append!(ksupp, [min(_cyclic_canon(word), _cyclic_canon(reverse(word))) for word in supp[i+1]])
         else
@@ -90,7 +90,7 @@ function nctssos_first(supp::Vector{Vector{Vector{UInt16}}}, coe, n::Int64, orde
     else
         append!(ksupp, [[item[end:-1:1]; item] for item in basis[1]])
     end
-    ksupp = reduce!.(ksupp, obj=obj, partition=partition, constraint=constraint)
+    ksupp = reduce!.(ksupp, obj=obj, partition=partition, comm_var=comm_var, constraint=constraint)
     sort!(ksupp)
     unique!(ksupp)
     if TS != false && QUIET == false
@@ -98,7 +98,7 @@ function nctssos_first(supp::Vector{Vector{Vector{UInt16}}}, coe, n::Int64, orde
     end
     time = @elapsed begin
     blocks,cl,blocksize = get_cblocks(m, ksupp, supp[2:end], basis, TS=TS, obj=obj, QUIET=QUIET,
-    merge=merge, md=md, partition=partition, constraint=constraint)
+    merge=merge, md=md, partition=partition, comm_var=comm_var, constraint=constraint)
     if reducebasis == true && obj == "eigen" && constraint === nothing
         gsupp = get_gsupp(m, supp, basis[2:end], blocks[2:end], cl[2:end], blocksize[2:end])
         psupp = copy(supp[1])
@@ -113,7 +113,7 @@ function nctssos_first(supp::Vector{Vector{Vector{UInt16}}}, coe, n::Int64, orde
             end
             append!(ksupp, [[item[end:-1:1]; item] for item in basis[1]])
             if partition > 0
-                ksupp = _comm.(ksupp, partition)
+                ksupp = _comm.(ksupp, partition, comm_var)
             end
             sort!(ksupp)
             unique!(ksupp)
@@ -126,8 +126,8 @@ function nctssos_first(supp::Vector{Vector{Vector{UInt16}}}, coe, n::Int64, orde
         println("Obtained the block structure in $time seconds. The maximal size of blocks is $mb.")
     end
     opt,ksupp,moment,GramMat = solvesdp(order, n, m, supp, coe, basis, blocks, cl, blocksize, numeq=numeq, eq_constraint_type=eq_constraint_type, QUIET=QUIET, obj=obj, soc=soc,
-    TS=TS, solve=solve, solver=solver, Gram=Gram, partition=partition, constraint=constraint, normality=normality, cosmo_setting=cosmo_setting)
-    data = nccpop_data(n, m, order, numeq, eq_constraint_type, supp, coe, partition, constraint, obj, basis, ksupp, blocks, cl, blocksize, moment, GramMat)
+    TS=TS, solve=solve, solver=solver, Gram=Gram, partition=partition, comm_var=comm_var, constraint=constraint, normality=normality, cosmo_setting=cosmo_setting)
+    data = nccpop_data(n, m, order, numeq, eq_constraint_type, supp, coe, partition, comm_var, constraint, obj, basis, ksupp, blocks, cl, blocksize, moment, GramMat)
     return opt,data
 end
 
@@ -140,6 +140,7 @@ function nctssos_higher!(data::nccpop_data; TS="block", soc=false, merge=false, 
     supp = data.supp
     coe = data.coe
     partition = data.partition
+    comm_var = data.comm_var
     constraint = data.constraint
     obj = data.obj
     basis = data.basis
@@ -153,7 +154,7 @@ function nctssos_higher!(data::nccpop_data; TS="block", soc=false, merge=false, 
     oblocksize = deepcopy(data.blocksize)
     time = @elapsed begin
     blocks, cl, blocksize = get_cblocks(m, ksupp, supp[2:end], basis, blocks=blocks, cl=cl, blocksize=blocksize, 
-    TS=TS, obj=obj, QUIET=QUIET, merge=merge, md=md, partition=partition, constraint=constraint)
+    TS=TS, obj=obj, QUIET=QUIET, merge=merge, md=md, partition=partition, comm_var=comm_var, constraint=constraint)
     end
     if blocksize == oblocksize
         println("No higher TS step of the NCTSSOS hierarchy!")
@@ -164,7 +165,7 @@ function nctssos_higher!(data::nccpop_data; TS="block", soc=false, merge=false, 
             println("Obtained the block structure in $time seconds.\nThe maximal size of blocks is $mb.")
         end
         opt,ksupp,moment,GramMat = solvesdp(data.order, n, m, supp, coe, basis, blocks, cl, blocksize, numeq=numeq, eq_constraint_type=eq_constraint_type, QUIET=QUIET, obj=obj, soc=soc,
-        TS=TS, solve=solve, solver=solver, Gram=Gram, partition=partition, constraint=constraint, normality=normality, cosmo_setting=cosmo_setting)
+        TS=TS, solve=solve, solver=solver, Gram=Gram, partition=partition, comm_var=comm_var, constraint=constraint, normality=normality, cosmo_setting=cosmo_setting)
         data.moment = moment
         data.GramMat = GramMat
         data.ksupp = ksupp
@@ -239,7 +240,7 @@ function reducebasis!(psupp, basis, blocks, cl, blocksize)
     end
 end
 
-function get_graph(ksupp, supp, basis; obj="eigen", partition=0, constraint=nothing)
+function get_graph(ksupp, supp, basis; obj="eigen", partition=0, comm_var=0, constraint=nothing)
     lb = length(basis)
     lksupp = length(ksupp)
     G = SimpleGraph(lb)
@@ -247,7 +248,7 @@ function get_graph(ksupp, supp, basis; obj="eigen", partition=0, constraint=noth
         r = 1
         while r <= length(supp)
             bi = [basis[i][end:-1:1]; supp[r]; basis[j]]
-            bi = reduce!(bi, obj=obj, partition=partition, constraint=constraint)
+            bi = reduce!(bi, obj=obj, partition=partition, comm_var=comm_var, constraint=constraint)
             if bfind(ksupp, lksupp, bi) !== nothing
                break
             else
@@ -262,7 +263,7 @@ function get_graph(ksupp, supp, basis; obj="eigen", partition=0, constraint=noth
 end
 
 function get_cblocks(m, ksupp, gsupp, basis; blocks=[], cl=[], blocksize=[], TS="block", 
-    obj="eigen", QUIET=true, merge=false, md=3, partition=0, constraint=nothing)
+    obj="eigen", QUIET=true, merge=false, md=3, partition=0, comm_var=0, constraint=nothing)
     if isempty(blocks)
         blocks = Vector{Vector{Vector{UInt16}}}(undef, m+1)
         blocksize = Vector{Vector{UInt16}}(undef, m+1)
@@ -277,9 +278,9 @@ function get_cblocks(m, ksupp, gsupp, basis; blocks=[], cl=[], blocksize=[], TS=
     else
         for k = 1:m+1
             if k == 1
-                G = get_graph(ksupp, basis[1], obj=obj, partition=partition, constraint=constraint)
+                G = get_graph(ksupp, basis[1], obj=obj, partition=partition, comm_var=comm_var, constraint=constraint)
             else
-                G = get_graph(ksupp, gsupp[k-1], basis[k], obj=obj, partition=partition, constraint=constraint)
+                G = get_graph(ksupp, gsupp[k-1], basis[k], obj=obj, partition=partition, comm_var=comm_var, constraint=constraint)
             end
             if TS == "block"
                 blocks[k] = connected_components(G)
@@ -304,7 +305,7 @@ function get_cblocks(m, ksupp, gsupp, basis; blocks=[], cl=[], blocksize=[], TS=
 end
 
 function solvesdp(order::Int, n::Int, m::Int, supp, coe, basis, blocks, cl, blocksize; numeq=0, eq_constraint_type=nothing, QUIET=true, obj="eigen",
-    solve=true, solver="Mosek", TS="block", Gram=false, soc=false, partition=0, constraint=nothing, normality=false, cosmo_setting=cosmo_para())
+    solve=true, solver="Mosek", TS="block", Gram=false, soc=false, partition=0, comm_var=0, constraint=nothing, normality=false, cosmo_setting=cosmo_para())
     ksupp = Vector{UInt16}[]
     for i = 1:cl[1], j = 1:blocksize[1][i], r = j:blocksize[1][i]
         @inbounds bi = [basis[1][blocks[1][i][j]][end:-1:1]; basis[1][blocks[1][i][r]]]
@@ -322,21 +323,21 @@ function solvesdp(order::Int, n::Int, m::Int, supp, coe, basis, blocks, cl, bloc
         if TS != false
             for item in slb, s = 1:length(supp[1])
                 @inbounds bi = [supp[1][s]; item]
-                bi = reduce!(bi, obj=obj, partition=partition, constraint=constraint)
+                bi = reduce!(bi, obj=obj, partition=partition, comm_var=comm_var, constraint=constraint)
                 push!(ksupp, bi)
                 @inbounds bi = [item; supp[1][s]]
-                bi = reduce!(bi, obj=obj, partition=partition, constraint=constraint)
+                bi = reduce!(bi, obj=obj, partition=partition, comm_var=comm_var, constraint=constraint)
                 push!(ksupp, bi)
             end
             for i = 1:lspb, j = i:lspb, s = 1:length(supp[1])
                 @inbounds bi = [spb[i][end:-1:1]; supp[1][s]; spb[j]]
-                bi = reduce!(bi, obj=obj, partition=partition, constraint=constraint)
+                bi = reduce!(bi, obj=obj, partition=partition, comm_var=comm_var, constraint=constraint)
                 push!(ksupp, bi)
                 @inbounds bi = [supp[1][s]; spb[i][end:-1:1]; spb[j]]
-                bi = reduce!(bi, obj=obj, partition=partition, constraint=constraint)
+                bi = reduce!(bi, obj=obj, partition=partition, comm_var=comm_var, constraint=constraint)
                 push!(ksupp, bi)
                 @inbounds bi = [spb[i][end:-1:1]; spb[j]; supp[1][s]]
-                bi = reduce!(bi, obj=obj, partition=partition, constraint=constraint)
+                bi = reduce!(bi, obj=obj, partition=partition, comm_var=comm_var, constraint=constraint)
                 push!(ksupp, bi)
             end
         end
@@ -351,7 +352,7 @@ function solvesdp(order::Int, n::Int, m::Int, supp, coe, basis, blocks, cl, bloc
             push!(ksupp, bi)
         end
     end
-    ksupp = reduce!.(ksupp, obj=obj, partition=partition, constraint=constraint)
+    ksupp = reduce!.(ksupp, obj=obj, partition=partition, comm_var=comm_var, constraint=constraint)
     sort!(ksupp)
     unique!(ksupp)
     lksupp = length(ksupp)
@@ -379,7 +380,7 @@ function solvesdp(order::Int, n::Int, m::Int, supp, coe, basis, blocks, cl, bloc
                 hnom = @variable(model, [1:2bs, 1:2bs], PSD)
                 for j = 1:bs, k = j:bs
                     @inbounds bi = [wbasis[j][end:-1:1]; wbasis[k]]
-                    bi = reduce!(bi, obj=obj, partition=partition, constraint=constraint)
+                    bi = reduce!(bi, obj=obj, partition=partition, comm_var=comm_var, constraint=constraint)
                     Locb = bfind(ksupp, lksupp, bi)
                     if j == k
                         @inbounds add_to_expression!(cons[Locb], hnom[j,k])
@@ -387,7 +388,7 @@ function solvesdp(order::Int, n::Int, m::Int, supp, coe, basis, blocks, cl, bloc
                         @inbounds add_to_expression!(cons[Locb], 2, hnom[j,k])
                     end
                     @inbounds bi = UInt16[wbasis[j][end:-1:1]; i; i; wbasis[k]]
-                    bi = reduce!(bi, obj=obj, partition=partition, constraint=constraint)
+                    bi = reduce!(bi, obj=obj, partition=partition, comm_var=comm_var, constraint=constraint)
                     Locb = bfind(ksupp, lksupp, bi)
                     if j == k
                         @inbounds add_to_expression!(cons[Locb], hnom[j+bs,k+bs])
@@ -395,7 +396,7 @@ function solvesdp(order::Int, n::Int, m::Int, supp, coe, basis, blocks, cl, bloc
                         @inbounds add_to_expression!(cons[Locb], 2, hnom[j+bs,k+bs])
                     end    
                     @inbounds bi = UInt16[wbasis[j][end:-1:1]; i; wbasis[k]]
-                    bi = reduce!(bi, obj=obj, partition=partition, constraint=constraint)
+                    bi = reduce!(bi, obj=obj, partition=partition, comm_var=comm_var, constraint=constraint)
                     Locb = bfind(ksupp, lksupp, bi)
                     if j == k
                         @inbounds add_to_expression!(cons[Locb], 2, hnom[j,k+bs])
@@ -411,14 +412,14 @@ function solvesdp(order::Int, n::Int, m::Int, supp, coe, basis, blocks, cl, bloc
             if bs == 1
                @inbounds pos[i] = @variable(model, lower_bound=0)
                @inbounds bi = [basis[1][blocks[1][i][1]][end:-1:1]; basis[1][blocks[1][i][1]]]
-               bi = reduce!(bi, obj=obj, partition=partition, constraint=constraint)
+               bi = reduce!(bi, obj=obj, partition=partition, comm_var=comm_var, constraint=constraint)
                Locb = bfind(ksupp, lksupp, bi)
                @inbounds add_to_expression!(cons[Locb], pos[i])
             else
                @inbounds pos[i] = @variable(model, [1:bs, 1:bs], PSD)
                for j = 1:bs, r = j:bs
                    @inbounds bi = [basis[1][blocks[1][i][j]][end:-1:1]; basis[1][blocks[1][i][r]]]
-                   bi = reduce!(bi, obj=obj, partition=partition, constraint=constraint)
+                   bi = reduce!(bi, obj=obj, partition=partition, comm_var=comm_var, constraint=constraint)
                    Locb = bfind(ksupp, lksupp, bi)
                    if j == r
                        @inbounds add_to_expression!(cons[Locb], pos[i][j,r])
@@ -460,7 +461,7 @@ function solvesdp(order::Int, n::Int, m::Int, supp, coe, basis, blocks, cl, bloc
                         end
                         for j = 1:bs, r = j:bs, s = 1:length(supp[k+1])
                             @inbounds bi = [basis[k+1][blocks[k+1][i][j]][end:-1:1]; supp[k+1][s]; basis[k+1][blocks[k+1][i][r]]]
-                            bi = reduce!(bi, obj=obj, partition=partition, constraint=constraint)
+                            bi = reduce!(bi, obj=obj, partition=partition, comm_var=comm_var, constraint=constraint)
                             Locb = bfind(ksupp, lksupp, bi)
                             if j == r
                                 @inbounds add_to_expression!(cons[Locb], coe[k+1][s], gpos[k][i][j,r])
@@ -472,7 +473,7 @@ function solvesdp(order::Int, n::Int, m::Int, supp, coe, basis, blocks, cl, bloc
                         gpos[k][i] = @variable(model, [1:Int(bs*(bs-1)/2)])
                         for j = 1:bs-1, r = j+1:bs, s = 1:length(supp[k+1])
                             @inbounds bi = [basis[k+1][blocks[k+1][i][j]][end:-1:1]; supp[k+1][s]; basis[k+1][blocks[k+1][i][r]]]
-                            bi = reduce!(bi, obj=obj, partition=partition, constraint=constraint)
+                            bi = reduce!(bi, obj=obj, partition=partition, comm_var=comm_var, constraint=constraint)
                             Locb = bfind(ksupp, lksupp, bi)
                             @inbounds add_to_expression!(cons[Locb], 2*coe[k+1][s], gpos[k][i][Int((2bs-j)*(j-1)/2)+r-j])
                         end
@@ -480,7 +481,7 @@ function solvesdp(order::Int, n::Int, m::Int, supp, coe, basis, blocks, cl, bloc
                         gpos[k][i] = @variable(model, [1:bs, 1:bs])
                         for j = 1:bs, r = 1:bs, s = 1:length(supp[k+1])
                             @inbounds bi = [basis[k+1][blocks[k+1][i][j]][end:-1:1]; supp[k+1][s]; basis[k+1][blocks[k+1][i][r]]]
-                            bi = reduce!(bi, obj=obj, partition=partition, constraint=constraint)
+                            bi = reduce!(bi, obj=obj, partition=partition, comm_var=comm_var, constraint=constraint)
                             Locb = bfind(ksupp, lksupp, bi)
                             @inbounds add_to_expression!(cons[Locb], 2*coe[k+1][s], gpos[k][i][j,r])
                         end
@@ -492,18 +493,18 @@ function solvesdp(order::Int, n::Int, m::Int, supp, coe, basis, blocks, cl, bloc
             fr = @variable(model, [1:length(slb)])
             for (i,item) in enumerate(slb), s = 1:length(supp[1])
                 @inbounds bi = [supp[1][s]; item]
-                bi = reduce!(bi, obj=obj, partition=partition, constraint=constraint)
+                bi = reduce!(bi, obj=obj, partition=partition, comm_var=comm_var, constraint=constraint)
                 Locb = bfind(ksupp, lksupp, bi)
                 add_to_expression!(cons[Locb], coe[1][s], fr[i])
                 @inbounds bi = [item; supp[1][s]]
-                bi = reduce!(bi, obj=obj, partition=partition, constraint=constraint)
+                bi = reduce!(bi, obj=obj, partition=partition, comm_var=comm_var, constraint=constraint)
                 Locb = bfind(ksupp, lksupp, bi)
                 add_to_expression!(cons[Locb], -coe[1][s], fr[i])
             end
             pos = @variable(model, [1:lspb, 1:lspb], PSD)
             for i = 1:lspb, j = i:lspb, s = 1:length(supp[1])
                 @inbounds bi = [spb[i][end:-1:1]; supp[1][s]; spb[j]]
-                bi = reduce!(bi, obj=obj, partition=partition, constraint=constraint)
+                bi = reduce!(bi, obj=obj, partition=partition, comm_var=comm_var, constraint=constraint)
                 Locb = bfind(ksupp, lksupp, bi)
                 if i == j
                     @inbounds add_to_expression!(cons[Locb], coe[1][s], pos[i,j])
@@ -511,7 +512,7 @@ function solvesdp(order::Int, n::Int, m::Int, supp, coe, basis, blocks, cl, bloc
                     @inbounds add_to_expression!(cons[Locb], 2*coe[1][s], pos[i,j])
                 end
                 @inbounds bi = [supp[1][s]; spb[i][end:-1:1]; spb[j]]
-                bi = reduce!(bi, obj=obj, partition=partition, constraint=constraint)
+                bi = reduce!(bi, obj=obj, partition=partition, comm_var=comm_var, constraint=constraint)
                 Locb = bfind(ksupp, lksupp, bi)
                 if i == j
                     @inbounds add_to_expression!(cons[Locb], -0.5*coe[1][s], pos[i,j])
@@ -519,7 +520,7 @@ function solvesdp(order::Int, n::Int, m::Int, supp, coe, basis, blocks, cl, bloc
                     @inbounds add_to_expression!(cons[Locb], -coe[1][s], pos[i,j])
                 end
                 @inbounds bi = [spb[i][end:-1:1]; spb[j]; supp[1][s]]
-                bi = reduce!(bi, obj=obj, partition=partition, constraint=constraint)
+                bi = reduce!(bi, obj=obj, partition=partition, comm_var=comm_var, constraint=constraint)
                 if i == j
                     @inbounds add_to_expression!(cons[Locb], -0.5*coe[1][s], pos[i,j])
                 else
@@ -584,7 +585,7 @@ function solvesdp(order::Int, n::Int, m::Int, supp, coe, basis, blocks, cl, bloc
             moment[i] = zeros(blocksize[1][i], blocksize[1][i])
             for j = 1:blocksize[1][i], k = j:blocksize[1][i]
                 @inbounds bi = [basis[1][blocks[1][i][j]][end:-1:1]; basis[1][blocks[1][i][k]]]
-                bi = reduce!(bi, obj=obj, partition=partition, constraint=constraint)
+                bi = reduce!(bi, obj=obj, partition=partition, comm_var=comm_var, constraint=constraint)
                 Locb = bfind(ksupp, lksupp, bi)
                 moment[i][j,k] = dual_var[Locb]
             end

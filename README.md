@@ -36,7 +36,10 @@ opt,data = nctssos_higher!(data)
 
 Options:  
 **obj**: "eigen" by default (perform eigenvalue minimization), "trace" (perform trace minimization)  
-**TS**: "block" by default (maximal chordal extension), "MD" (approximately smallest chordal extension), false (invalidating term sparsity iterations)   
+**TS**: "block" by default (maximal chordal extension), "MD" (approximately smallest chordal extension), false (invalidating term sparsity iterations) 
+**partition**: specify that the first *partition* variables commutes with the remaining variables  
+**comm_var**: specify that the first *comm_var* variables commutes each other  
+**constraint**: nothing by default or "projection" (satisfying $x_i^2=x_i$) or "unipotent" (satisfying $x_i^2=1$)  
 
 ### Constrained non-commutative polynomial optimization
 Taking the objective $f=2-x_1^2+x_1x_2^2x_1-x_2^2$ and constraints $g=4-x_1^2-x_2^2\ge0$, $h=x_1x_2+x_2x_1-2=0$ as an example, to solve the first step of the NCTSSOS hierarchy, run
@@ -60,6 +63,9 @@ opt,data = nctssos_higher!(data)
 Options:  
 **obj**: "eigen" by default (perform eigenvalue minimization), "trace" (perform trace minimization)  
 **TS**: "block" by default (maximal chordal extension), "MD" (approximately smallest chordal extension), false (invalidating term sparsity iterations)  
+**partition**: specify that the first *partition* variables commutes with the remaining variables  
+**comm_var**: specify that the first *comm_var* variables commutes each other  
+**constraint**: nothing by default or "projection" (satisfying $x_i^2=x_i$) or "unipotent" (satisfying $x_i^2=1$)  
 
 To exploit correlative sparsity and term sparsity simultaneously, run
 

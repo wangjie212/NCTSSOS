@@ -129,25 +129,20 @@ function constraint_reduce!(word::Vector{UInt16}; constraint="unipotent")
     return word
 end
 
-function reduce!(word::Vector{UInt16}; obj="eigen", partition=0, constraint=nothing)
+function reduce!(word::Vector{UInt16}; obj="eigen", partition=0, comm_var=0, constraint=nothing)
     if obj == "trace"
         word = min(_cyclic_canon(word), _cyclic_canon(reverse(word)))
     else
-        if partition > 0 && constraint === nothing
-            word = min(_comm(word, partition), _comm(reverse(word), partition))
-        elseif partition == 0 && constraint !== nothing
-            cword = copy(word)
-            word = min(constraint_reduce!(word, constraint = constraint), constraint_reduce!(reverse(cword), constraint = constraint))
-        elseif partition > 0 && constraint !== nothing
-            word = min(constraint_reduce!(_comm(word, partition), constraint = constraint), constraint_reduce!(_comm(reverse(word), partition), constraint = constraint))
+        if constraint === nothing
+            word = min(_comm(word, partition, comm_var), _comm(reverse(word), partition, comm_var))
         else
-            word = _sym_canon(word)
+            word = min(constraint_reduce!(_comm(word, partition, comm_var), constraint = constraint), constraint_reduce!(_comm(reverse(word), partition, comm_var), constraint = constraint))
         end
     end
     return word
 end
 
-function reduce(w::Monomial{false}, x; obj="eigen", partition=0, constraint=nothing)
+function reduce(w::Monomial{false}, x; obj="eigen", partition=0, comm_var=0, constraint=nothing)
     n = length(x)
     ind = w.z .> 0
     vars = w.vars[ind]
@@ -157,14 +152,34 @@ function reduce(w::Monomial{false}, x; obj="eigen", partition=0, constraint=noth
         k = bfind(x, n, vars[j], rev=true)
         append!(word, k*ones(UInt16, exp[j]))
     end
-    word = reduce!(word, obj=obj, partition=partition, constraint=constraint)
+    word = reduce!(word, obj=obj, partition=partition, comm_var=comm_var, constraint=constraint)
     return prod(x[word])
 end
 
-function _comm(word::Vector{UInt16}, partition)
-    ind1 = word .<= partition
-    ind2 = word .> partition
-    return [word[ind1]; word[ind2]]
+function _comm(word::Vector{UInt16}, partition, comm_var)
+    if partition > 0
+        w1 = copy(word[word .<= partition])
+        w2 = word[word .> partition]
+    else
+        w1 = copy(word)
+        w2 = UInt16[]
+    end
+    if comm_var > 0
+        i = 1
+        while i < length(w1)
+            if w1[i] <= comm_var && w1[i+1] <= comm_var && w1[i] > w1[i+1]
+                w1[i],w1[i+1] = w1[i+1],w1[i]
+                if i > 1
+                    i -= 1
+                else
+                    i = 2
+                end
+            else
+                i += 1
+            end
+        end
+    end
+    return [w1; w2]
 end
 
 function bfind(A, l, a; lt=isless, rev=false)
@@ -346,7 +361,7 @@ function star(p::Polynomial{false})
 end
 
 # generate an SOHS polynomial with variables vars and degree 2d
-function add_SOHS!(model, vars, d; obj="eigen", partition=0, constraint=nothing)
+function add_SOHS!(model, vars, d; obj="eigen", partition=0, comm_var=0, constraint=nothing)
     basis = vcat([MultivariatePolynomials.monomials(vars, i) for i = 0:d]...)
     if constraint !== nothing
         basis = basis[[all(item.z .< 2) for item in basis]]
@@ -364,7 +379,7 @@ function add_SOHS!(model, vars, d; obj="eigen", partition=0, constraint=nothing)
     sohs = 0
     pos = @variable(model, [1:length(basis), 1:length(basis)], PSD)
     for j = 1:length(basis), k = j:length(basis)
-        word = reduce(star(basis[j])*basis[k], vars, obj=obj, partition=partition, constraint=constraint)
+        word = reduce(star(basis[j])*basis[k], vars, obj=obj, partition=partition, comm_var=comm_var, constraint=constraint)
         if j == k
             @inbounds sohs += pos[j,k]*word
         else
@@ -375,7 +390,7 @@ function add_SOHS!(model, vars, d; obj="eigen", partition=0, constraint=nothing)
 end
 
 # generate a polynomial with variables vars and degree d
-function add_poly!(model, vars, d; obj="eigen", partition=0, constraint=nothing)
+function add_poly!(model, vars, d; obj="eigen", partition=0, comm_var=0, constraint=nothing)
     basis = vcat([MultivariatePolynomials.monomials(vars, i) for i = 0:d]...)
     if constraint !== nothing
         basis = basis[[all(item.z .< 2) for item in basis]]
@@ -395,10 +410,10 @@ function add_poly!(model, vars, d; obj="eigen", partition=0, constraint=nothing)
     return poly
 end
 
-function arrange(p, vars; obj="eigen", partition=0, constraint=nothing)
+function arrange(p, vars; obj="eigen", partition=0, comm_var=0, constraint=nothing)
     mons = monomials(p)
     coe = coefficients(p)
-    mons = [reduce(mon, vars, obj=obj, partition=partition, constraint=constraint) for mon in mons]
+    mons = [reduce(mon, vars, obj=obj, partition=partition, comm_var=comm_var, constraint=constraint) for mon in mons]
     nmons = unique(sort(mons))
     ncoe = zeros(typeof(coe[1]), length(nmons))
     for (i,item) in enumerate(coe)
