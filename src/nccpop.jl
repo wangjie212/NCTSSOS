@@ -569,7 +569,7 @@ function solvesdp(order::Int, n::Int, m::Int, supp, coe, basis, blocks, cl, bloc
                     GramMat[k+1] = Vector{Matrix{Float64}}(undef, cl[k+1])
                     for i = 1:cl[k+1]
                         GramMat[k+1][i] = zeros(blocksize[k+1][i], blocksize[k+1][i])
-                        for j = 2:blocksize[k+1][i]-1, r = j+1:blocksize[k+1][i]
+                        for j = 1:blocksize[k+1][i]-1, r = j+1:blocksize[k+1][i]
                             GramMat[k+1][i][j,r] = value(gpos[k][i][Int((2*blocksize[k+1][i]-j)*(j-1)/2)+r-j])
                             GramMat[k+1][i][r,j] = -GramMat[k+1][i][j,r]
                         end
