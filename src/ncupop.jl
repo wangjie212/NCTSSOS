@@ -1,8 +1,8 @@
 mutable struct ncupop_type
     supp # support data
     coe # coefficient data
-    partition # the first 'partition' variables commutes with the remaining variables
-    comm_var # the first 'comm_var' variables commutes each other
+    partition # the first 'partition' variables commute with the remaining variables
+    comm_var # the first 'comm_var' variables commute each other
     constraint # nothing or "projection" or "unipotent"
     basis # basis
     obj # "eigen" or "trace"
@@ -20,8 +20,9 @@ end
 cosmo_para() = cosmo_para(1e-8, 1e-8, 1e4)
 
 """
-    opt,data = nctssos_first(f::Polynomial{false, T} where T<:Number, x::Vector{PolyVar{false}};
-        newton=true, reducebasis=true, TS="block", obj="eigen", partition=0, comm_var=0, constraint=nothing, merge=false, md=3, solve=true, Gram=false, QUIET=false)
+    opt,data = nctssos_first(f::Polynomial{false, T} where T<:Number, x::Vector{PolyVar{false}}; newton=true, reducebasis=true, 
+    TS="block", solver="Mosek", writetofile=false, obj="eigen", partition=0, comm_var=0, constraint=nothing, merge=false, md=3, 
+    solve=true, Gram=false, QUIET=false)
 
 Compute the first step of the NCTSSOS hierarchy for unconstrained noncommutative polynomial optimization.
 If `newton=true`, then compute a monomial basis by the Newton chip method.
@@ -39,15 +40,18 @@ If `merge=true`, perform the PSD block merging. Return the optimum and other aux
 - `md`: the tunable parameter for merging blocks
 """
 function nctssos_first(f::Polynomial{false, T} where T<:Number, x::Vector{PolyVar{false}}; order=0, newton=true, reducebasis=true, monosquare=true,
-    TS="block", obj="eigen", partition=0, comm_var=0, constraint=nothing, merge=false, md=3, solve=true, Gram=false, solver="Mosek", QUIET=false, cosmo_setting=cosmo_para())
+    TS="block", obj="eigen", partition=0, comm_var=0, constraint=nothing, merge=false, md=3, solve=true, Gram=false, solver="Mosek", writetofile=false, 
+    QUIET=false, cosmo_setting=cosmo_para())
     n,supp,coe = poly_info(f, x)
     opt,data = nctssos_first(supp, coe, n, order=order, newton=newton, reducebasis=reducebasis, monosquare=monosquare, TS=TS, obj=obj,
-    partition=partition, comm_var=comm_var, constraint=constraint, merge=merge, md=md, solve=solve, Gram=Gram, solver=solver, QUIET=QUIET, cosmo_setting=cosmo_setting)
+    partition=partition, comm_var=comm_var, constraint=constraint, merge=merge, md=md, solve=solve, Gram=Gram, solver=solver, writetofile=writetofile, 
+    QUIET=QUIET, cosmo_setting=cosmo_setting)
     return opt,data
 end
 
 function nctssos_first(supp::Vector{Vector{UInt16}}, coe, n::Int; order=0, newton=true, reducebasis=true, monosquare=true, TS="block",
-    obj="eigen", partition=0, comm_var=0, constraint=nothing, merge=false, md=3, solve=true, Gram=false, solver="Mosek", QUIET=false, cosmo_setting=cosmo_para())
+    obj="eigen", partition=0, comm_var=0, constraint=nothing, merge=false, md=3, solve=true, Gram=false, solver="Mosek", writetofile=false, 
+    QUIET=false, cosmo_setting=cosmo_para())
     println("********************************** NCTSSOS **********************************")
     println("NCTSSOS is launching...")
     if order == 0
@@ -112,7 +116,7 @@ function nctssos_first(supp::Vector{Vector{UInt16}}, coe, n::Int; order=0, newto
         println("Obtained the block structure.\nThe maximal size of blocks is $mb.")
     end
     opt,ksupp,moment,GramMat = solvesdp(supp, coe, basis, blocks, cl, blocksize, QUIET=QUIET, obj=obj, partition=partition, comm_var=comm_var, constraint=constraint, solve=solve,
-    Gram=Gram, solver=solver, cosmo_setting=cosmo_setting)
+    Gram=Gram, solver=solver, writetofile=writetofile, cosmo_setting=cosmo_setting)
     data = ncupop_type(supp, coe, partition, comm_var, constraint, basis, obj, ksupp, moment, GramMat)
     return opt,data
 end
@@ -123,7 +127,7 @@ end
 Compute higher steps of the NCTSSOS hierarchy.
 Return the optimum and other auxiliary data.
 """
-function nctssos_higher!(data::ncupop_type; TS="block", merge=false, md=3, solve=true, solver="Mosek", Gram=false, QUIET=false)
+function nctssos_higher!(data::ncupop_type; TS="block", merge=false, md=3, solve=true, solver="Mosek", writetofile=false, Gram=false, QUIET=false)
     supp = data.supp
     basis = data.basis
     coe = data.coe
@@ -146,7 +150,7 @@ function nctssos_higher!(data::ncupop_type; TS="block", merge=false, md=3, solve
             println("Obtained the block structure in $time seconds.\nThe maximal size of blocks is $mb.")
         end
         opt,ksupp,moment,GramMat = solvesdp(supp, coe, basis, blocks, cl, blocksize, QUIET=QUIET, obj=obj, partition=partition, comm_var=comm_var, constraint=constraint, solve=solve,
-        Gram=Gram, solver=solver, cosmo_setting=cosmo_setting)
+        Gram=Gram, solver=solver, writetofile=writetofile, cosmo_setting=cosmo_setting)
         data.moment=moment
         data.GramMat = GramMat
         data.ksupp = ksupp
@@ -255,7 +259,7 @@ function get_blocks(ksupp, basis; TS="block", obj="eigen", partition=0, comm_var
 end
 
 function solvesdp(supp, coe, basis, blocks, cl, blocksize; QUIET=true, obj="eigen", partition=0, comm_var=0, constraint=nothing, solve=true, Gram=false,
-    solver="Mosek", cosmo_setting=cosmo_para())
+    solver="Mosek", writetofile=false, cosmo_setting=cosmo_para())
     ksupp = Vector{Vector{UInt16}}(undef, Int(sum(Int.(blocksize).^2+blocksize)/2))
     k = 1
     for i = 1:cl, j = 1:blocksize[i], r = j:blocksize[i]
@@ -330,6 +334,9 @@ function solvesdp(supp, coe, basis, blocks, cl, blocksize; QUIET=true, obj="eige
         end
         if QUIET == false
             println("SDP solving time: $time seconds.")
+        end
+        if writetofile != false
+            write_to_file(dualize(model), writetofile)
         end
         status = termination_status(model)
         objv = objective_value(model)

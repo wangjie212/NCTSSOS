@@ -1,7 +1,7 @@
 name = "NCTSSOS"
 uuid = "74af9cd0-d9b7-11ea-3577-f378dad115d4"
 authors = ["jwang <wangjie212@amss.ac.cn>"]
-version = "0.4.4"
+version = "0.4.5"
 
 [deps]
 COSMO = "1e616198-aa4e-51ec-90a2-23f7fbd31d8d"
@@ -23,7 +23,6 @@ MultivariatePolynomials = "< 0.5.0"
 Graphs = "1.5"
 MetaGraphs = "0.7, 0.8"
 JuMP = "1"
-MosekTools = "< 0.15.2, 0.15"
 julia = "1"
 
 [extras]

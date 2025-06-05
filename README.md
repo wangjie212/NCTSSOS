@@ -37,8 +37,8 @@ opt,data = nctssos_higher!(data)
 Options:  
 **obj**: "eigen" by default (perform eigenvalue minimization), "trace" (perform trace minimization)  
 **TS**: "block" by default (maximal chordal extension), "MD" (approximately smallest chordal extension), false (invalidating term sparsity iterations) 
-**partition**: specify that the first *partition* variables commutes with the remaining variables  
-**comm_var**: specify that the first *comm_var* variables commutes each other  
+**partition**: specify that the first *partition* variables commute with the remaining variables  
+**comm_var**: specify that the first *comm_var* variables commute each other  
 **constraint**: nothing by default or "projection" (satisfying $x_i^2=x_i$) or "unipotent" (satisfying $x_i^2=1$)  
 
 ### Constrained non-commutative polynomial optimization
@@ -63,8 +63,8 @@ opt,data = nctssos_higher!(data)
 Options:  
 **obj**: "eigen" by default (perform eigenvalue minimization), "trace" (perform trace minimization)  
 **TS**: "block" by default (maximal chordal extension), "MD" (approximately smallest chordal extension), false (invalidating term sparsity iterations)  
-**partition**: specify that the first *partition* variables commutes with the remaining variables  
-**comm_var**: specify that the first *comm_var* variables commutes each other  
+**partition**: specify that the first *partition* variables commute with the remaining variables  
+**comm_var**: specify that the first *comm_var* variables commute each other  
 **constraint**: nothing by default or "projection" (satisfying $x_i^2=x_i$) or "unipotent" (satisfying $x_i^2=1$)  
 
 To exploit correlative sparsity and term sparsity simultaneously, run

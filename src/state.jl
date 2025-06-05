@@ -18,7 +18,7 @@ mutable struct stateopt_type
 end
 
 function stateopt_first(st_supp::Vector{Vector{Union{Vector{Vector{Int}}, mixword}}}, coe, n, d; numeq=0, vargroup=[n], TS="block", monosquare=false, QUIET=false, constraint=nothing, solve=true, Gram=false,
-    solver="Mosek", cosmo_setting=cosmo_para())
+    solver="Mosek", writetofile=false, cosmo_setting=cosmo_para())
     println("********************************** NCTSSOS **********************************")
     println("NCTSSOS is launching...")
     bsupp = get_ncbasis(n, d, binary=constraint!==nothing)
@@ -80,22 +80,22 @@ function stateopt_first(st_supp::Vector{Vector{Union{Vector{Vector{Int}}, mixwor
         println("Obtained the block structure in $time seconds.\nThe maximal size of blocks is $mb.")
     end
     opt,ksupp,moment,GramMat = pstate_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, vargroup, numeq=numeq, QUIET=QUIET, constraint=constraint,
-    solve=solve, Gram=Gram, solver=solver, cosmo_setting=cosmo_setting)
+    solve=solve, Gram=Gram, solver=solver, writetofile=writetofile, cosmo_setting=cosmo_setting)
     data = stateopt_type(supp, coe, numeq, 0, vargroup, constraint, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, ksupp, moment, GramMat)
     return opt,data
 end
 
-function stateopt_higher!(data; TS="block", solver="Mosek", QUIET=false, solve=true, Gram=false, cosmo_setting=cosmo_para())
-    return pstateopt_higher!(data, TS=TS, solver=solver, QUIET=QUIET, solve=solve, Gram=Gram, cosmo_setting=cosmo_setting)
+function stateopt_higher!(data; TS="block", solver="Mosek", writetofile=false, QUIET=false, solve=true, Gram=false, cosmo_setting=cosmo_para())
+    return pstateopt_higher!(data, TS=TS, solver=solver, writetofile=writetofile, QUIET=QUIET, solve=solve, Gram=Gram, cosmo_setting=cosmo_setting)
 end
 
-function pstateopt_first(st_supp::Vector{Vector{Vector{Int}}}, coe, n, d; numeq=0, scalar=0, vargroup=[n], TS="block", monosquare=false, solver="Mosek",
+function pstateopt_first(st_supp::Vector{Vector{Vector{Int}}}, coe, n, d; numeq=0, scalar=0, vargroup=[n], TS="block", monosquare=false, solver="Mosek", writetofile=false,
     QUIET=false, constraint=nothing, solve=true, Gram=false, bilocal=false, cosmo_setting=cosmo_para(), zero_moments=false)
-    return pstateopt_first([st_supp], [coe], n, d, numeq=numeq, scalar=scalar, vargroup=vargroup, TS=TS, monosquare=monosquare, solver=solver, QUIET=QUIET,
+    return pstateopt_first([st_supp], [coe], n, d, numeq=numeq, scalar=scalar, vargroup=vargroup, TS=TS, monosquare=monosquare, solver=solver, writetofile=writetofile, QUIET=QUIET,
     constraint=constraint, solve=solve, Gram=Gram, bilocal=bilocal, cosmo_setting=cosmo_setting, zero_moments=zero_moments)
 end
 
-function pstateopt_first(st_supp::Vector{Vector{Vector{Vector{Int}}}}, coe, n, d; numeq=0, scalar=0, vargroup=[n], TS="block", monosquare=false, solver="Mosek",
+function pstateopt_first(st_supp::Vector{Vector{Vector{Vector{Int}}}}, coe, n, d; numeq=0, scalar=0, vargroup=[n], TS="block", monosquare=false, solver="Mosek", writetofile=false,
     QUIET=false, constraint=nothing, solve=true, Gram=false, bilocal=false, cosmo_setting=cosmo_para(), zero_moments=false)
     println("********************************** NCTSSOS **********************************")
     println("NCTSSOS is launching...")
@@ -173,13 +173,13 @@ function pstateopt_first(st_supp::Vector{Vector{Vector{Vector{Int}}}}, coe, n, d
         mb = maximum(maximum.(blocksize))
         println("Obtained the block structure in $time seconds.\nThe maximal size of blocks is $mb.")
     end
-    opt,ksupp,moment,GramMat = pstate_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, vargroup, numeq=numeq, solver=solver, QUIET=QUIET,
+    opt,ksupp,moment,GramMat = pstate_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, vargroup, numeq=numeq, solver=solver, writetofile=writetofile, QUIET=QUIET,
     constraint=constraint, solve=solve, Gram=Gram, bilocal=bilocal, cosmo_setting=cosmo_setting, zero_moments=zero_moments)
     data = stateopt_type(supp, coe, numeq, scalar, vargroup, constraint, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, ksupp, moment, GramMat)
     return opt,data
 end
 
-function pstateopt_higher!(data; TS="block", solver="Mosek", QUIET=false, solve=true, Gram=false, bilocal=false, cosmo_setting=cosmo_para(), zero_moments=false)
+function pstateopt_higher!(data; TS="block", solver="Mosek", writetofile=false, QUIET=false, solve=true, Gram=false, bilocal=false, cosmo_setting=cosmo_para(), zero_moments=false)
     supp = data.supp
     coe = data.coe
     numeq = data.numeq
@@ -205,7 +205,7 @@ function pstateopt_higher!(data; TS="block", solver="Mosek", QUIET=false, solve=
             mb = maximum(maximum.(blocksize))
             println("Obtained the block structure in $time seconds.\nThe maximal size of blocks is $mb.")
         end
-        opt,ksupp,moment,GramMat = pstate_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, vargroup, numeq=numeq, solver=solver, QUIET=QUIET,
+        opt,ksupp,moment,GramMat = pstate_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, vargroup, numeq=numeq, solver=solver, writetofile=writetofile, QUIET=QUIET,
         constraint=constraint, solve=solve, Gram=Gram, bilocal=bilocal, cosmo_setting=cosmo_setting, zero_moments=zero_moments)
         data.moment = moment
         data.GramMat = GramMat
@@ -217,7 +217,7 @@ function pstateopt_higher!(data; TS="block", solver="Mosek", QUIET=false, solve=
     return opt,data
 end
 
-function pstate_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, vargroup; numeq=0, solver="Mosek", QUIET=false, constraint=nothing,
+function pstate_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, vargroup; numeq=0, solver="Mosek", writetofile=false, QUIET=false, constraint=nothing,
     solve=true, Gram=false, bilocal=false, cosmo_setting=cosmo_para(), zero_moments=false)
     m = length(supp) - 1
     ksupp = Vector{UInt32}[]
@@ -377,6 +377,9 @@ function pstate_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocks
         end
         if QUIET == false
             println("SDP solving time: $time seconds.")
+        end
+        if writetofile != false
+            write_to_file(dualize(model), writetofile)
         end
         status = termination_status(model)
         objv = objective_value(model)

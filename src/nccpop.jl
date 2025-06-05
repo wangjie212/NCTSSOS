@@ -6,8 +6,8 @@ mutable struct nccpop_data
     eq_constraint_type # type of equality constraints: 1 - symmetric, -1 - antisymmetric, 0 - others
     supp # support data
     coe # coefficient data
-    partition # the first 'partition' variables commutes with the remaining variables
-    comm_var # the first 'comm_var' variables commutes each other
+    partition # the first 'partition' variables commute with the remaining variables
+    comm_var # the first 'comm_var' variables commute each other
     constraint # nothing or "projection" or "unipotent"
     obj # "eigen" or "trace"
     basis # monomial bases
@@ -20,9 +20,9 @@ mutable struct nccpop_data
 end
 
 """
-    opt,data = nctssos_first(pop::Vector{Polynomial{false, T}} where T<:Number, x::Vector{PolyVar{false}},
-        order::Int; numeq=0, reducebasis=false, TS="block", normality=false, obj="eigen", partition=0, comm_var=0, constraint=nothing, merge=false, md=3, 
-        solve=true, Gram=false, QUIET=false)
+    opt,data = nctssos_first(pop::Vector{Polynomial{false, T}} where T<:Number, x::Vector{PolyVar{false}}, order::Int; numeq=0, 
+    reducebasis=false, TS="block", writetofile=false, normality=false, obj="eigen", partition=0, comm_var=0, constraint=nothing, merge=false, md=3, 
+    solve=true, Gram=false, QUIET=false)
 
 Compute the first step of the NCTSSOS hierarchy for constrained noncommutative polynomial optimization with
 relaxation order `order`.
@@ -40,7 +40,7 @@ Return the optimum and other auxiliary data.
 
 function nctssos_first(pop::Vector{Polynomial{false, T}} where T<:Number, x::Vector{PolyVar{false}}, order::Int; numeq=0, 
     reducebasis=false, TS="block", soc=false, obj="eigen", merge=false, md=3, solve=true, Gram=false, QUIET=false,
-    solver="Mosek", partition=0, comm_var=0, constraint=nothing, normality=false, cosmo_setting=cosmo_para())
+    solver="Mosek", writetofile=false, partition=0, comm_var=0, constraint=nothing, normality=false, cosmo_setting=cosmo_para())
     n,supp,coe = polys_info(pop, x)
     eq_constraint_type = nothing
     if numeq > 0
@@ -55,12 +55,13 @@ function nctssos_first(pop::Vector{Polynomial{false, T}} where T<:Number, x::Vec
         end
     end
     opt,data = nctssos_first(supp, coe, n, order, numeq=numeq, eq_constraint_type=eq_constraint_type, reducebasis=reducebasis, TS=TS, obj=obj, merge=merge, soc=soc,
-    md=md, QUIET=QUIET, solve=solve, solver=solver, Gram=Gram, partition=partition, comm_var=comm_var, constraint=constraint, normality=normality, cosmo_setting=cosmo_setting)
+    md=md, QUIET=QUIET, solve=solve, solver=solver, writetofile=writetofile, Gram=Gram, partition=partition, comm_var=comm_var, constraint=constraint, normality=normality, 
+    cosmo_setting=cosmo_setting)
     return opt,data
 end
 
 function nctssos_first(supp::Vector{Vector{Vector{UInt16}}}, coe, n::Int64, order::Int64; numeq=0, eq_constraint_type=nothing, reducebasis=false, TS="block", soc=false,
-    obj="eigen", merge=false, md=3, solve=true, solver="Mosek", Gram=false, QUIET=false, partition=0, comm_var=0, constraint=nothing, normality=false, cosmo_setting=cosmo_para())
+    obj="eigen", merge=false, md=3, solve=true, solver="Mosek", writetofile=false, Gram=false, QUIET=false, partition=0, comm_var=0, constraint=nothing, normality=false, cosmo_setting=cosmo_para())
     println("********************************** NCTSSOS **********************************")
     println("NCTSSOS is launching...")
     m = length(supp)-1
@@ -126,12 +127,12 @@ function nctssos_first(supp::Vector{Vector{Vector{UInt16}}}, coe, n::Int64, orde
         println("Obtained the block structure in $time seconds. The maximal size of blocks is $mb.")
     end
     opt,ksupp,moment,GramMat = solvesdp(order, n, m, supp, coe, basis, blocks, cl, blocksize, numeq=numeq, eq_constraint_type=eq_constraint_type, QUIET=QUIET, obj=obj, soc=soc,
-    TS=TS, solve=solve, solver=solver, Gram=Gram, partition=partition, comm_var=comm_var, constraint=constraint, normality=normality, cosmo_setting=cosmo_setting)
+    TS=TS, solve=solve, solver=solver, writetofile=writetofile, Gram=Gram, partition=partition, comm_var=comm_var, constraint=constraint, normality=normality, cosmo_setting=cosmo_setting)
     data = nccpop_data(n, m, order, numeq, eq_constraint_type, supp, coe, partition, comm_var, constraint, obj, basis, ksupp, blocks, cl, blocksize, moment, GramMat)
     return opt,data
 end
 
-function nctssos_higher!(data::nccpop_data; TS="block", soc=false, merge=false, md=3, solve=true, solver="Mosek", Gram=false, QUIET=false, 
+function nctssos_higher!(data::nccpop_data; TS="block", soc=false, merge=false, md=3, solve=true, solver="Mosek", writetofile=false, Gram=false, QUIET=false, 
     normality=false, cosmo_setting=cosmo_para())
     n = data.n
     m = data.m
@@ -165,7 +166,7 @@ function nctssos_higher!(data::nccpop_data; TS="block", soc=false, merge=false, 
             println("Obtained the block structure in $time seconds.\nThe maximal size of blocks is $mb.")
         end
         opt,ksupp,moment,GramMat = solvesdp(data.order, n, m, supp, coe, basis, blocks, cl, blocksize, numeq=numeq, eq_constraint_type=eq_constraint_type, QUIET=QUIET, obj=obj, soc=soc,
-        TS=TS, solve=solve, solver=solver, Gram=Gram, partition=partition, comm_var=comm_var, constraint=constraint, normality=normality, cosmo_setting=cosmo_setting)
+        TS=TS, solve=solve, solver=solver, writetofile=writetofile, Gram=Gram, partition=partition, comm_var=comm_var, constraint=constraint, normality=normality, cosmo_setting=cosmo_setting)
         data.moment = moment
         data.GramMat = GramMat
         data.ksupp = ksupp
@@ -305,7 +306,7 @@ function get_cblocks(m, ksupp, gsupp, basis; blocks=[], cl=[], blocksize=[], TS=
 end
 
 function solvesdp(order::Int, n::Int, m::Int, supp, coe, basis, blocks, cl, blocksize; numeq=0, eq_constraint_type=nothing, QUIET=true, obj="eigen",
-    solve=true, solver="Mosek", TS="block", Gram=false, soc=false, partition=0, comm_var=0, constraint=nothing, normality=false, cosmo_setting=cosmo_para())
+    solve=true, solver="Mosek", writetofile=false, TS="block", Gram=false, soc=false, partition=0, comm_var=0, constraint=nothing, normality=false, cosmo_setting=cosmo_para())
     ksupp = Vector{UInt16}[]
     for i = 1:cl[1], j = 1:blocksize[1][i], r = j:blocksize[1][i]
         @inbounds bi = [basis[1][blocks[1][i][j]][end:-1:1]; basis[1][blocks[1][i][r]]]
@@ -552,6 +553,9 @@ function solvesdp(order::Int, n::Int, m::Int, supp, coe, basis, blocks, cl, bloc
         end
         if QUIET == false
             println("SDP solving time: $time seconds.")
+        end
+        if writetofile != false
+            write_to_file(dualize(model), writetofile)
         end
         status = termination_status(model)
         objv = objective_value(model)

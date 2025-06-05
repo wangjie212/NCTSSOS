@@ -42,13 +42,13 @@ function get_cwbasis(n, d, ptsupp, iptsupp, bsupp)
     return wbasis,tbasis,itbasis,basis
 end
 
-function cpstateopt_first(st_supp::Vector{Vector{Vector{Vector{Int}}}}, coe, n, d; vargroup=[n], TS="block", solver="Mosek",
+function cpstateopt_first(st_supp::Vector{Vector{Vector{Vector{Int}}}}, coe, n, d; vargroup=[n], TS="block", solver="Mosek", writetofile=false,
     QUIET=false, constraint=nothing, solve=true, Gram=false, bilocal=false, cosmo_setting=cosmo_para(), zero_moments=false)
-    return cpstateopt_first([st_supp], [coe], n, d, vargroup=vargroup, TS=TS, solver=solver, QUIET=QUIET,
+    return cpstateopt_first([st_supp], [coe], n, d, vargroup=vargroup, TS=TS, solver=solver, writetofile=writetofile, QUIET=QUIET,
     constraint=constraint, solve=solve, Gram=Gram, bilocal=bilocal, cosmo_setting=cosmo_setting, zero_moments=zero_moments)
 end
 
-function cpstateopt_first(st_supp::Vector{Vector{Vector{Vector{Vector{Int}}}}}, coe, n, d; vargroup=[n], TS="block", solver="Mosek",
+function cpstateopt_first(st_supp::Vector{Vector{Vector{Vector{Vector{Int}}}}}, coe, n, d; vargroup=[n], TS="block", solver="Mosek", writetofile=false,
     QUIET=false, constraint=nothing, solve=true, Gram=false, bilocal=false, cosmo_setting=cosmo_para(), zero_moments=false)
     println("********************************** NCTSSOS **********************************")
     println("NCTSSOS is launching...")
@@ -138,12 +138,12 @@ function cpstateopt_first(st_supp::Vector{Vector{Vector{Vector{Vector{Int}}}}}, 
         println("Obtained the block structure in $time seconds.\nThe maximal size of blocks is $mb.")
     end
     opt,ksupp,moment,GramMat = cpstate_SDP(supp, coe, ptsupp, iptsupp, wbasis, tbasis, itbasis, basis, blocks, cl, blocksize, vargroup, solver=solver, QUIET=QUIET,
-    constraint=constraint, solve=solve, Gram=Gram, bilocal=bilocal, cosmo_setting=cosmo_setting, zero_moments=zero_moments)
+    constraint=constraint, solve=solve, writetofile=writetofile, Gram=Gram, bilocal=bilocal, cosmo_setting=cosmo_setting, zero_moments=zero_moments)
     data = cstateopt_type(supp, coe, 0, vargroup, constraint, ptsupp, iptsupp, wbasis, tbasis, itbasis, basis, blocks, cl, blocksize, ksupp, moment, GramMat)
     return opt,data
 end
 
-function cpstateopt_higher!(data; TS="block", solver="Mosek", QUIET=false, solve=true, Gram=false, bilocal=false, cosmo_setting=cosmo_para(), zero_moments=false)
+function cpstateopt_higher!(data; TS="block", solver="Mosek", writetofile=false, QUIET=false, solve=true, Gram=false, bilocal=false, cosmo_setting=cosmo_para(), zero_moments=false)
     supp = data.supp
     coe = data.coe
     constraint = data.constraint
@@ -172,7 +172,7 @@ function cpstateopt_higher!(data; TS="block", solver="Mosek", QUIET=false, solve
             println("Obtained the block structure in $time seconds.\nThe maximal size of blocks is $mb.")
         end
         opt,ksupp,moment,GramMat = cpstate_SDP(supp, coe, ptsupp, iptsupp, wbasis, tbasis, itbasis, basis, blocks, cl, blocksize, vargroup, solver=solver, QUIET=QUIET,
-        constraint=constraint, solve=solve, Gram=Gram, bilocal=bilocal, cosmo_setting=cosmo_setting, zero_moments=zero_moments)
+        constraint=constraint, solve=solve, writetofile=writetofile, Gram=Gram, bilocal=bilocal, cosmo_setting=cosmo_setting, zero_moments=zero_moments)
         data.moment = moment
         data.GramMat = GramMat
         data.ksupp = ksupp
@@ -373,7 +373,7 @@ function cstate_reduce(word1, word2, ptsupp, iptsupp, vargroup; bilocal=false)
     end
 end
 
-function cpstate_SDP(supp, coe, ptsupp, iptsupp, wbasis, tbasis, itbasis, basis, blocks, cl, blocksize, vargroup; solver="Mosek", QUIET=false, constraint=nothing,
+function cpstate_SDP(supp, coe, ptsupp, iptsupp, wbasis, tbasis, itbasis, basis, blocks, cl, blocksize, vargroup; solver="Mosek", writetofile=false, QUIET=false, constraint=nothing,
     solve=true, Gram=false, bilocal=false, cosmo_setting=cosmo_para(), zero_moments=false)
     m = length(supp) - 1
     ksupp = Vector{Vector{UInt32}}[]
@@ -550,6 +550,9 @@ function cpstate_SDP(supp, coe, ptsupp, iptsupp, wbasis, tbasis, itbasis, basis,
         end
         if QUIET == false
             println("SDP solving time: $time seconds.")
+        end
+        if writetofile != false
+            write_to_file(dualize(model), writetofile)
         end
         status = termination_status(model)
         objv = objective_value(model)

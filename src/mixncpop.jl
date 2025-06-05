@@ -4,8 +4,8 @@ mutable struct ncmpop_data
     numeq::Int # number of equality constraints
     supp # support data
     coe # coefficient data
-    partition # the first 'partition' variables commutes with the remaining variables
-    comm_var # the first 'comm_var' variables commutes each other
+    partition # the first 'partition' variables commute with the remaining variables
+    comm_var # the first 'comm_var' variables commute each other
     constraint # nothing or "projection" or "unipotent"
     obj # "eigen" or "trace"
     ksupp # extended support at the k-th step
@@ -22,7 +22,8 @@ mutable struct ncmpop_data
 end
 
 """
-    opt,data = cs_nctssos_first(pop, x, d; numeq=0, CS="MF", TS="block", QUIET=false, obj="eigen", partition=0, comm_var=0, constraint=nothing, solve=true, Gram=false)
+    opt,data = cs_nctssos_first(pop, x, d; numeq=0, CS="MF", TS="block", solver="Mosek", writetofile=false, QUIET=false, 
+    obj="eigen", partition=0, comm_var=0, constraint=nothing, solve=true, Gram=false)
 
 Compute the first step of the CS-NCTSSOS hierarchy for constrained noncommutative polynomial
 optimization with relaxation order `d`. Return the optimum and other auxiliary data.
@@ -37,10 +38,10 @@ optimization with relaxation order `d`. Return the optimum and other auxiliary d
 - `numeq`: the number of equality constraints
 """
 function cs_nctssos_first(pop, x, d; numeq=0, CS="MF", minimize=false, TS="block", QUIET=false, obj="eigen", 
-    solve=true, Gram=false, partition=0, comm_var=0, constraint=nothing, solver="Mosek", cosmo_setting=cosmo_para())
+    solve=true, Gram=false, partition=0, comm_var=0, constraint=nothing, solver="Mosek", writetofile=false, cosmo_setting=cosmo_para())
     n,supp,coe = polys_info(pop, x)
     opt,data = cs_nctssos_first(supp, coe, n, d, numeq=numeq, CS=CS, minimize=minimize, TS=TS, QUIET=QUIET, obj=obj,
-    solve=solve, solver=solver, Gram=Gram, partition=partition, comm_var=comm_var, constraint=constraint, cosmo_setting=cosmo_setting)
+    solve=solve, solver=solver, writetofile=writetofile, Gram=Gram, partition=partition, comm_var=comm_var, constraint=constraint, cosmo_setting=cosmo_setting)
     return opt,data
 end
 
@@ -61,7 +62,7 @@ corresponding to the supports and coeffients of `pop` respectively. Return the o
 - `constraint`: nothing or "projection" or "unipotent"
 - `numeq`: the number of equality constraints
 """
-function cs_nctssos_first(supp::Vector{Vector{Vector{UInt16}}}, coe, n::Int, d::Int; numeq=0, CS="MF", solver="Mosek",
+function cs_nctssos_first(supp::Vector{Vector{Vector{UInt16}}}, coe, n::Int, d::Int; numeq=0, CS="MF", solver="Mosek", writetofile=false,
     minimize=false, TS="block", QUIET=false, obj="eigen", solve=true, Gram=false, partition=0, comm_var=0, constraint=nothing, cosmo_setting=cosmo_para())
     println("********************************** NCTSSOS **********************************")
     println("NCTSSOS is launching...")
@@ -113,7 +114,7 @@ function cs_nctssos_first(supp::Vector{Vector{Vector{UInt16}}}, coe, n::Int, d::
         println("Obtained the block structure in $time seconds.\nThe maximal size of blocks is $mb.")
     end
     opt,ksupp,moment,GramMat = solvesdp(m, supp, coe, basis, cql, I, blocks, cl, blocksize, numeq=numeq, QUIET=QUIET, obj=obj, solve=solve, 
-    solver=solver, Gram=Gram, partition=partition, comm_var=comm_var, constraint=constraint, cosmo_setting=cosmo_setting)
+    solver=solver, writetofile=writetofile, Gram=Gram, partition=partition, comm_var=comm_var, constraint=constraint, cosmo_setting=cosmo_setting)
     data = ncmpop_data(n, m, numeq, supp, coe, partition, comm_var, constraint, obj, ksupp, basis, cql, cliques, cliquesize, I, blocks, cl, blocksize, 
     moment,GramMat)
     return opt,data
@@ -125,7 +126,7 @@ end
 Compute higher steps of the CS-NCTSSOS hierarchy.
 Return the optimum and other auxiliary data.
 """
-function cs_nctssos_higher!(data::ncmpop_data; TS="block", QUIET=false, solve=true, Gram=false, solver="Mosek", cosmo_setting=cosmo_para())
+function cs_nctssos_higher!(data::ncmpop_data; TS="block", QUIET=false, solve=true, Gram=false, solver="Mosek", writetofile=false, cosmo_setting=cosmo_para())
     n = data.n
     m = data.m
     numeq = data.numeq
@@ -160,7 +161,7 @@ function cs_nctssos_higher!(data::ncmpop_data; TS="block", QUIET=false, solve=tr
             println("Obtained the block structure in $time seconds.\nThe maximal size of blocks is $mb.")
         end
         opt,ksupp,moment,GramMat = solvesdp(m, supp, coe, basis, cql, I, blocks, cl, blocksize, numeq=numeq, QUIET=QUIET, obj=obj, solve=solve, 
-        Gram=Gram, partition=partition, comm_var=comm_var, constraint=constraint, solver=solver, cosmo_setting=cosmo_setting)
+        Gram=Gram, partition=partition, comm_var=comm_var, constraint=constraint, solver=solver, writetofile=writetofile, cosmo_setting=cosmo_setting)
         data.moment = moment
         data.GramMat = GramMat
         data.ksupp = ksupp
@@ -172,7 +173,7 @@ function cs_nctssos_higher!(data::ncmpop_data; TS="block", QUIET=false, solve=tr
 end
 
 function solvesdp(m::Int, supp::Vector{Vector{Vector{UInt16}}}, coe, basis, cql, I, blocks, cl, blocksize; numeq=0, QUIET=false, obj="eigen", solve=true, Gram=false, 
-    partition=0, comm_var=0, constraint=nothing, solver="Mosek", cosmo_setting=cosmo_para())
+    partition=0, comm_var=0, constraint=nothing, solver="Mosek", writetofile=false, cosmo_setting=cosmo_para())
     ksupp = Vector{UInt16}[]
     for i = 1:cql
         for j = 1:cl[i][1], k = 1:blocksize[i][1][j], r = k:blocksize[i][1][j]
@@ -298,6 +299,9 @@ function solvesdp(m::Int, supp::Vector{Vector{Vector{UInt16}}}, coe, basis, cql,
         end
         if QUIET == false
             println("SDP solving time: $time seconds.")
+        end
+        if writetofile != false
+            write_to_file(dualize(model), writetofile)
         end
         status = termination_status(model)
         objv = objective_value(model)

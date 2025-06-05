@@ -123,7 +123,7 @@ function get_wbasis(n, d, ptsupp, bsupp; scalar=0)
 end
 
 function traceopt_first(tr_supp::Vector{Vector{Union{Vector{Vector{Int}}, mixword}}}, coe, n, d; numeq=0, TS="block", monosquare=false, QUIET=false, constraint=nothing, solve=true, Gram=false,
-    solver="Mosek", cosmo_setting=cosmo_para())
+    solver="Mosek", writetofile=false, cosmo_setting=cosmo_para())
     println("********************************** NCTSSOS **********************************")
     println("NCTSSOS is launching...")
     bsupp = get_ncbasis(n, d, binary=constraint!==nothing)
@@ -186,12 +186,12 @@ function traceopt_first(tr_supp::Vector{Vector{Union{Vector{Vector{Int}}, mixwor
         println("Obtained the block structure in $time seconds.\nThe maximal size of blocks is $mb.")
     end
     opt,ksupp,moment,GramMat = ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, numeq=numeq, QUIET=QUIET, constraint=constraint,
-    solve=solve, Gram=Gram, solver=solver, cosmo_setting=cosmo_setting)
+    solve=solve, Gram=Gram, solver=solver, writetofile=writetofile, cosmo_setting=cosmo_setting)
     data = traceopt_type(supp, coe, numeq, constraint, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, ksupp, moment, GramMat)
     return opt,data
 end
 
-function traceopt_higher!(data; TS="block", QUIET=false, solve=true, solver="Mosek", Gram=false, cosmo_setting=cosmo_para())
+function traceopt_higher!(data; TS="block", QUIET=false, solve=true, solver="Mosek", writetofile=false, Gram=false, cosmo_setting=cosmo_para())
     supp = data.supp
     coe = data.coe
     numeq = data.numeq
@@ -217,7 +217,7 @@ function traceopt_higher!(data; TS="block", QUIET=false, solve=true, solver="Mos
             println("Obtained the block structure in $time seconds.\nThe maximal size of blocks is $mb.")
         end
         opt,ksupp,moment,GramMat = ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, numeq=numeq, QUIET=QUIET, constraint=constraint,
-        solve=solve, Gram=Gram, solver=solver, cosmo_setting=cosmo_setting)
+        solve=solve, Gram=Gram, solver=solver, writetofile=writetofile, cosmo_setting=cosmo_setting)
         data.ksupp = ksupp
         data.blocks = blocks
         data.cl = cl
@@ -228,14 +228,14 @@ function traceopt_higher!(data; TS="block", QUIET=false, solve=true, solver="Mos
     return opt,data
 end
 
-function ptraceopt_first(tr_supp::Vector{Vector{Vector{Int}}}, coe, n, d; numeq=0, TS="block", monosquare=false, solver="Mosek",
+function ptraceopt_first(tr_supp::Vector{Vector{Vector{Int}}}, coe, n, d; numeq=0, TS="block", monosquare=false, solver="Mosek", writetofile=false,
     QUIET=false, constraint=nothing, solve=true, Gram=false, cosmo_setting=cosmo_para())
-    return ptraceopt_first([tr_supp], [coe], n, d, numeq=numeq, TS=TS, monosquare=monosquare, solver=solver, QUIET=QUIET,
+    return ptraceopt_first([tr_supp], [coe], n, d, numeq=numeq, TS=TS, monosquare=monosquare, solver=solver, writetofile=writetofile, QUIET=QUIET,
     constraint=constraint, solve=solve, Gram=Gram, cosmo_setting=cosmo_setting)
 end
 
 function ptraceopt_first(tr_supp::Vector{Vector{Vector{Vector{Int}}}}, coe, n, d; numeq=0, TS="block", monosquare=false, QUIET=false, constraint=nothing, solve=true, Gram=false,
-    solver="Mosek", cosmo_setting=cosmo_para())
+    solver="Mosek", writetofile=false, cosmo_setting=cosmo_para())
     println("********************************** NCTSSOS **********************************")
     println("NCTSSOS is launching...")
     bsupp = get_ncbasis(n, d, binary=constraint!==nothing)
@@ -296,12 +296,12 @@ function ptraceopt_first(tr_supp::Vector{Vector{Vector{Vector{Int}}}}, coe, n, d
         println("Obtained the block structure in $time seconds.\nThe maximal size of blocks is $mb.")
     end
     opt,ksupp,moment,GramMat = ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, numeq=numeq, QUIET=QUIET, constraint=constraint,
-    solve=solve, Gram=Gram, solver=solver, cosmo_setting=cosmo_setting)
+    solve=solve, Gram=Gram, solver=solver, writetofile=writetofile, cosmo_setting=cosmo_setting)
     data = traceopt_type(supp, coe, numeq, constraint, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, ksupp, moment, GramMat)
     return opt,data
 end
 
-function ptraceopt_higher!(data; TS="block", QUIET=false, solve=true, solver="Mosek", Gram=false, cosmo_setting=cosmo_para())
+function ptraceopt_higher!(data; TS="block", QUIET=false, solve=true, solver="Mosek", writetofile=false, Gram=false, cosmo_setting=cosmo_para())
     supp = data.supp
     coe = data.coe
     numeq = data.numeq
@@ -327,7 +327,7 @@ function ptraceopt_higher!(data; TS="block", QUIET=false, solve=true, solver="Mo
             println("Obtained the block structure in $time seconds.\nThe maximal size of blocks is $mb.")
         end
         opt,ksupp,moment,GramMat = ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, numeq=numeq, QUIET=QUIET, constraint=constraint,
-        solve=solve, Gram=Gram, solver=solver, cosmo_setting=cosmo_setting)
+        solve=solve, Gram=Gram, solver=solver, writetofile=writetofile, cosmo_setting=cosmo_setting)
         data.moment = moment
         data.GramMat = GramMat
         data.ksupp = ksupp
@@ -339,7 +339,7 @@ function ptraceopt_higher!(data; TS="block", QUIET=false, solve=true, solver="Mo
 end
 
 function ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize; numeq=0, QUIET=false, constraint=nothing, solve=true,
-    Gram=false, solver="Mosek", cosmo_setting=cosmo_para())
+    Gram=false, solver="Mosek", writetofile=false, cosmo_setting=cosmo_para())
     m = length(supp) - 1
     # ksupp = Vector{Vector{UInt16}}(undef, Int(sum(Int.(blocksize).^2+blocksize)/2))
     # k = 1
@@ -478,6 +478,9 @@ function ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocks
         end
         if QUIET == false
             println("SDP solving time: $time seconds.")
+        end
+        if writetofile != false
+            write_to_file(dualize(model), writetofile)
         end
         status = termination_status(model)
         objv = objective_value(model)
