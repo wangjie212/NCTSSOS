@@ -217,7 +217,7 @@ function add_psatz!(model, nonneg, vars, ineq_cons, eq_cons, order; obj="eigen",
     return info
 end
 
-function get_blocks(I, m, fsupp::Vector{Vector{UInt16}}, gsupp::Vector{Vector{Vector{UInt16}}}, basis, cliques, cql; tsupp=[], TS="block", SO=1, QUIET=false, obj="eigen", partition=0, comm_var=0, constraint=nothing)
+function get_blocks(I::Vector{Vector{Int}}, m::Int, fsupp::Vector{Vector{UInt16}}, gsupp::Vector{Vector{Vector{UInt16}}}, basis, cliques, cql; tsupp=[], TS="block", SO=1, QUIET=false, obj="eigen", partition=0, comm_var=0, constraint=nothing)
     blocks = Vector{Vector{Vector{Vector{UInt16}}}}(undef, cql)
     cl = Vector{Vector{Int}}(undef, cql)
     blocksize = Vector{Vector{Vector{Int}}}(undef, cql)
@@ -306,7 +306,7 @@ function get_blocks(m::Int, tsupp, supp::Vector{Vector{Vector{UInt16}}}, basis::
 end
 
 function assign_constraint(m, gsupp::Vector{Vector{Vector{UInt16}}}, cliques, cql)
-    I = [UInt16[] for i=1:cql]
+    I = [Int[] for i=1:cql]
     for i = 1:m
         temp = UInt16[]
         for item in gsupp[i]

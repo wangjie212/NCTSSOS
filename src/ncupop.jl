@@ -20,8 +20,8 @@ end
 cosmo_para() = cosmo_para(1e-8, 1e-8, 1e4)
 
 """
-    opt,data = nctssos_first(f::Polynomial{false, T} where T<:Number, x::Vector{PolyVar{false}}; newton=true, reducebasis=true, 
-    TS="block", solver="Mosek", writetofile=false, obj="eigen", partition=0, comm_var=0, constraint=nothing, merge=false, md=3, 
+    opt,data = nctssos_first(f, x; newton=true, reducebasis=true, TS="block", solver="Mosek", writetofile=false, 
+    obj="eigen", partition=0, comm_var=0, constraint=nothing, merge=false, md=3, 
     solve=true, Gram=false, QUIET=false)
 
 Compute the first step of the NCTSSOS hierarchy for unconstrained noncommutative polynomial optimization.
@@ -39,9 +39,9 @@ If `merge=true`, perform the PSD block merging. Return the optimum and other aux
 - `constraint`: nothing or "projection" or "unipotent"
 - `md`: the tunable parameter for merging blocks
 """
-function nctssos_first(f::Polynomial{false, T} where T<:Number, x::Vector{PolyVar{false}}; order=0, newton=true, reducebasis=true, monosquare=true,
+function nctssos_first(f::Poly{T}, x; order=0, newton=true, reducebasis=true, monosquare=true,
     TS="block", obj="eigen", partition=0, comm_var=0, constraint=nothing, merge=false, md=3, solve=true, Gram=false, solver="Mosek", writetofile=false, 
-    QUIET=false, cosmo_setting=cosmo_para())
+    QUIET=false, cosmo_setting=cosmo_para()) where T<:Number
     n,supp,coe = poly_info(f, x)
     opt,data = nctssos_first(supp, coe, n, order=order, newton=newton, reducebasis=reducebasis, monosquare=monosquare, TS=TS, obj=obj,
     partition=partition, comm_var=comm_var, constraint=constraint, merge=merge, md=md, solve=solve, Gram=Gram, solver=solver, writetofile=writetofile, 

@@ -1,7 +1,7 @@
 name = "NCTSSOS"
 uuid = "74af9cd0-d9b7-11ea-3577-f378dad115d4"
 authors = ["jwang <wangjie212@amss.ac.cn>"]
-version = "0.4.5"
+version = "0.4.6"
 
 [deps]
 COSMO = "1e616198-aa4e-51ec-90a2-23f7fbd31d8d"
@@ -16,12 +16,7 @@ MultivariatePolynomials = "102ac46a-7ee4-5c85-9060-abc95bfdeaa3"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 
 [compat]
-COSMO = "0.8"
 ChordalGraph = "0.4"
-DynamicPolynomials = "0.4.6"
-MultivariatePolynomials = "< 0.5.0"
-Graphs = "1.5"
-MetaGraphs = "0.7, 0.8"
 JuMP = "1"
 julia = "1"
 

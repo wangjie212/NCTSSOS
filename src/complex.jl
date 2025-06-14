@@ -266,7 +266,7 @@ function get_graph(ksupp, ptsupp, iptsupp, supp, wbasis, tbasis, itbasis, basis;
     return G
 end
 
-function get_blocks(ksupp, ptsupp, iptsupp, wbasis, tbasis, itbasis, basis; supp=[], vargroup=nothing, TS="block", QUIET=false, 
+function get_blocks(ksupp::Vector{Vector{Vector{UInt16}}}, ptsupp, iptsupp, wbasis, tbasis, itbasis, basis; supp=[], vargroup=nothing, TS="block", QUIET=false, 
     constraint=nothing, bilocal=false, zero_moments=false)
     m = length(wbasis) - 1
     blocks = Vector{Vector{Vector{UInt16}}}(undef, m+1)

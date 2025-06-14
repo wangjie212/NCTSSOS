@@ -20,7 +20,7 @@ mutable struct nccpop_data
 end
 
 """
-    opt,data = nctssos_first(pop::Vector{Polynomial{false, T}} where T<:Number, x::Vector{PolyVar{false}}, order::Int; numeq=0, 
+    opt,data = nctssos_first(pop, x, order::Int; numeq=0, 
     reducebasis=false, TS="block", writetofile=false, normality=false, obj="eigen", partition=0, comm_var=0, constraint=nothing, merge=false, md=3, 
     solve=true, Gram=false, QUIET=false)
 
@@ -38,9 +38,9 @@ Return the optimum and other auxiliary data.
 - `numeq`: the number of equality constraints
 """
 
-function nctssos_first(pop::Vector{Polynomial{false, T}} where T<:Number, x::Vector{PolyVar{false}}, order::Int; numeq=0, 
-    reducebasis=false, TS="block", soc=false, obj="eigen", merge=false, md=3, solve=true, Gram=false, QUIET=false,
-    solver="Mosek", writetofile=false, partition=0, comm_var=0, constraint=nothing, normality=false, cosmo_setting=cosmo_para())
+function nctssos_first(pop::Vector{Poly{T}}, x, order::Int; numeq=0, reducebasis=false, TS="block", soc=false, 
+    obj="eigen", merge=false, md=3, solve=true, Gram=false, QUIET=false, solver="Mosek", writetofile=false, 
+    partition=0, comm_var=0, constraint=nothing, normality=false, cosmo_setting=cosmo_para()) where T<:Number
     n,supp,coe = polys_info(pop, x)
     eq_constraint_type = nothing
     if numeq > 0

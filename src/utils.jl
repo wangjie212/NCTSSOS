@@ -142,7 +142,7 @@ function reduce!(word::Vector{UInt16}; obj="eigen", partition=0, comm_var=0, con
     return word
 end
 
-function reduce(w::Monomial{false}, x; obj="eigen", partition=0, comm_var=0, constraint=nothing)
+function reduce(w::Mono, x; obj="eigen", partition=0, comm_var=0, constraint=nothing)
     n = length(x)
     ind = w.z .> 0
     vars = w.vars[ind]
@@ -352,11 +352,11 @@ function issym(word, vargroup)
     return true
 end
 
-function star(w::Monomial{false})
+function star(w::Mono)
     return prod(reverse(w.vars).^reverse(w.z))
 end
 
-function star(p::Polynomial{false})
+function star(p::Poly{T}) where T<:Union{Number, AffExpr}
     return coefficients(p)'*star.(monomials(p))
 end
 
@@ -390,7 +390,7 @@ function add_SOHS!(model, vars, d; obj="eigen", partition=0, comm_var=0, constra
 end
 
 # generate a polynomial with variables vars and degree d
-function add_poly!(model, vars, d; obj="eigen", partition=0, comm_var=0, constraint=nothing)
+function add_poly!(model, vars, d; partition=0, constraint=nothing)
     basis = vcat([MultivariatePolynomials.monomials(vars, i) for i = 0:d]...)
     if constraint !== nothing
         basis = basis[[all(item.z .< 2) for item in basis]]
