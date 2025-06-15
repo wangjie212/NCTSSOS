@@ -18,6 +18,7 @@ SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 [compat]
 ChordalGraph = "0.4"
 JuMP = "1"
+MultivariatePolynomials = "0.5"
 julia = "1"
 
 [extras]
