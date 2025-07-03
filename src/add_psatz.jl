@@ -198,20 +198,19 @@ function add_psatz!(model, nonneg, vars, ineq_cons, eq_cons, order; obj="eigen",
             end
         end
     end
-    bc = [AffExpr(0) for i=1:ltsupp]
     for (i, item) in enumerate(fsupp)
         Locb = bfind(tsupp, ltsupp, item)
         if Locb === nothing
             @error "The monomial basis is not enough!"
-            return model,info
+            return info
         else
-            bc[Locb] = fcoe[i]
+            cons[Locb] -= fcoe[i]
         end
     end
     if constrs !== nothing
-        @constraint(model, cons==bc, base_name=constrs)
+        @constraint(model, cons==zeros(ltsupp), base_name=constrs)
     else
-        @constraint(model, cons==bc)
+        @constraint(model, cons==zeros(ltsupp))
     end
     info = struct_data(cql,cliquesize,cliques,basis,cl,blocksize,blocks,tsupp,I,pos,constrs)
     return info

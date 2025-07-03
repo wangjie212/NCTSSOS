@@ -212,51 +212,57 @@ function solvesdp(m::Int, supp::Vector{Vector{Vector{UInt16}}}, coe, basis, cql,
         set_optimizer_attribute(model, MOI.Silent(), QUIET)
         time = @elapsed begin
         cons = [AffExpr(0) for i=1:lksupp]
-        for i = 1:cql, l = 1:cl[i][1]
-            if blocksize[i][1][l] == 1
-               @inbounds pos = @variable(model, lower_bound=0)
-               @inbounds bi = [basis[i][1][blocks[i][1][l][1]][end:-1:1]; basis[i][1][blocks[i][1][l][1]]]
-               bi = reduce!(bi, obj=obj, partition=partition, comm_var=comm_var, constraint=constraint)
-               Locb = bfind(ksupp, lksupp,bi)
-               @inbounds add_to_expression!(cons[Locb], pos)
-            else
-               @inbounds bs = blocksize[i][1][l]
-               @inbounds pos = @variable(model, [1:bs, 1:bs], PSD)
-               for t = 1:bs, r = t:bs
-                   @inbounds ind1 = blocks[i][1][l][t]
-                   @inbounds ind2 = blocks[i][1][l][r]
-                   @inbounds bi = [basis[i][1][ind1][end:-1:1]; basis[i][1][ind2]]
-                   bi = reduce!(bi, obj=obj, partition=partition, comm_var=comm_var, constraint=constraint)
-                   Locb = bfind(ksupp, lksupp, bi)
-                   if t == r
-                      @inbounds add_to_expression!(cons[Locb], pos[t,r])
-                   else
-                      @inbounds add_to_expression!(cons[Locb], 2, pos[t,r])
-                   end
-               end
+        pos = Vector{Vector{Vector{Union{VariableRef,Symmetric{VariableRef}}}}}(undef, cql)
+        for i = 1:cql
+            pos[i] = Vector{Vector{Union{VariableRef,Symmetric{VariableRef}}}}(undef, 1+length(I[i]))
+            pos[i][1] = Vector{Union{VariableRef,Symmetric{VariableRef}}}(undef, cl[i][1])
+            for l = 1:cl[i][1]
+                if blocksize[i][1][l] == 1
+                    @inbounds pos[i][1][l] = @variable(model, lower_bound=0)
+                    @inbounds bi = [basis[i][1][blocks[i][1][l][1]][end:-1:1]; basis[i][1][blocks[i][1][l][1]]]
+                    bi = reduce!(bi, obj=obj, partition=partition, comm_var=comm_var, constraint=constraint)
+                    Locb = bfind(ksupp, lksupp,bi)
+                    @inbounds add_to_expression!(cons[Locb], pos[i][1][l])
+                else
+                    @inbounds bs = blocksize[i][1][l]
+                    @inbounds pos[i][1][l] = @variable(model, [1:bs, 1:bs], PSD)
+                    for t = 1:bs, r = t:bs
+                        @inbounds ind1 = blocks[i][1][l][t]
+                        @inbounds ind2 = blocks[i][1][l][r]
+                        @inbounds bi = [basis[i][1][ind1][end:-1:1]; basis[i][1][ind2]]
+                        bi = reduce!(bi, obj=obj, partition=partition, comm_var=comm_var, constraint=constraint)
+                        Locb = bfind(ksupp, lksupp, bi)
+                        if t == r
+                            @inbounds add_to_expression!(cons[Locb], pos[i][1][l][t,r])
+                        else
+                            @inbounds add_to_expression!(cons[Locb], 2, pos[i][1][l][t,r])
+                        end
+                    end
+                end
             end
         end
         for i = 1:cql, (j, w) in enumerate(I[i])
+            pos[i][j+1] = Vector{Union{VariableRef,Symmetric{VariableRef}}}(undef, cl[i][j+1])
             for l = 1:cl[i][j+1]
                 bs = blocksize[i][j+1][l]
                 if bs == 1
                     if j <= m-numeq
-                        pos = @variable(model, lower_bound=0)
+                        pos[i][j+1][l] = @variable(model, lower_bound=0)
                     else
-                        pos = @variable(model)
+                        pos[i][j+1][l] = @variable(model)
                     end
                     ind1 = blocks[i][j+1][l][1]
                     for s = 1:length(supp[w+1])
                         @inbounds bi = [basis[i][j+1][ind1][end:-1:1]; supp[w+1][s]; basis[i][j+1][ind1]]
                         bi = reduce!(bi, obj=obj, partition=partition, comm_var=comm_var, constraint=constraint)
                         Locb = bfind(ksupp, lksupp, bi)
-                        @inbounds add_to_expression!(cons[Locb], coe[w+1][s], pos)
+                        @inbounds add_to_expression!(cons[Locb], coe[w+1][s], pos[i][j+1][l])
                     end
                 else
                     if j <= m-numeq
-                        pos = @variable(model, [1:bs, 1:bs], PSD)
+                        pos[i][j+1][l] = @variable(model, [1:bs, 1:bs], PSD)
                     else
-                        pos = @variable(model, [1:bs, 1:bs], Symmetric)
+                        pos[i][j+1][l] = @variable(model, [1:bs, 1:bs], Symmetric)
                     end
                     for t = 1:bs, r = t:bs
                         ind1 = blocks[i][j+1][l][t]
@@ -266,64 +272,75 @@ function solvesdp(m::Int, supp::Vector{Vector{Vector{UInt16}}}, coe, basis, cql,
                             bi = reduce!(bi, obj=obj, partition=partition, comm_var=comm_var, constraint=constraint)
                             Locb = bfind(ksupp, lksupp, bi)
                             if t == r
-                                @inbounds add_to_expression!(cons[Locb], coe[w+1][s], pos[t,r])
+                                @inbounds add_to_expression!(cons[Locb], coe[w+1][s], pos[i][j+1][l][t,r])
                             else
-                                @inbounds add_to_expression!(cons[Locb], 2*coe[w+1][s], pos[t,r])
+                                @inbounds add_to_expression!(cons[Locb], 2*coe[w+1][s], pos[i][j+1][l][t,r])
                             end
                         end
                     end
                 end
             end
         end
-        bc = zeros(lksupp)
         for i = 1:length(supp[1])
             Locb = bfind(ksupp, lksupp, supp[1][i])
             if Locb === nothing
-               @error "The monomial basis is not enough!"
-               return nothing,nothing,nothing,nothing
+                @error "The monomial basis is not enough!"
+                return nothing,nothing,nothing,nothing
             else
-               bc[Locb] = coe[1][i]
+                cons[Locb] -= coe[1][i]
             end
         end
         @variable(model, lower)
         cons[1] += lower
-        @constraint(model, con, cons.==bc)
+        @constraint(model, con, cons==zeros(lksupp))
         @objective(model, Max, lower)
         end
         if QUIET == false
             println("SDP assembling time: $time seconds.")
-            println("Solving the SDP...")
-        end
-        time=@elapsed begin
-        optimize!(model)
-        end
-        if QUIET == false
-            println("SDP solving time: $time seconds.")
         end
         if writetofile != false
             write_to_file(dualize(model), writetofile)
-        end
-        status = termination_status(model)
-        objv = objective_value(model)
-        if status != MOI.OPTIMAL
-           println("termination status: $status")
-           status = primal_status(model)
-           println("solution status: $status")
-        end
-        println("optimum = $objv")
-        dual_var = -dual.(con)
-        moment = Vector{Vector{Matrix{Float64}}}(undef, cql)
-        for i = 1:cql
-            moment[i] = Vector{Matrix{Float64}}(undef, cl[i][1])
-            for k = 1:cl[i][1]
-                moment[i][k] = zeros(blocksize[i][1][k],blocksize[i][1][k])
-                for j = 1:blocksize[i][1][k], r = j:blocksize[i][1][k]
-                    @inbounds bi = [basis[i][1][blocks[i][1][k][j]][end:-1:1]; basis[i][1][blocks[i][1][k][r]]]
-                    bi = reduce!(bi, obj=obj, partition=partition, comm_var=comm_var, constraint=constraint)
-                    Locb = bfind(ksupp, lksupp, bi)
-                    moment[i][k][j,r] = dual_var[Locb]
+        else
+            if QUIET == false
+                println("Solving the SDP...")
+            end
+            time = @elapsed begin
+            optimize!(model)
+            end
+            if QUIET == false
+                println("SDP solving time: $time seconds.")
+            end
+            status = termination_status(model)
+            objv = objective_value(model)
+            if status != MOI.OPTIMAL
+                println("termination status: $status")
+                status = primal_status(model)
+                println("solution status: $status")
+            end
+            println("optimum = $objv")
+            if Gram == true
+                GramMat = Vector{Vector{Vector{Union{Float64,Matrix{Float64}}}}}(undef, cql)
+                for i = 1:cql
+                    GramMat[i] = Vector{Vector{Union{Float64,Matrix{Float64}}}}(undef, 1+length(I[i]))
+                    for j = 1:1+length(I[i])
+                        GramMat[i][j] = [value.(pos[i][j][l]) for l = 1:cl[i][j]]
+                    end
                 end
-                moment[i][k] = Symmetric(moment[i][k],:U)
+            end
+            dual_var = -dual(con)
+            moment = Vector{Vector{Matrix{Float64}}}(undef, cql)
+            for i = 1:cql
+                moment[i] = Vector{Matrix{Float64}}(undef, cl[i][1])
+                for k = 1:cl[i][1]
+                    moment[i][k] = zeros(blocksize[i][1][k],blocksize[i][1][k])
+                    for j = 1:blocksize[i][1][k], r = j:blocksize[i][1][k]
+                        @inbounds bi = [basis[i][1][blocks[i][1][k][j]][end:-1:1]; basis[i][1][blocks[i][1][k][r]]]
+                        bi = reduce!(bi, obj=obj, partition=partition, comm_var=comm_var, constraint=constraint)
+                        Locb = bfind(ksupp, lksupp, bi)
+                        moment[i][k][j,r] = dual_var[Locb]
+                    end
+                    moment[i][k] = Symmetric(moment[i][k],:U)
+                end
             end
         end
     end

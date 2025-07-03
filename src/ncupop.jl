@@ -312,54 +312,54 @@ function solvesdp(supp, coe, basis, blocks, cl, blocksize; QUIET=true, obj="eige
                end
             end
         end
-        bc = zeros(lksupp)
         for i = 1:length(supp)
             Locb = bfind(ksupp, lksupp, supp[i])
             if Locb === nothing
                @error "The monomial basis is not enough!"
                return nothing,nothing,nothing,nothing
             else
-               bc[Locb] = coe[i]
+               cons[Locb] -= coe[i]
             end
         end
         @variable(model, lower)
         cons[1] += lower
-        @constraint(model, con, cons.==bc)
+        @constraint(model, con, cons==zeros(lksupp))
         @objective(model, Max, lower)
-        if QUIET == false
-            println("Solving the SDP...")
-        end
-        time = @elapsed begin
-        optimize!(model)
-        end
-        if QUIET == false
-            println("SDP solving time: $time seconds.")
-        end
         if writetofile != false
             write_to_file(dualize(model), writetofile)
-        end
-        status = termination_status(model)
-        objv = objective_value(model)
-        if status != MOI.OPTIMAL
-           println("termination status: $status")
-           status = primal_status(model)
-           println("solution status: $status")
-        end
-        println("optimum = $objv")
-        if Gram == true
-            GramMat = [value.(pos[i]) for i = 1:cl]
-        end
-        dual_var = -dual.(con)
-        moment = Vector{Matrix{Float64}}(undef, cl)
-        for i = 1:cl
-            moment[i] = zeros(blocksize[i],blocksize[i])
-            for j = 1:blocksize[i], k = j:blocksize[i]
-                @inbounds bi = [basis[blocks[i][j]][end:-1:1]; basis[blocks[i][k]]]
-                bi = reduce!(bi, obj=obj, partition=partition, comm_var=comm_var, constraint=constraint)
-                Locb = bfind(ksupp, lksupp, bi)
-                moment[i][j,k] = dual_var[Locb]
+        else
+            if QUIET == false
+                println("Solving the SDP...")
             end
-            moment[i] = Symmetric(moment[i],:U)
+            time = @elapsed begin
+                optimize!(model)
+            end
+            if QUIET == false
+                println("SDP solving time: $time seconds.")
+            end
+            status = termination_status(model)
+            objv = objective_value(model)
+            if status != MOI.OPTIMAL
+                println("termination status: $status")
+                status = primal_status(model)
+                println("solution status: $status")
+            end
+            println("optimum = $objv")
+            if Gram == true
+                GramMat = [value.(pos[i]) for i = 1:cl]
+            end
+            dual_var = -dual(con)
+            moment = Vector{Matrix{Float64}}(undef, cl)
+            for i = 1:cl
+                moment[i] = zeros(blocksize[i],blocksize[i])
+                for j = 1:blocksize[i], k = j:blocksize[i]
+                    @inbounds bi = [basis[blocks[i][j]][end:-1:1]; basis[blocks[i][k]]]
+                    bi = reduce!(bi, obj=obj, partition=partition, comm_var=comm_var, constraint=constraint)
+                    Locb = bfind(ksupp, lksupp, bi)
+                    moment[i][j,k] = dual_var[Locb]
+                end
+                moment[i] = Symmetric(moment[i],:U)
+            end
         end
     end
     return objv,ksupp,moment,GramMat

@@ -520,98 +520,100 @@ function cpstate_SDP(supp, coe, ptsupp, iptsupp, wbasis, tbasis, itbasis, basis,
                     if j != r && !isempty(temp2)
                         for t = 1:length(temp2[1])
                             Locb = bfind(ksupp, lksupp, temp2[1][t])
-                            @inbounds add_to_expression!(icons[Locb], temp2[2][t]*coe[k+1][s], gpos[j,r+bs]-gpos[r,j+bs])
+                            @inbounds add_to_expression!(cons[Locb], temp2[2][t]*coe[k+1][s], gpos[j,r+bs]-gpos[r,j+bs])
                         end
                     end
                 end
             end
         end
-        bc = zeros(lksupp)
         for i = 1:length(supp[1])
             Locb = bfind(ksupp, lksupp, supp[1][i])
             if Locb === nothing
                @error "The monomial basis is not enough!"
                return nothing,nothing,nothing,nothing
             else
-               bc[Locb] = coe[1][i]
+               cons[Locb] -= coe[1][i]
             end
         end
         @variable(model, lower)
         cons[1] += lower
-        @constraint(model, con[i=1:lksupp], cons[i]==bc[i])
+        @constraint(model, con, cons==zeros(lksupp))
         @objective(model, Max, lower)
         end
         if QUIET == false
             println("SDP assembling time: $time seconds.")
-            println("Solving the SDP...")
-        end
-        time = @elapsed begin
-        optimize!(model)
-        end
-        if QUIET == false
-            println("SDP solving time: $time seconds.")
         end
         if writetofile != false
             write_to_file(dualize(model), writetofile)
-        end
-        status = termination_status(model)
-        objv = objective_value(model)
-        if status != MOI.OPTIMAL
-           println("termination status: $status")
-           status = primal_status(model)
-           println("solution status: $status")
-        end
-        println("optimum = $objv")
-        if Gram == true
-            GramMat[i] = Vector{ComplexF64}(undef, cl[1])
-            for i = 1:cl[1]
-                bs = blocksize[1][i]
-                temp = value.(pos[1][i][1:bs,bs+1:2bs])
-                GramMat[i] = value.(pos[1][i][1:bs,1:bs]+pos[1][i][bs+1:2bs,bs+1:2bs]) + im*(temp-temp')
+        else
+            if QUIET == false
+                println("Solving the SDP...")
             end
-        end
-        var = -dual.(con)
-        moment = Vector{Matrix{ComplexF64}}(undef, cl[1])
-        for i = 1:cl[1]
-            rtemp = zeros(Float64, blocksize[1][i], blocksize[1][i])
-            itemp = zeros(Float64, blocksize[1][i], blocksize[1][i])
-            for j = 1:blocksize[1][i], k = j:blocksize[1][i]
-                @inbounds bi1 = [[tbasis[1][wbasis[1][blocks[1][i][j]][1]]; tbasis[1][wbasis[1][blocks[1][i][k]][1]]], [itbasis[1][wbasis[1][blocks[1][i][j]][2]]; itbasis[1][wbasis[1][blocks[1][i][k]][2]]]]
-                @inbounds bi2 = [reverse(basis[1][wbasis[1][blocks[1][i][j]][3]]); basis[1][wbasis[1][blocks[1][i][k]][3]]]
-                res_comm!(bi2, vargroup)
-                if constraint !== nothing
-                    constraint_reduce!(bi2, constraint=constraint)
+            time = @elapsed begin
+            optimize!(model)
+            end
+            if QUIET == false
+                println("SDP solving time: $time seconds.")
+            end
+            status = termination_status(model)
+            objv = objective_value(model)
+            if status != MOI.OPTIMAL
+                println("termination status: $status")
+                status = primal_status(model)
+                println("solution status: $status")
+            end
+            println("optimum = $objv")
+            if Gram == true
+                GramMat[i] = Vector{ComplexF64}(undef, cl[1])
+                for i = 1:cl[1]
+                    bs = blocksize[1][i]
+                    temp = value.(pos[1][i][1:bs,bs+1:2bs])
+                    GramMat[i] = value.(pos[1][i][1:bs,1:bs]+pos[1][i][bs+1:2bs,bs+1:2bs]) + im*(temp-temp')
                 end
-                if zero_moments == false || mom_zeros(bi2) == false
-                    if bilocal != false
-                        wx,wz,flag = bilocal_reduce(bi2, bilocal)
+            end
+            var = -dual(con)
+            moment = Vector{Matrix{ComplexF64}}(undef, cl[1])
+            for i = 1:cl[1]
+                rtemp = zeros(Float64, blocksize[1][i], blocksize[1][i])
+                itemp = zeros(Float64, blocksize[1][i], blocksize[1][i])
+                for j = 1:blocksize[1][i], k = j:blocksize[1][i]
+                    @inbounds bi1 = [[tbasis[1][wbasis[1][blocks[1][i][j]][1]]; tbasis[1][wbasis[1][blocks[1][i][k]][1]]], [itbasis[1][wbasis[1][blocks[1][i][j]][2]]; itbasis[1][wbasis[1][blocks[1][i][k]][2]]]]
+                    @inbounds bi2 = [reverse(basis[1][wbasis[1][blocks[1][i][j]][3]]); basis[1][wbasis[1][blocks[1][i][k]][3]]]
+                    res_comm!(bi2, vargroup)
+                    if constraint !== nothing
+                        constraint_reduce!(bi2, constraint=constraint)
                     end
-                    if zero_moments == false || flag == false || (mom_zeros(wx) == false && mom_zeros(wz) == false)
-                        temp1,temp2 = cstate_reduce(bi1, bi2, ptsupp, iptsupp, vargroup, bilocal=bilocal)
-                        for t = 1:length(temp1[1])
-                            Locb = bfind(ksupp, lksupp, temp1[1][t])
-                            rtemp[j,k] += temp1[2][t]*var[Locb]
+                    if zero_moments == false || mom_zeros(bi2) == false
+                        if bilocal != false
+                            wx,wz,flag = bilocal_reduce(bi2, bilocal)
                         end
-                        if !isempty(temp2)
-                            for t = 1:length(temp2[1])
-                                Locb = bfind(ksupp, lksupp, temp2[1][t])
-                                itemp[j,k] += temp2[2][t]*var[Locb]
+                        if zero_moments == false || flag == false || (mom_zeros(wx) == false && mom_zeros(wz) == false)
+                            temp1,temp2 = cstate_reduce(bi1, bi2, ptsupp, iptsupp, vargroup, bilocal=bilocal)
+                            for t = 1:length(temp1[1])
+                                Locb = bfind(ksupp, lksupp, temp1[1][t])
+                                rtemp[j,k] += temp1[2][t]*var[Locb]
+                            end
+                            if !isempty(temp2)
+                                for t = 1:length(temp2[1])
+                                    Locb = bfind(ksupp, lksupp, temp2[1][t])
+                                    itemp[j,k] += temp2[2][t]*var[Locb]
+                                end
+                            else
+                                itemp[j,k] = 0
                             end
                         else
+                            rtemp[j,k] = 0
                             itemp[j,k] = 0
                         end
                     else
                         rtemp[j,k] = 0
                         itemp[j,k] = 0
                     end
-                else
-                    rtemp[j,k] = 0
-                    itemp[j,k] = 0
                 end
+                rtemp = (rtemp + rtemp')/2
+                itemp = (itemp - itemp')/2
+                moment[i] = rtemp - itemp*im
             end
-            rtemp = (rtemp + rtemp')/2
-            itemp = (itemp - itemp')/2
-            moment[i] = rtemp - itemp*im
         end
     end
     return objv,ksupp,moment,GramMat

@@ -529,71 +529,74 @@ function solvesdp(order::Int, n::Int, m::Int, supp, coe, basis, blocks, cl, bloc
                 end
             end
         end
-        bc = zeros(lksupp)
         for i = 1:length(supp[1])
             Locb = bfind(ksupp, lksupp, supp[1][i])
             if Locb === nothing
                @error "The monomial basis is not enough!"
                return nothing,nothing,nothing,nothing
             else
-               bc[Locb] = coe[1][i]
+               cons[Locb] -= coe[1][i]
             end
         end
         @variable(model, lower)
         cons[1] += lower
-        @constraint(model, con, cons.==bc)
+        @constraint(model, con, cons==zeros(lksupp))
         @objective(model, Max, lower)
         end
         if QUIET == false
             println("SDP assembling time: $time seconds.")
-            println("Solving the SDP...")
-        end
-        time = @elapsed begin
-        optimize!(model)
-        end
-        if QUIET == false
-            println("SDP solving time: $time seconds.")
         end
         if writetofile != false
             write_to_file(dualize(model), writetofile)
-        end
-        status = termination_status(model)
-        objv = objective_value(model)
-        if status != MOI.OPTIMAL
-           println("termination status: $status")
-           status = primal_status(model)
-           println("solution status: $status")
-        end
-        println("optimum = $objv")
-        if Gram == true
-            GramMat = Vector{Vector{Union{Float64,Matrix{Float64}}}}(undef, m+1)
-            GramMat[1] = [value.(pos[i]) for i = 1:cl[1]]
-            for k = 1:m
-                if k > m - numeq && eq_constraint_type[k-(m-numeq)] == -1
-                    GramMat[k+1] = Vector{Matrix{Float64}}(undef, cl[k+1])
-                    for i = 1:cl[k+1]
-                        GramMat[k+1][i] = zeros(blocksize[k+1][i], blocksize[k+1][i])
-                        for j = 1:blocksize[k+1][i]-1, r = j+1:blocksize[k+1][i]
-                            GramMat[k+1][i][j,r] = value(gpos[k][i][Int((2*blocksize[k+1][i]-j)*(j-1)/2)+r-j])
-                            GramMat[k+1][i][r,j] = -GramMat[k+1][i][j,r]
+        else
+            if QUIET == false
+                println("SDP assembling time: $time seconds.")
+                println("Solving the SDP...")
+            end
+            time = @elapsed begin
+            optimize!(model)
+            end
+            if QUIET == false
+                println("SDP solving time: $time seconds.")
+            end
+            status = termination_status(model)
+            objv = objective_value(model)
+            if status != MOI.OPTIMAL
+               println("termination status: $status")
+               status = primal_status(model)
+               println("solution status: $status")
+            end
+            println("optimum = $objv")
+            if Gram == true
+                GramMat = Vector{Vector{Union{Float64,Matrix{Float64}}}}(undef, m+1)
+                GramMat[1] = [value.(pos[i]) for i = 1:cl[1]]
+                for k = 1:m
+                    if k > m - numeq && eq_constraint_type[k-(m-numeq)] == -1
+                        GramMat[k+1] = Vector{Matrix{Float64}}(undef, cl[k+1])
+                        for i = 1:cl[k+1]
+                            GramMat[k+1][i] = zeros(blocksize[k+1][i], blocksize[k+1][i])
+                            for j = 1:blocksize[k+1][i]-1, r = j+1:blocksize[k+1][i]
+                                GramMat[k+1][i][j,r] = value(gpos[k][i][Int((2*blocksize[k+1][i]-j)*(j-1)/2)+r-j])
+                                GramMat[k+1][i][r,j] = -GramMat[k+1][i][j,r]
+                            end
                         end
+                    else
+                        GramMat[k+1] = [value.(gpos[k][i]) for i = 1:cl[k+1]]
                     end
-                else
-                    GramMat[k+1] = [value.(gpos[k][i]) for i = 1:cl[k+1]]
                 end
             end
-        end
-        dual_var = -dual.(con)
-        moment = Vector{Matrix{Float64}}(undef, cl[1])
-        for i = 1:cl[1]
-            moment[i] = zeros(blocksize[1][i], blocksize[1][i])
-            for j = 1:blocksize[1][i], k = j:blocksize[1][i]
-                @inbounds bi = [basis[1][blocks[1][i][j]][end:-1:1]; basis[1][blocks[1][i][k]]]
-                bi = reduce!(bi, obj=obj, partition=partition, comm_var=comm_var, constraint=constraint)
-                Locb = bfind(ksupp, lksupp, bi)
-                moment[i][j,k] = dual_var[Locb]
+            dual_var = -dual(con)
+            moment = Vector{Matrix{Float64}}(undef, cl[1])
+            for i = 1:cl[1]
+                moment[i] = zeros(blocksize[1][i], blocksize[1][i])
+                for j = 1:blocksize[1][i], k = j:blocksize[1][i]
+                    @inbounds bi = [basis[1][blocks[1][i][j]][end:-1:1]; basis[1][blocks[1][i][k]]]
+                    bi = reduce!(bi, obj=obj, partition=partition, comm_var=comm_var, constraint=constraint)
+                    Locb = bfind(ksupp, lksupp, bi)
+                    moment[i][j,k] = dual_var[Locb]
+                end
+                moment[i] = Symmetric(moment[i],:U)
             end
-            moment[i] = Symmetric(moment[i],:U)
         end
     end
     return objv,ksupp,moment,GramMat

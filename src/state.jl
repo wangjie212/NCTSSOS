@@ -355,70 +355,70 @@ function pstate_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocks
                 end
             end
         end
-        bc = zeros(lksupp)
         for i = 1:length(supp[1])
             Locb = bfind(ksupp, lksupp, supp[1][i])
             if Locb === nothing
                @error "The monomial basis is not enough!"
                return nothing,nothing,nothing,nothing
             else
-               bc[Locb] = coe[1][i]
+               cons[Locb] -= coe[1][i]
             end
         end
         @variable(model, lower)
         cons[1] += lower
-        @constraint(model, con, cons.==bc)
+        @constraint(model, con, cons==zeros(lksupp))
         @objective(model, Max, lower)
-        if QUIET == false
-            println("Solving the SDP...")
-        end
-        time = @elapsed begin
-        optimize!(model)
-        end
-        if QUIET == false
-            println("SDP solving time: $time seconds.")
-        end
         if writetofile != false
             write_to_file(dualize(model), writetofile)
-        end
-        status = termination_status(model)
-        objv = objective_value(model)
-        if status != MOI.OPTIMAL
-           println("termination status: $status")
-           status = primal_status(model)
-           println("solution status: $status")
-        end
-        println("optimum = $objv")
-        if Gram == true
-            GramMat = [value.(pos[i]) for i = 1:cl[1]]
-        end
-        dual_var = -dual.(con)
-        moment = Vector{Matrix{Float64}}(undef, cl[1])
-        for i = 1:cl[1]
-            moment[i] = zeros(blocksize[1][i],blocksize[1][i])
-            for j = 1:blocksize[1][i], k = j:blocksize[1][i]
-                @inbounds bi1 = sort([tbasis[1][wbasis[1][blocks[1][i][j]][1]]; tbasis[1][wbasis[1][blocks[1][i][k]][1]]])
-                @inbounds bi2 = [reverse(basis[1][wbasis[1][blocks[1][i][j]][2]]); basis[1][wbasis[1][blocks[1][i][k]][2]]]
-                res_comm!(bi2, vargroup)
-                if constraint !== nothing
-                    constraint_reduce!(bi2, constraint=constraint)
-                end
-                if zero_moments == false || mom_zeros(bi2) == false
-                    if bilocal != false
-                        wx,wz,flag = bilocal_reduce(bi2, bilocal)
+        else
+            if QUIET == false
+                println("Solving the SDP...")
+            end
+            time = @elapsed begin
+            optimize!(model)
+            end
+            if QUIET == false
+                println("SDP solving time: $time seconds.")
+            end
+            status = termination_status(model)
+            objv = objective_value(model)
+            if status != MOI.OPTIMAL
+                println("termination status: $status")
+                status = primal_status(model)
+                println("solution status: $status")
+            end
+            println("optimum = $objv")
+            if Gram == true
+                GramMat = [value.(pos[i]) for i = 1:cl[1]]
+            end
+            dual_var = -dual(con)
+            moment = Vector{Matrix{Float64}}(undef, cl[1])
+            for i = 1:cl[1]
+                moment[i] = zeros(blocksize[1][i],blocksize[1][i])
+                for j = 1:blocksize[1][i], k = j:blocksize[1][i]
+                    @inbounds bi1 = sort([tbasis[1][wbasis[1][blocks[1][i][j]][1]]; tbasis[1][wbasis[1][blocks[1][i][k]][1]]])
+                    @inbounds bi2 = [reverse(basis[1][wbasis[1][blocks[1][i][j]][2]]); basis[1][wbasis[1][blocks[1][i][k]][2]]]
+                    res_comm!(bi2, vargroup)
+                    if constraint !== nothing
+                        constraint_reduce!(bi2, constraint=constraint)
                     end
-                    if zero_moments == false || flag == false || (mom_zeros(wx) == false && mom_zeros(wz) == false)
-                        bi = state_reduce(bi1, bi2, ptsupp, vargroup, bilocal=bilocal)
-                        Locb = bfind(ksupp, lksupp, bi)
-                        moment[i][j,k] = dual_var[Locb]
+                    if zero_moments == false || mom_zeros(bi2) == false
+                        if bilocal != false
+                            wx,wz,flag = bilocal_reduce(bi2, bilocal)
+                        end
+                        if zero_moments == false || flag == false || (mom_zeros(wx) == false && mom_zeros(wz) == false)
+                            bi = state_reduce(bi1, bi2, ptsupp, vargroup, bilocal=bilocal)
+                            Locb = bfind(ksupp, lksupp, bi)
+                            moment[i][j,k] = dual_var[Locb]
+                        else
+                            moment[i][j,k] = 0
+                        end
                     else
                         moment[i][j,k] = 0
                     end
-                else
-                    moment[i][j,k] = 0
                 end
+                moment[i] = Symmetric(moment[i],:U)
             end
-            moment[i] = Symmetric(moment[i],:U)
         end
     end
     return objv,ksupp,moment,GramMat
