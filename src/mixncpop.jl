@@ -2,6 +2,7 @@ mutable struct ncmpop_data
     n::Int # number of all variables
     m::Int # number of all constraints
     numeq::Int # number of equality constraints
+    eq_constraint_type # type of equality constraints: 1 - symmetric, -1 - antisymmetric, 0 - others
     supp # support data
     coe # coefficient data
     partition # the first 'partition' variables commute with the remaining variables
@@ -40,7 +41,19 @@ optimization with relaxation order `d`. Return the optimum and other auxiliary d
 function cs_nctssos_first(pop, x, d; numeq=0, CS="MF", minimize=false, TS="block", QUIET=false, obj="eigen", 
     solve=true, Gram=false, partition=0, comm_var=0, constraint=nothing, solver="Mosek", writetofile=false, cosmo_setting=cosmo_para())
     n,supp,coe = polys_info(pop, x)
-    opt,data = cs_nctssos_first(supp, coe, n, d, numeq=numeq, CS=CS, minimize=minimize, TS=TS, QUIET=QUIET, obj=obj,
+    eq_constraint_type = nothing
+    if numeq > 0
+        eq_constraint_type = zeros(Int, numeq)
+        for i = length(pop) - numeq + 1 : length(pop)
+            temp = star(pop[i])
+            if temp == pop[i]
+                eq_constraint_type[i - (length(pop) - numeq)] = 1
+            elseif temp == -pop[i]
+                eq_constraint_type[i - (length(pop) - numeq)] = -1
+            end
+        end
+    end
+    opt,data = cs_nctssos_first(supp, coe, n, d, numeq=numeq, eq_constraint_type=eq_constraint_type, CS=CS, minimize=minimize, TS=TS, QUIET=QUIET, obj=obj,
     solve=solve, solver=solver, writetofile=writetofile, Gram=Gram, partition=partition, comm_var=comm_var, constraint=constraint, cosmo_setting=cosmo_setting)
     return opt,data
 end
@@ -62,11 +75,11 @@ corresponding to the supports and coeffients of `pop` respectively. Return the o
 - `constraint`: nothing or "projection" or "unipotent"
 - `numeq`: the number of equality constraints
 """
-function cs_nctssos_first(supp::Vector{Vector{Vector{UInt16}}}, coe, n::Int, d::Int; numeq=0, CS="MF", solver="Mosek", writetofile=false,
+function cs_nctssos_first(supp::Vector{Vector{Vector{UInt16}}}, coe, n::Int, d::Int; numeq=0, eq_constraint_type=nothing, CS="MF", solver="Mosek", writetofile=false,
     minimize=false, TS="block", QUIET=false, obj="eigen", solve=true, Gram=false, partition=0, comm_var=0, constraint=nothing, cosmo_setting=cosmo_para())
     println("********************************** NCTSSOS **********************************")
     println("NCTSSOS is launching...")
-    m = length(supp)-1
+    m = length(supp) - 1
     dg = [maximum(length.(supp[i])) for i=2:m+1]
     if obj == "trace"
         supp[1],coe[1] = cyclic_canon(supp[1], coe[1])
@@ -83,7 +96,7 @@ function cs_nctssos_first(supp::Vector{Vector{Vector{UInt16}}}, coe, n::Int, d::
     if QUIET == false
         println("Starting to compute the block structure...")
     end
-    I = assign_constraint(m, supp, cliques, cql)
+    I = assign_constraint(m, supp[2:end], cliques, cql)
     basis = Vector{Vector{Vector{Vector{UInt16}}}}(undef, cql)
     for t = 1:cql
         basis[t] = Vector{Vector{Vector{UInt16}}}(undef, length(I[t])+1)
@@ -113,9 +126,9 @@ function cs_nctssos_first(supp::Vector{Vector{Vector{UInt16}}}, coe, n::Int, d::
         mb = maximum(maximum.([maximum.(blocksize[i]) for i = 1:cql]))
         println("Obtained the block structure in $time seconds.\nThe maximal size of blocks is $mb.")
     end
-    opt,ksupp,moment,GramMat = solvesdp(m, supp, coe, basis, cql, I, blocks, cl, blocksize, numeq=numeq, QUIET=QUIET, obj=obj, solve=solve, 
+    opt,ksupp,moment,GramMat = solvesdp(m, supp, coe, basis, cql, I, blocks, cl, blocksize, numeq=numeq, eq_constraint_type=eq_constraint_type, QUIET=QUIET, obj=obj, solve=solve, 
     solver=solver, writetofile=writetofile, Gram=Gram, partition=partition, comm_var=comm_var, constraint=constraint, cosmo_setting=cosmo_setting)
-    data = ncmpop_data(n, m, numeq, supp, coe, partition, comm_var, constraint, obj, ksupp, basis, cql, cliques, cliquesize, I, blocks, cl, blocksize, 
+    data = ncmpop_data(n, m, numeq, eq_constraint_type, supp, coe, partition, comm_var, constraint, obj, ksupp, basis, cql, cliques, cliquesize, I, blocks, cl, blocksize, 
     moment,GramMat)
     return opt,data
 end
@@ -130,6 +143,7 @@ function cs_nctssos_higher!(data::ncmpop_data; TS="block", QUIET=false, solve=tr
     n = data.n
     m = data.m
     numeq = data.numeq
+    eq_constraint_type = data.eq_constraint_type
     supp = data.supp
     coe = data.coe
     partition = data.partition
@@ -160,7 +174,7 @@ function cs_nctssos_higher!(data::ncmpop_data; TS="block", QUIET=false, solve=tr
             mb = maximum(maximum.([maximum.(blocksize[i]) for i = 1:cql]))
             println("Obtained the block structure in $time seconds.\nThe maximal size of blocks is $mb.")
         end
-        opt,ksupp,moment,GramMat = solvesdp(m, supp, coe, basis, cql, I, blocks, cl, blocksize, numeq=numeq, QUIET=QUIET, obj=obj, solve=solve, 
+        opt,ksupp,moment,GramMat = solvesdp(m, supp, coe, basis, cql, I, blocks, cl, blocksize, numeq=numeq, eq_constraint_type=eq_constraint_type, QUIET=QUIET, obj=obj, solve=solve, 
         Gram=Gram, partition=partition, comm_var=comm_var, constraint=constraint, solver=solver, writetofile=writetofile, cosmo_setting=cosmo_setting)
         data.moment = moment
         data.GramMat = GramMat
@@ -172,8 +186,8 @@ function cs_nctssos_higher!(data::ncmpop_data; TS="block", QUIET=false, solve=tr
     return opt,data
 end
 
-function solvesdp(m::Int, supp::Vector{Vector{Vector{UInt16}}}, coe, basis, cql, I, blocks, cl, blocksize; numeq=0, QUIET=false, obj="eigen", solve=true, Gram=false, 
-    partition=0, comm_var=0, constraint=nothing, solver="Mosek", writetofile=false, cosmo_setting=cosmo_para())
+function solvesdp(m::Int, supp::Vector{Vector{Vector{UInt16}}}, coe, basis, cql, I, blocks, cl, blocksize; numeq=0, eq_constraint_type=nothing, 
+    QUIET=false, obj="eigen", solve=true, Gram=false, partition=0, comm_var=0, constraint=nothing, solver="Mosek", writetofile=false, cosmo_setting=cosmo_para())
     ksupp = Vector{UInt16}[]
     for i = 1:cql
         for j = 1:cl[i][1], k = 1:blocksize[i][1][j], r = k:blocksize[i][1][j]
@@ -212,9 +226,9 @@ function solvesdp(m::Int, supp::Vector{Vector{Vector{UInt16}}}, coe, basis, cql,
         set_optimizer_attribute(model, MOI.Silent(), QUIET)
         time = @elapsed begin
         cons = [AffExpr(0) for i=1:lksupp]
-        pos = Vector{Vector{Vector{Union{VariableRef,Symmetric{VariableRef}}}}}(undef, cql)
+        pos = Vector{Vector{Vector{Union{VariableRef,Vector{VariableRef},Symmetric{VariableRef},Matrix{VariableRef}}}}}(undef, cql)
         for i = 1:cql
-            pos[i] = Vector{Vector{Union{VariableRef,Symmetric{VariableRef}}}}(undef, 1+length(I[i]))
+            pos[i] = Vector{Vector{Union{VariableRef,Vector{VariableRef},Symmetric{VariableRef},Matrix{VariableRef}}}}(undef, 1+length(I[i]))
             pos[i][1] = Vector{Union{VariableRef,Symmetric{VariableRef}}}(undef, cl[i][1])
             for l = 1:cl[i][1]
                 if blocksize[i][1][l] == 1
@@ -242,33 +256,36 @@ function solvesdp(m::Int, supp::Vector{Vector{Vector{UInt16}}}, coe, basis, cql,
             end
         end
         for i = 1:cql, (j, w) in enumerate(I[i])
-            pos[i][j+1] = Vector{Union{VariableRef,Symmetric{VariableRef}}}(undef, cl[i][j+1])
+            pos[i][j+1] = Vector{Union{VariableRef,Vector{VariableRef},Symmetric{VariableRef},Matrix{VariableRef}}}(undef, cl[i][j+1])
             for l = 1:cl[i][j+1]
                 bs = blocksize[i][j+1][l]
                 if bs == 1
-                    if j <= m-numeq
+                    if w <= m-numeq
                         pos[i][j+1][l] = @variable(model, lower_bound=0)
-                    else
+                    elseif eq_constraint_type[w-(m-numeq)] != -1
                         pos[i][j+1][l] = @variable(model)
                     end
-                    ind1 = blocks[i][j+1][l][1]
-                    for s = 1:length(supp[w+1])
-                        @inbounds bi = [basis[i][j+1][ind1][end:-1:1]; supp[w+1][s]; basis[i][j+1][ind1]]
-                        bi = reduce!(bi, obj=obj, partition=partition, comm_var=comm_var, constraint=constraint)
-                        Locb = bfind(ksupp, lksupp, bi)
-                        @inbounds add_to_expression!(cons[Locb], coe[w+1][s], pos[i][j+1][l])
+                    if w <= m-numeq || eq_constraint_type[w-(m-numeq)] != -1
+                        for s = 1:length(supp[w+1])
+                            @inbounds bi = [basis[i][j+1][blocks[i][j+1][l][1]][end:-1:1]; supp[w+1][s]; basis[i][j+1][blocks[i][j+1][l][1]]]
+                            bi = reduce!(bi, obj=obj, partition=partition, comm_var=comm_var, constraint=constraint)
+                            Locb = bfind(ksupp, lksupp, bi)
+                            if k <= m-numeq || eq_constraint_type[k-(m-numeq)] == 1
+                                @inbounds add_to_expression!(cons[Locb], coe[w+1][s], pos[i][j+1][l])
+                            else
+                                @inbounds add_to_expression!(cons[Locb], 2*coe[w+1][s], pos[i][j+1][l])
+                            end
+                        end
                     end
                 else
-                    if j <= m-numeq
-                        pos[i][j+1][l] = @variable(model, [1:bs, 1:bs], PSD)
-                    else
-                        pos[i][j+1][l] = @variable(model, [1:bs, 1:bs], Symmetric)
-                    end
-                    for t = 1:bs, r = t:bs
-                        ind1 = blocks[i][j+1][l][t]
-                        ind2 = blocks[i][j+1][l][r]
-                        for s = 1:length(supp[w+1])
-                            @inbounds bi = [basis[i][j+1][ind1][end:-1:1]; supp[w+1][s]; basis[i][j+1][ind2]]
+                    if w <= m-numeq || eq_constraint_type[w-(m-numeq)] == 1
+                        if w <= m-numeq
+                            pos[i][j+1][l] = @variable(model, [1:bs, 1:bs], PSD)
+                        else
+                            pos[i][j+1][l] = @variable(model, [1:bs, 1:bs], Symmetric)
+                        end
+                        for t = 1:bs, r = t:bs, s = 1:length(supp[w+1])
+                            @inbounds bi = [basis[i][j+1][blocks[i][j+1][l][t]][end:-1:1]; supp[w+1][s]; basis[i][j+1][blocks[i][j+1][l][r]]]
                             bi = reduce!(bi, obj=obj, partition=partition, comm_var=comm_var, constraint=constraint)
                             Locb = bfind(ksupp, lksupp, bi)
                             if t == r
@@ -276,6 +293,22 @@ function solvesdp(m::Int, supp::Vector{Vector{Vector{UInt16}}}, coe, basis, cql,
                             else
                                 @inbounds add_to_expression!(cons[Locb], 2*coe[w+1][s], pos[i][j+1][l][t,r])
                             end
+                        end
+                    elseif eq_constraint_type[w-(m-numeq)] == -1
+                        pos[i][j+1][l] = @variable(model, [1:Int(bs*(bs-1)/2)])
+                        for t = 1:bs-1, r = t+1:bs, s = 1:length(supp[w+1])
+                            @inbounds bi = [basis[i][j+1][blocks[i][j+1][l][t]][end:-1:1]; supp[w+1][s]; basis[i][j+1][blocks[i][j+1][l][r]]]
+                            bi = reduce!(bi, obj=obj, partition=partition, comm_var=comm_var, constraint=constraint)
+                            Locb = bfind(ksupp, lksupp, bi)
+                            @inbounds add_to_expression!(cons[Locb], 2*coe[w+1][s], pos[i][j+1][l][Int((2bs-t)*(t-1)/2)+r-t])
+                        end
+                    else
+                        pos[i][j+1][l] = @variable(model, [1:bs, 1:bs])
+                        for t = 1:bs, r = 1:bs, s = 1:length(supp[w+1])
+                            @inbounds bi = [basis[i][j+1][blocks[i][j+1][l][t]][end:-1:1]; supp[w+1][s]; basis[i][j+1][blocks[i][j+1][l][r]]]
+                            bi = reduce!(bi, obj=obj, partition=partition, comm_var=comm_var, constraint=constraint)
+                            Locb = bfind(ksupp, lksupp, bi)
+                            @inbounds add_to_expression!(cons[Locb], 2*coe[w+1][s], pos[i][j+1][l][t,r])
                         end
                     end
                 end
@@ -322,8 +355,20 @@ function solvesdp(m::Int, supp::Vector{Vector{Vector{UInt16}}}, coe, basis, cql,
                 GramMat = Vector{Vector{Vector{Union{Float64,Matrix{Float64}}}}}(undef, cql)
                 for i = 1:cql
                     GramMat[i] = Vector{Vector{Union{Float64,Matrix{Float64}}}}(undef, 1+length(I[i]))
-                    for j = 1:1+length(I[i])
-                        GramMat[i][j] = [value.(pos[i][j][l]) for l = 1:cl[i][j]]
+                    GramMat[i][1] = [value.(pos[i][1][l]) for l = 1:cl[i][1]]
+                    for (j,w) in enumerate(I[i])
+                        if w > m - numeq && eq_constraint_type[w-(m-numeq)] == -1
+                            GramMat[i][j+1] = Vector{Union{Float64,Matrix{Float64}}}(undef, cl[i][j+1])
+                            for l = 1:cl[i][j+1]
+                                GramMat[i][j+1][l] = zeros(blocksize[i][j+1][l], blocksize[i][j+1][l])
+                                for t = 1:blocksize[i][j+1][l]-1, r = t+1:blocksize[i][j+1][l]
+                                    GramMat[i][j+1][l][t,r] = value(pos[i][j+1][l][Int((2*blocksize[i][j+1][l]-t)*(t-1)/2)+r-t])
+                                    GramMat[i][j+1][l][r,t] = -GramMat[i][j+1][l][t,r]
+                                end
+                            end
+                        else
+                            GramMat[i][j+1] = [value.(pos[i][j+1][l]) for l = 1:cl[i][j+1]]
+                        end
                     end
                 end
             end
@@ -380,10 +425,10 @@ function get_blocks(I, supp::Vector{Vector{Vector{UInt16}}}, tsupp, basis, cliqu
     return blocks,cl,blocksize
 end
 
-function assign_constraint(m, supp, cliques, cql)
-    I = [UInt16[] for i=1:cql]
+function assign_constraint(m, gsupp, cliques, cql)
+    I = [Int[] for i=1:cql]
     for i = 1:m
-        ind = findall(k->issubset(unique(Base.reduce(vcat, supp[i+1])), cliques[k]), 1:cql)
+        ind = findall(k->issubset(unique(Base.reduce(vcat, gsupp[i])), cliques[k]), 1:cql)
         push!.(I[ind], i)
     end
     return I

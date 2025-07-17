@@ -68,7 +68,7 @@ function add_psatz!(model, nonneg, vars, ineq_cons, eq_cons, order; obj="eigen",
     end
     if CS != false
         if cliques == []
-            cliques,cql,cliquesize = clique_decomp(n, m, fsupp, gsupp, alg=CS, QUIET=false)
+            cliques,cql,cliquesize = clique_decomp(n, m, [[fsupp]; gsupp], alg=CS, QUIET=false)
         else
             cql = length(cliques)
             cliquesize = length.(cliques)
@@ -302,43 +302,6 @@ function get_blocks(m::Int, tsupp, supp::Vector{Vector{Vector{UInt16}}}, basis::
         end
     end
     return blocks,cl,blocksize,status
-end
-
-function assign_constraint(m, gsupp::Vector{Vector{Vector{UInt16}}}, cliques, cql)
-    I = [Int[] for i=1:cql]
-    for i = 1:m
-        temp = UInt16[]
-        for item in gsupp[i]
-            append!(temp, item)
-        end
-        unique!(temp)
-        ind = findall(k->issubset(temp, cliques[k]), 1:cql)
-        push!.(I[ind], i)
-    end
-    return I
-end
-
-function clique_decomp(n, m, fsupp::Vector{Vector{UInt16}}, gsupp::Vector{Vector{Vector{UInt16}}}; alg="MF", QUIET=false)
-    G = SimpleGraph(n)
-    for item in fsupp
-        add_clique!(G, unique(item))
-    end
-    for i = 1:m
-        add_clique!(G, unique(Base.reduce(vcat, gsupp[i])))
-    end
-    if alg == "NC"
-        cliques,cql,cliquesize = max_cliques(G)
-    else
-        cliques,cql,cliquesize = chordal_cliques!(G, method=alg, minimize=true)
-    end
-    uc = unique(cliquesize)
-    sizes = [sum(cliquesize.== i) for i in uc]
-    if QUIET == false
-        println("-----------------------------------------------------------------------------")
-        println("The clique sizes of varibles:\n$uc\n$sizes")
-        println("-----------------------------------------------------------------------------")
-    end
-    return cliques,cql,cliquesize
 end
 
 function get_moment_matrix(moment, info; obj="eigen", partition=0, comm_var=0, constraint=nothing)

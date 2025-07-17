@@ -14,4 +14,4 @@ opt,data = nctssos_first([-f], [x;y], 1, TS=false, partition=2, constraint="unip
 @ncpolyvar y[1:3]
 f = x[1]*(y[1] + y[2] + y[3]) + x[2]*(y[1] + y[2] - y[3]) + x[3]*(y[1] - y[2]) - x[1] - 2*y[1] - y[2]
 
-opt,data = nctssos_first([-f], [x;y], 2, TS=false, normality=false, partition=3, constraint="projection", Gram=true)
+opt,data = nctssos_first([-f], [x;y], 2, TS=false, partition=3, normality=1, constraint="projection", Gram=true)
