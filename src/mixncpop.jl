@@ -270,7 +270,7 @@ function solvesdp(m::Int, supp::Vector{Vector{Vector{UInt16}}}, coe, basis, cql,
                             @inbounds bi = [basis[i][j+1][blocks[i][j+1][l][1]][end:-1:1]; supp[w+1][s]; basis[i][j+1][blocks[i][j+1][l][1]]]
                             bi = reduce!(bi, obj=obj, partition=partition, comm_var=comm_var, constraint=constraint)
                             Locb = bfind(ksupp, lksupp, bi)
-                            if k <= m-numeq || eq_constraint_type[k-(m-numeq)] == 1
+                            if w <= m-numeq || eq_constraint_type[w-(m-numeq)] == 1
                                 @inbounds add_to_expression!(cons[Locb], coe[w+1][s], pos[i][j+1][l])
                             else
                                 @inbounds add_to_expression!(cons[Locb], 2*coe[w+1][s], pos[i][j+1][l])
