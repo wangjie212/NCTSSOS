@@ -220,7 +220,7 @@ end
 function pstate_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize, vargroup; numeq=0, solver="Mosek", writetofile=false, QUIET=false, constraint=nothing,
     solve=true, Gram=false, bilocal=false, cosmo_setting=cosmo_para(), zero_moments=false)
     m = length(supp) - 1
-    ksupp = Vector{UInt32}[]
+    ksupp = Vector{Int}[]
     for i = 1:cl[1], j = 1:blocksize[1][i], r = j:blocksize[1][i]
         @inbounds bi1 = sort([tbasis[1][wbasis[1][blocks[1][i][j]][1]]; tbasis[1][wbasis[1][blocks[1][i][r]][1]]])
         @inbounds bi2 = [reverse(basis[1][wbasis[1][blocks[1][i][j]][2]]); basis[1][wbasis[1][blocks[1][i][r]][2]]]
@@ -426,17 +426,17 @@ end
 
 function state_reduce(word1, word2, ptsupp, vargroup; bilocal=false)
     if isempty(word2)
-        ind = UInt32[]
+        ind = Int[]
     elseif bilocal == false
-        ind = UInt32(bfind(ptsupp, length(ptsupp), sym(word2, vargroup), lt=isless_td))
+        ind = bfind(ptsupp, length(ptsupp), sym(word2, vargroup), lt=isless_td)
     else
         wx,wz,flag = bilocal_reduce(word2, bilocal)
         if flag == true
             temp1 = bfind(ptsupp, length(ptsupp), sym(wx, vargroup), lt=isless_td)
             temp2 = bfind(ptsupp, length(ptsupp), sym(wz, vargroup), lt=isless_td)
-            ind = UInt32[temp1; temp2]
+            ind = [temp1; temp2]
         else
-            ind = UInt32(bfind(ptsupp, length(ptsupp), sym(word2, vargroup), lt=isless_td))
+            ind = bfind(ptsupp, length(ptsupp), sym(word2, vargroup), lt=isless_td)
         end
     end
     return sort([word1; ind])

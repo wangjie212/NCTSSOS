@@ -394,7 +394,7 @@ end
 
 function get_blocks(I, supp::Vector{Vector{Vector{UInt16}}}, tsupp, basis, cliques, cql; TS="block", blocks=[], cl=[], blocksize=[], obj="eigen", partition=0, comm_var=0, constraint=nothing)
     if isempty(blocks)
-        blocks = Vector{Vector{Vector{Vector{UInt16}}}}(undef, cql)
+        blocks = Vector{Vector{Vector{Vector{Int}}}}(undef, cql)
         cl = Vector{Vector{Int}}(undef, cql)
         blocksize = Vector{Vector{Vector{Int}}}(undef, cql)
         ksupp = nothing

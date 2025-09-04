@@ -341,9 +341,9 @@ end
 function ptrace_SDP(supp, coe, ptsupp, wbasis, tbasis, basis, blocks, cl, blocksize; numeq=0, QUIET=false, constraint=nothing, solve=true,
     Gram=false, solver="Mosek", writetofile=false, cosmo_setting=cosmo_para())
     m = length(supp) - 1
-    # ksupp = Vector{Vector{UInt16}}(undef, Int(sum(Int.(blocksize).^2+blocksize)/2))
+    # ksupp = Vector{Vector{Int}}(undef, Int(sum(Int.(blocksize).^2+blocksize)/2))
     # k = 1
-    ksupp = Vector{UInt32}[]
+    ksupp = Vector{Int}[]
     for i = 1:cl[1], j = 1:blocksize[1][i], r = j:blocksize[1][i]
         @inbounds bi1 = sort([tbasis[1][wbasis[1][blocks[1][i][j]][1]]; tbasis[1][wbasis[1][blocks[1][i][r]][1]]])
         @inbounds bi2 = [reverse(basis[1][wbasis[1][blocks[1][i][j]][2]]); basis[1][wbasis[1][blocks[1][i][r]][2]]]
@@ -524,9 +524,9 @@ function trace_reduce(word1, word2, ptsupp; constraint=nothing)
         end
     end
     if isempty(word2)
-        ind = UInt32[]
+        ind = Int[]
     else
-        ind = UInt32(bfind(ptsupp, length(ptsupp), sym_cyclic(word2), lt=isless_td))
+        ind = bfind(ptsupp, length(ptsupp), sym_cyclic(word2), lt=isless_td)
     end
     return sort([word1; ind])
 end
@@ -604,7 +604,7 @@ end
 
 function get_blocks(ksupp, ptsupp, wbasis, tbasis, basis; supp=[], vargroup=nothing, TS="block", QUIET=false, constraint=nothing, type="trace", bilocal=false, zero_moments=false)
     m = length(wbasis) - 1
-    blocks = Vector{Vector{Vector{UInt16}}}(undef, m+1)
+    blocks = Vector{Vector{Vector{Int}}}(undef, m+1)
     blocksize = Vector{Vector{Int}}(undef, m+1)
     cl = Vector{Int}(undef, m+1)
     if TS == false

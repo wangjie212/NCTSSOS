@@ -266,9 +266,9 @@ end
 function get_cblocks(m, ksupp, gsupp, basis; blocks=[], cl=[], blocksize=[], TS="block", 
     obj="eigen", QUIET=true, merge=false, md=3, partition=0, comm_var=0, constraint=nothing)
     if isempty(blocks)
-        blocks = Vector{Vector{Vector{UInt16}}}(undef, m+1)
-        blocksize = Vector{Vector{UInt16}}(undef, m+1)
-        cl = Vector{UInt16}(undef, m+1)
+        blocks = Vector{Vector{Vector{Int}}}(undef, m+1)
+        blocksize = Vector{Vector{Int}}(undef, m+1)
+        cl = Vector{Int}(undef, m+1)
     end
     if TS == false
         for k = 1:m+1

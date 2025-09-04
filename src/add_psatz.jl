@@ -217,7 +217,7 @@ function add_psatz!(model, nonneg, vars, ineq_cons, eq_cons, order; obj="eigen",
 end
 
 function get_blocks(I::Vector{Vector{Int}}, m::Int, fsupp::Vector{Vector{UInt16}}, gsupp::Vector{Vector{Vector{UInt16}}}, basis, cliques, cql; tsupp=[], TS="block", SO=1, QUIET=false, obj="eigen", partition=0, comm_var=0, constraint=nothing)
-    blocks = Vector{Vector{Vector{Vector{UInt16}}}}(undef, cql)
+    blocks = Vector{Vector{Vector{Vector{Int}}}}(undef, cql)
     cl = Vector{Vector{Int}}(undef, cql)
     blocksize = Vector{Vector{Vector{Int}}}(undef, cql)
     status = ones(Int, cql)
@@ -241,7 +241,7 @@ function get_blocks(I::Vector{Vector{Int}}, m::Int, fsupp::Vector{Vector{UInt16}
         supp = reduce!.(supp, obj=obj, partition=partition, comm_var=comm_var, constraint=constraint)
         sort!(supp)
         unique!(supp)
-        blocks[i] = Vector{Vector{Vector{UInt16}}}(undef, length(I[i])+1)
+        blocks[i] = Vector{Vector{Vector{Int}}}(undef, length(I[i])+1)
         cl[i] = Vector{Int}(undef, length(I[i])+1)
         blocksize[i] = Vector{Vector{Int}}(undef, length(I[i])+1)
         blocks[i],cl[i],blocksize[i],status[i] = get_blocks(length(I[i]), supp, gsupp[I[i]], basis[i], TS=TS, SO=SO, obj=obj, partition=partition, comm_var=comm_var, constraint=constraint)
@@ -253,7 +253,7 @@ function get_blocks(I::Vector{Vector{Int}}, m::Int, fsupp::Vector{Vector{UInt16}
 end
 
 function get_blocks(m::Int, tsupp, supp::Vector{Vector{Vector{UInt16}}}, basis::Vector{Vector{Vector{UInt16}}}; TS="block", SO=1, merge=false, md=3, obj="eigen", partition=0, comm_var=0, constraint=nothing)
-    blocks = Vector{Vector{Vector{UInt16}}}(undef, m+1)
+    blocks = Vector{Vector{Vector{Int}}}(undef, m+1)
     blocksize = Vector{Vector{Int}}(undef, m+1)
     cl = Vector{Int}(undef, m+1)
     status = 0

@@ -89,13 +89,13 @@ function cpstateopt_first(st_supp::Vector{Vector{Vector{Vector{Vector{Int}}}}}, 
     sort!(ptsupp, lt=isless_td)
     ind = [!issym(item, vargroup) for item in ptsupp]
     iptsupp = ptsupp[ind]
-    supp = Vector{Vector{Vector{Vector{UInt16}}}}(undef, length(st_supp))
+    supp = Vector{Vector{Vector{Vector{Int}}}}(undef, length(st_supp))
     for i = 1:length(st_supp) 
-        supp[i] = Vector{Vector{Vector{UInt16}}}(undef, length(st_supp[i]))
+        supp[i] = Vector{Vector{Vector{Int}}}(undef, length(st_supp[i]))
         for k = 1:length(st_supp[i])
-            supp[i][k] = Vector{Vector{UInt16}}(undef, 2)
-            temp1 = UInt16[]
-            temp2 = UInt16[]
+            supp[i][k] = Vector{Vector{Int}}(undef, 2)
+            temp1 = Int[]
+            temp2 = Int[]
             for j = 1:length(st_supp[i][k][1])
                 ind = bfind(ptsupp, length(ptsupp), st_supp[i][k][1][j], lt=isless_td)
                 if ind !== nothing
@@ -266,10 +266,10 @@ function get_graph(ksupp, ptsupp, iptsupp, supp, wbasis, tbasis, itbasis, basis;
     return G
 end
 
-function get_blocks(ksupp::Vector{Vector{Vector{UInt16}}}, ptsupp, iptsupp, wbasis, tbasis, itbasis, basis; supp=[], vargroup=nothing, TS="block", QUIET=false, 
+function get_blocks(ksupp::Vector{Vector{Vector{Int}}}, ptsupp, iptsupp, wbasis, tbasis, itbasis, basis; supp=[], vargroup=nothing, TS="block", QUIET=false, 
     constraint=nothing, bilocal=false, zero_moments=false)
     m = length(wbasis) - 1
-    blocks = Vector{Vector{Vector{UInt16}}}(undef, m+1)
+    blocks = Vector{Vector{Vector{Int}}}(undef, m+1)
     blocksize = Vector{Vector{Int}}(undef, m+1)
     cl = Vector{Int}(undef, m+1)
     if TS == false
@@ -307,11 +307,11 @@ function cstate_reduce(word1, word2, ptsupp, iptsupp, vargroup; bilocal=false)
         return [[[sort(word1[1]), sort(word1[2])]], [1]],[]
     elseif bilocal == false
         sw = sym(word2, vargroup)
-        ind = UInt32(bfind(ptsupp, length(ptsupp), sw, lt=isless_td))
+        ind = bfind(ptsupp, length(ptsupp), sw, lt=isless_td)
         if issym(word2, vargroup)
             return [[[sort([word1[1]; ind]), sort(word1[2])]], [1]],[]
         else
-            iind = UInt32(bfind(iptsupp, length(iptsupp), sw, lt=isless_td))
+            iind = bfind(iptsupp, length(iptsupp), sw, lt=isless_td)
             c = 1
             if sw != word2
                 c = -1
@@ -343,7 +343,7 @@ function cstate_reduce(word1, word2, ptsupp, iptsupp, vargroup; bilocal=false)
                     c2 = -1
                 end
             end
-            ind = UInt32[temp1; temp2]
+            ind = [temp1; temp2]
             if ssx == true && ssz == true
                 return [[[sort([word1[1]; temp1; temp2]), sort(word1[2])]], [1]],[]
             elseif ssx == false && ssz == true
@@ -358,11 +358,11 @@ function cstate_reduce(word1, word2, ptsupp, iptsupp, vargroup; bilocal=false)
             end
         else
             sw = sym(word2, vargroup)
-            ind = UInt32(bfind(ptsupp, length(ptsupp), sw, lt=isless_td))
+            ind = bfind(ptsupp, length(ptsupp), sw, lt=isless_td)
             if issym(word2, vargroup)
                 return [[[sort([word1[1]; ind]), sort(word1[2])]], [1]],[]
             else
-                iind = UInt32(bfind(iptsupp, length(iptsupp), sw, lt=isless_td))
+                iind = bfind(iptsupp, length(iptsupp), sw, lt=isless_td)
                 c = 1
                 if sw != word2
                     c = -1
@@ -376,7 +376,7 @@ end
 function cpstate_SDP(supp, coe, ptsupp, iptsupp, wbasis, tbasis, itbasis, basis, blocks, cl, blocksize, vargroup; solver="Mosek", writetofile=false, QUIET=false, constraint=nothing,
     solve=true, Gram=false, bilocal=false, cosmo_setting=cosmo_para(), zero_moments=false)
     m = length(supp) - 1
-    ksupp = Vector{Vector{UInt32}}[]
+    ksupp = Vector{Vector{Int}}[]
     for i = 1:cl[1], j = 1:blocksize[1][i], r = j:blocksize[1][i]
         @inbounds bi1 = [[tbasis[1][wbasis[1][blocks[1][i][j]][1]]; tbasis[1][wbasis[1][blocks[1][i][r]][1]]], [itbasis[1][wbasis[1][blocks[1][i][j]][2]]; itbasis[1][wbasis[1][blocks[1][i][r]][2]]]]
         @inbounds bi2 = [reverse(basis[1][wbasis[1][blocks[1][i][j]][3]]); basis[1][wbasis[1][blocks[1][i][r]][3]]]
