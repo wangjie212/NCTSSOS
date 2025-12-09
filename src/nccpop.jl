@@ -550,7 +550,6 @@ function solvesdp(order::Int, n::Int, m::Int, supp, coe, basis, blocks, cl, bloc
             write_to_file(dualize(model), writetofile)
         else
             if QUIET == false
-                println("SDP assembling time: $time seconds.")
                 println("Solving the SDP...")
             end
             time = @elapsed begin

@@ -99,8 +99,8 @@ function get_tbasis5(ptsupp)
 end
 
 function get_wbasis(n, d, ptsupp, bsupp; scalar=0)
-    ind = [length(item) <= d for item in bsupp]
-    basis = bsupp[ind]
+    ind = [length(item) <= d for item in bsupp] # could remove
+    basis = bsupp[ind] # could remove
     if scalar > 0
         ind = [i == 1 || maximum(item) <= n-scalar for item in basis]
         basis = basis[ind]
