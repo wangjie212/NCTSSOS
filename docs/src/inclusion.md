@@ -2,7 +2,7 @@
 
 ## One dichotomic and one arbitrary measurement
 
-The following script allows to compute the bound for k=3 displayed in Table 2 from the paper [arXiv:2512.](https://arxiv.org/abs/2512.)
+The following script allows to compute the bound for k=3 displayed in Table 2 from the paper [arXiv:2512.17706](https://arxiv.org/abs/2512.17706)
 
 ```Julia
 using NCTSSOS
@@ -22,3 +22,4 @@ pop=[-obj;ineq;eq;eq2];
 opt,data = nctssos_first(pop, [x;b], 4, numeq=4, partition=3, TS=false, obj="eigen");
 1/opt # 0.683012
 ```
+
