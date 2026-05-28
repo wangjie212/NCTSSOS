@@ -9,7 +9,7 @@ $$\mathrm{s.t.}\ a_{k0}+y_1a_{k1}+\cdots+y_na_{kn}\in\mathrm{SOHS},\ k=1,\ldots,
 where $\mathbf{c}\in\mathbb{R}^n$ and $a_{ki}\in\mathbb{R}\langle\mathbf{x}\rangle$ are noncommutative polynomials. In NCTSSOS, SOHS constraints could be handled with the routine **add_psatz!**:
 
 ```Julia
-model,info = add_psatz!(model, nonneg, vars, ineq_cons, eq_cons, order; obj="eigen", CS=false, cliques=[], TS="block", SO=1, partition=0, constraint=nothing, QUIET=false, constrs=nothing)
+info = add_psatz!(model, nonneg, vars, ineq_cons, eq_cons, order; obj="eigen", CS=false, cliques=[], TS="block", SO=1, partition=0, constraint=nothing, QUIET=false, constrs=nothing)
 ```
 where **nonneg** is a nonnegative noncommutative polynomial constrained to admit a Putinar's style SOHS representation on the noncommutative semialgebraic set defined by **ineq_cons** and **eq_cons**, and **SO** is the sparse order.
 
@@ -21,6 +21,7 @@ using MosekTools
 using DynamicPolynomials
 using MultivariatePolynomials
 using NCTSSOS
+
 @ncpolyvar x[1:2]
 f = 2 - x[1]^2 + x[1]*x[2]^2*x[1] - x[2]^2
 g = 4 - x[1]^2 - x[2]^2

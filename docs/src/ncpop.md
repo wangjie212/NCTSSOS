@@ -17,8 +17,8 @@ ineq = [4 - x[1]^2 - x[2]^2]
 eq = [x[1]*x[2] + x[2]*x[1] - 2]
 pop = [f; ineq; eq]
 d = 2 # set the relaxation order
-opt,data = nctssos_first(pop, x, d, numeq=1, obj="eigen") # compute the first TS step of the NCTSSOS hierarchy
-opt,data = nctssos_higher!(data) # compute higher TS steps of the NCTSSOS hierarchy
+opt,data = ncpop(pop, x, d, numeq=1, obj="eigen") # compute the first TS step of the NCTSSOS hierarchy
+opt,data = ncpop(data) # compute higher TS steps of the NCTSSOS hierarchy
 ```
 
 ### Keyword arguments
@@ -62,8 +62,8 @@ for i = 1:n
     push!(pop, x[i] - 1/3)
 end
 d = 3 # set the relaxation order
-opt,data = cs_nctssos_first(pop, x, d) # compute the first TS step of the CS-NCTSSOS hierarchy
-opt,data = cs_nctssos_higher!(data) # compute higher TS steps of the CS-NCTSSOS hierarchy
+opt,data = ncpop(pop, x, d) # compute the first TS step of the CS-NCTSSOS hierarchy
+opt,data = ncpop(data) # compute higher TS steps of the CS-NCTSSOS hierarchy
 ```
 
 ### Keyword arguments
@@ -83,10 +83,7 @@ constraint | nothing or "projection" (assume $x_i^2=x_i$ for all $i$) or "unipot
 
 ## Methods
 ```@docs
-nctssos_first
-nctssos_higher!
-cs_nctssos_first
-cs_nctssos_higher!
+ncpop
 ```
 
 ### References

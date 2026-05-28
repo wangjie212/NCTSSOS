@@ -17,14 +17,14 @@ function rational_certificate(f, ineq, eq, vars, r; partition=nothing, constrain
     end
 
     time_sdp = @elapsed begin
-        if partition == nothing && constraint == nothing
-            opt,data = nctssos_first(pop, vars ,r, TS=TS,numeq=length(eq), QUIET=QUIETTS, Gram=true)
-        elseif partition == nothing
-            opt,data = nctssos_first(pop, vars ,r, TS=TS,numeq=length(eq), constraint=constraint, QUIET=QUIETTS, Gram=true)
-        elseif constraint == nothing
-            opt,data = nctssos_first(pop, vars ,r, TS=TS,numeq=length(eq), partition=partition, QUIET=QUIETTS, Gram=true)
+        if partition === nothing && constraint === nothing
+            opt,data = ncpop(pop, vars ,r, TS=TS,numeq=length(eq), QUIET=QUIETTS, Gram=true)
+        elseif partition === nothing
+            opt,data = ncpop(pop, vars ,r, TS=TS,numeq=length(eq), constraint=constraint, QUIET=QUIETTS, Gram=true)
+        elseif constraint === nothing
+            opt,data = ncpop(pop, vars ,r, TS=TS,numeq=length(eq), partition=partition, QUIET=QUIETTS, Gram=true)
         else
-            opt,data = nctssos_first(pop, vars ,r, TS=TS,numeq=length(eq), partition=partition, constraint=constraint, QUIET=QUIETTS, Gram=true)
+            opt,data = ncpop(pop, vars ,r, TS=TS,numeq=length(eq), partition=partition, constraint=constraint, QUIET=QUIETTS, Gram=true)
         end
     end
 
@@ -37,7 +37,7 @@ function rational_certificate(f, ineq, eq, vars, r; partition=nothing, constrain
     end
     println("LHS computed in $t_lhs seconds.")
 
-    if partition == nothing && constraint == nothing
+    if partition === nothing && constraint === nothing
         bucket = nothing                     
     else
         arr_basis0   = arrays_of_basis(vars, basis0)
@@ -49,7 +49,7 @@ function rational_certificate(f, ineq, eq, vars, r; partition=nothing, constrain
     println("Rounding and projecting gram matrix...")
 
     t_rp = @elapsed begin
-        if partition == nothing && constraint == nothing
+        if partition === nothing && constraint === nothing
             g_proj = round_project_gram(g0, basis0, LHS, r, vars; tol=tol)
             bucket = nothing
         else

@@ -15,8 +15,8 @@ n = 4 # number of variables
 supp = [[[1;3]], [[1;4]], [[2;3]], [[2;4]]] # define the coefficient data
 coe = [1; 1; 1; -1] # define the coefficient data
 d = 1 # set the relaxation order
-opt,data = pstateopt_first(supp, coe, n, d, vargroup=[2;2], constraint="unipotent") # vargroup=[2;2] constrains [xi, yj] = 0
-opt,data = pstateopt_higher!(data) # compute higher TS steps of the NCTSSOS hierarchy
+opt,data = statepop([statepoly(supp, coe)], n, d, vargroup=[2;2], constraint="unipotent") # vargroup=[2;2] constrains [xi, yj] = 0
+opt,data = statepop(data) # compute higher TS steps of the NCTSSOS hierarchy
 ```
 
 ### Keyword arguments

@@ -11,8 +11,8 @@ g = 4 - x[1]^2 - x[2]^2
 h = x[1]*x[2] + x[2]*x[1] - 2
 d = 2
 
-# modelling with nctssos
-opt,data = nctssos_first([f;g;h], x, d, numeq=1, TS=false, Gram=true)
+# modelling with ncpop
+opt,data = ncpop([f;g;h], x, d, numeq=1, TS=false, Gram=true)
 
 # modelling with add_psatz!
 model = Model(optimizer_with_attributes(Mosek.Optimizer))
@@ -25,11 +25,11 @@ objv = objective_value(model)
 @show objv
 
 # retrieve Gram matrices
-GramMat = Vector{Vector{Vector{Union{Float64,Matrix{Float64}}}}}(undef, info.cql)
-for i = 1:info.cql
-    GramMat[i] = Vector{Vector{Union{Float64,Matrix{Float64}}}}(undef, 1+length(info.I[i]))
-    for j = 1:1+length(info.I[i])
-        GramMat[i][j] = [value.(info.gram[i][j][l]) for l = 1:info.cl[i][j]]
+GramMat = Vector{Vector{Vector{Union{Float64,Matrix{Float64}}}}}(undef, length(info.cliques))
+for i = 1:length(info.cliques)
+    GramMat[i] = Vector{Vector{Union{Float64,Matrix{Float64}}}}(undef, length(info.I[i]))
+    for j = 1:length(info.I[i])
+        GramMat[i][j] = [value.(info.gram[i][j][l]) for l = 1:length(info.blocks[i][j])]
     end
 end
 

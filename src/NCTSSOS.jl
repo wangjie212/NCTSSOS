@@ -6,29 +6,29 @@ using JuMP
 using MosekTools
 using Graphs
 using ChordalGraph
-using MetaGraphs
 using LinearAlgebra
 using SparseArrays
-using COSMO
 import DynamicPolynomials as DP
+import MultivariatePolynomials as MP
 
-export nctssos_first, nctssos_higher!, cs_nctssos_first, cs_nctssos_higher!, ptraceopt_first, ptraceopt_higher!, 
-pstateopt_first, pstateopt_higher!, Werner_witness_first, Werner_witness_higher!, cosmo_para, mixword, traceopt_first,
-traceopt_higher!, cpstateopt_first, stateopt_first, stateopt_higher!, cpstateopt_higher!, add_psatz!, get_moment_matrix,
-add_SOHS!, add_poly!, arrange, star, symmetrize, rational_certificate, rational_certificate_sparse
+export ncpop, statepop, add_psatz!, get_moment_matrix, add_SOHS!, add_poly!, arrange
+export star, symmetrize, rational_certificate, rational_certificate_sparse
 
-const Mono = DP.Monomial{DP.NonCommutative{DP.CreationOrder}, Graded{LexOrder}}
-const Poly{T} = DP.Polynomial{DP.NonCommutative{DP.CreationOrder}, Graded{LexOrder}, T}
+mutable struct mosek_para
+    tol_pfeas::Float64
+    tol_dfeas::Float64
+    tol_relgap::Float64
+    time_limit::Int64
+    num_threads::Int64
+end
 
-include("clique_merge.jl")
-include("ncupop.jl")
-include("nccpop.jl")
-include("mixncpop.jl")
-include("trace.jl")
-include("state.jl")
-include("complex.jl")
-include("add_psatz.jl")
+mosek_para() = mosek_para(1e-8, 1e-8, 1e-8, -1, 0)
+
+include("polynomial.jl")
 include("utils.jl")
+include("ncpop.jl")
+include("add_psatz.jl")
+include("statepop.jl")
 
 # --- Certification routines  ---
 include(joinpath(@__DIR__, "certification", "caches.jl"))

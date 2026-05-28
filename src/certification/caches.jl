@@ -1,4 +1,4 @@
-global _basis_cache     = IdDict{Tuple{Vector,Vector{Vector{UInt16}}},Vector}()
+global _basis_cache     = IdDict{Tuple{Vector,Vector{Vector{Int}}},Vector}()
 global _poly_index_cache = IdDict{Any,Dict{String,Int}}()
 global _array_cache      = IdDict{Tuple{Vector,Vector},Vector{Vector{Int}}}()
 

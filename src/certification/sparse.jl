@@ -13,7 +13,7 @@ function rational_certificate_sparse(
 )
 
     pop = [f]
-    opt, data = cs_nctssos_first(pop, vars, r;
+    opt, data = ncpop(pop, vars, r;
         partition  = partition,
         constraint = constraint,
         TS         = false,

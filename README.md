@@ -9,9 +9,7 @@ pkg> add https://github.com/wangjie212/NCTSSOS
  | [![](https://img.shields.io/badge/docs-latest-blue.svg)](https://wangjie212.github.io/NCTSSOS/dev) |
 
 ## Dependencies
-- [Julia](https://julialang.org/)
 - [JuMP](https://github.com/jump-dev/JuMP.jl)
-- [Mosek](https://www.mosek.com/) or [COSMO](https://github.com/oxfordcontrol/COSMO.jl)
 - [ChordalGraph](https://github.com/wangjie212/ChordalGraph)
 
 NCTSSOS has been tested on Ubuntu and Windows.
@@ -25,13 +23,13 @@ using NCTSSOS
 using DynamicPolynomials
 @ncpolyvar x[1:3]
 f = 1 + x[1]^4 + x[2]^4 + x[3]^4 + x[1]*x[2] + x[2]*x[1] + x[2]*x[3] + x[3]*x[2]
-opt,data = nctssos_first(f, x, obj="eigen")
+opt,data = ncpop(f, x, obj="eigen")
 ```
 
 To sovle higher steps of the NCTSSOS hierarchy, repeatedly run
 
 ```Julia
-opt,data = nctssos_higher!(data)
+opt,data = ncpop(data)
 ```
 
 Options:  
@@ -51,13 +49,13 @@ ineq = [4 - x[1]^2 - x[2]^2]
 eq = [x[1]*x[2] + x[2]*x[1] - 2]
 pop = [f; ineq; eq]
 d = 2 # set the relaxation order
-opt,data = nctssos_first(pop, x, d, numeq=1, obj="eigen")
+opt,data = ncpop(pop, x, d, numeq=1, obj="eigen")
 ```
 
 To solve higher steps of the NCTSSOS hierarchy, repeatedly run
 
 ```Julia
-opt,data = nctssos_higher!(data)
+opt,data = ncpop(data)
 ```
 
 Options:  
@@ -70,8 +68,8 @@ Options:
 To exploit correlative sparsity and term sparsity simultaneously, run
 
 ```Julia
-opt,data = cs_nctssos_first(pop, x, d, obj="eigen")
-opt,data = cs_nctssos_higher!(data)
+opt,data = ncpop(pop, x, d, obj="eigen")
+opt,data = ncpop(data)
 ```
 
 ### Trace polynomial optimization

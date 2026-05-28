@@ -1,6 +1,6 @@
 using Arblib
 
-function basis_to_monovec(xvars::Vector, data::Vector{Vector{UInt16}})
+function basis_to_monovec(xvars::Vector, data::Vector{Vector{Int}})
     key = (xvars, data)
     if haskey(_basis_cache, key)
         return _basis_cache[key]

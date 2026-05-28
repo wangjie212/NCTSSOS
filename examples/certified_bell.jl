@@ -67,4 +67,3 @@ println("********** I4322, dense **********")
 I4322 = -symmetrize(-2*x[1] - x[2] - x[3] - x[5] + x[1]*(x[5] + x[6] + x[7]) + x[2]*(x[5] - x[6] + x[7]) + x[3]*(x[5] + x[6] - x[7]) + x[4]*(x[5] - x[6] - x[7]))
 
 rational_certificate(I4322, [], [], x, 2; partition=4, constraint="projector", QUIET=false, QUIETTS=true, tol=10e-20)
-
