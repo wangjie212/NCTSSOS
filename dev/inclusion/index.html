@@ -8,10 +8,10 @@ settings.eps_rel = 1e-7 # relative residual tolerance
 settings.max_iter = 1e7 # maximum number of iterations
 
 @ncpolyvar x[1:3] b[1:3]
-obj = x[1]*b[1]+x[2]*b[2]+x[3]*b[3];
-ineq = [1+1.5*b[2], 1+1.5*b[3], 1-1.5*(b[2]+b[3]), 1-(x[1]+4/3*x[2]-2/3*x[3]),1-(-x[1]+4/3*x[2]-2/3*x[3]),1-(x[1]-2/3*x[2]+4/3*x[3]),1-(-x[1]-2/3*x[2]+4/3*x[3]),1-(x[1]-2/3*x[2]-2/3*x[3]),1-(-x[1]-2/3*x[2]-2/3*x[3])];
-eq = [b[1]^2-1];
-eq2=[(b[2]+2/3)*(b[2]-4/3), (b[3]+2/3)*(b[3]-4/3), b[2]*b[3]-b[3]*b[2]];
-pop=[-obj;ineq;eq;eq2];
-opt,data = nctssos_first(pop, [x;b], 4, numeq=4, partition=3, TS=false, obj=&quot;eigen&quot;);
-1/opt # 0.683012</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../bell/">« Bell inequalities</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> on <span class="colophon-date" title="Friday 9 January 2026 03:58">Friday 9 January 2026</span>. Using Julia version 1.12.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+obj = x[1]*b[1] + x[2]*b[2] + x[3]*b[3]
+ineq = [1+1.5*b[2], 1+1.5*b[3], 1-1.5*(b[2]+b[3]), 1-(x[1]+4/3*x[2]-2/3*x[3]), 1-(-x[1]+4/3*x[2]-2/3*x[3]), 1-(x[1]-2/3*x[2]+4/3*x[3]), 1-(-x[1]-2/3*x[2]+4/3*x[3]), 1-(x[1]-2/3*x[2]-2/3*x[3]), 1-(-x[1]-2/3*x[2]-2/3*x[3])]
+eq = [b[1]^2-1]
+eq2 = [(b[2]+2/3)*(b[2]-4/3), (b[3]+2/3)*(b[3]-4/3), b[2]*b[3]-b[3]*b[2]]
+pop = [-obj; ineq; eq; eq2]
+opt,data = ncpop(pop, [x;b], 4, numeq=4, partition=3, TS=false, obj=&quot;eigen&quot;)
+1/opt # 0.683012</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../bell/">« Bell inequalities</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> on <span class="colophon-date" title="Friday 29 May 2026 01:25">Friday 29 May 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
