@@ -12,6 +12,8 @@ function rational_certificate_sparse(
     eigprec    = 256
 )
 
+    clear_caches!()
+
     pop = [f]
     opt, data = ncpop(pop, vars, r;
         partition  = partition,
@@ -23,13 +25,14 @@ function rational_certificate_sparse(
 
     K       = length(data.cliques)
     lambda  = opt
+    lambda_rat = rationalize_bound(lambda; tol=tol)
     ideal   = !(partition === nothing && constraint === nothing)
 
     if !QUIET
         println("\nSparse numerical certificate computed.  Lower bound = ", lambda)
     end
 
-    obj_poly = rationalize_poly(f; tol=tol) - rationalize(lambda; tol=tol)
+    obj_poly = rationalize_poly(f; tol=tol) - lambda_rat
 
     LHS_nf = obj_poly
     begin
@@ -106,7 +109,7 @@ function rational_certificate_sparse(
     end
 
     RHS_proj   = Vector{DynamicPolynomials.Polynomial}(undef, K)
-    total_shift = zero(lambda)
+    total_shift_rat = zero(Rational{BigInt})
 
     for k in 1:K
         RHS_k = rhs_from_bucket_cached(buckets[k], G_proj[k])
@@ -118,21 +121,25 @@ function rational_certificate_sparse(
         RHS_k = rationalize_poly(RHS_k; tol=tol)
         RHS_proj[k] = RHS_k
 
-        emin    = rigorous_min_eig(Matrix{Rational{BigInt}}(G_proj[k]); prec=eigprec)
+        emin_rat, emin = rigorous_min_eig_bound(Matrix{Rational{BigInt}}(G_proj[k]); prec=eigprec)
         glength = size(G_proj[k], 1)
-        total_shift += (-emin) * glength
+        total_shift_rat += (-emin_rat) * glength
 
         if !QUIET
             println("\nClique $k after global projection: min eig = $(emin)")
         end
     end
 
-    new_bound = lambda - total_shift
+    new_bound_rat = lambda_rat - total_shift_rat
+    total_shift = BigFloat(total_shift_rat)
+    new_bound = BigFloat(new_bound_rat)
 
     if !QUIET
         println("\nOld bound  = ", lambda)
         println("Total shift = ", total_shift)
+        println("Total shift rational = ", total_shift_rat)
         println("New bound   = ", new_bound)
+        println("New bound rational = ", new_bound_rat)
 
         global_RHS  = Base.reduce(+, RHS_proj; init=zero(LHS_nf))
         monR, coeR  = arrange(global_RHS, vars;
@@ -150,5 +157,7 @@ function rational_certificate_sparse(
             totalshift = total_shift,
             RHS_per_clique = RHS_proj,
             Gproj_per_clique = G_proj,
-            nCliques = K)
+            nCliques = K,
+            newbound_rat = new_bound_rat,
+            totalshift_rat = total_shift_rat)
 end

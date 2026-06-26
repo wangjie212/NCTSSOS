@@ -64,8 +64,10 @@ function rational_certificate(f, ineq, eq, vars, r; partition=nothing, constrain
 
     println("Computing minimum eigenvalue of the projected gram matrix...")
     t_eig = @elapsed begin
-        eig_min = rigorous_min_eig(Matrix{Rational{BigInt}}(g_proj); prec=eigprec)
+        eig_min_rat, eig_min = rigorous_min_eig_bound(Matrix{Rational{BigInt}}(g_proj); prec=eigprec)
     end
+    opt_rat = rationalize_bound(opt; tol=tol)
+    glength = length(g_proj[1,:])
     println("Minimum eigenvalue computed in $t_eig seconds.")
 
     println("Computing right-hand side...")
@@ -119,23 +121,37 @@ function rational_certificate(f, ineq, eq, vars, r; partition=nothing, constrain
             println(opt)
 
             println("\nNew bound after round and project procedure:")
-            m = (-eig_min)*length(g_proj[1,:])
-            new_bound = opt-m
+            bound_shift_rat = (-eig_min_rat)*glength
+            bound_shift = BigFloat(bound_shift_rat)
+            new_bound_rat = opt_rat - bound_shift_rat
+            new_bound = BigFloat(new_bound_rat)
             println(new_bound)
+            println("\nRational new bound after round and project procedure:")
+            println(new_bound_rat)
+
+            println("\nBound shift:")
+            println(bound_shift)
+
+            println("\nRational bound shift:")
+            println(bound_shift_rat)
 
             println("\nDifference between bounds:")
-            bound_diff = new_bound - opt
+            bound_diff = BigFloat(new_bound_rat - opt_rat)
             println(bound_diff)
     
-            return (newbound = new_bound, oldbound = opt, bdiff = bound_diff, eigproj = eig_min, eigraw =  eig_min_old, diffraw = diff_raw, glength = length(g_proj[1,:]))
+            return (newbound = new_bound, oldbound = opt, bdiff = bound_diff, eigproj = eig_min, eigraw =  eig_min_old, diffraw = diff_raw, glength = glength, newbound_rat = new_bound_rat, shift = bound_shift, shift_rat = bound_shift_rat)
         end
     end
     if(eig_min > 0)
         return opt
     else
-        bound_diff = (-eig_min)*length(g_proj[1,:])
-        new_bound = opt-bound_diff
+        bound_shift_rat = (-eig_min_rat)*glength
+        new_bound_rat = opt_rat - bound_shift_rat
+        bound_diff = BigFloat(bound_shift_rat)
+        new_bound = BigFloat(new_bound_rat)
         println("\n Bound lowered by $(bound_diff) to $new_bound.")
-        return (newbound = new_bound, oldbound = opt, bdiff = bound_diff, eigproj = eig_min, eigraw = eig_min_old, diffraw = diff_raw, glength = length(g_proj[1,:]))
+        println(" Rational bound shift: $(bound_shift_rat)")
+        println(" Rational bound: $(new_bound_rat)")
+        return (newbound = new_bound, oldbound = opt, bdiff = bound_diff, eigproj = eig_min, eigraw = eig_min_old, diffraw = diff_raw, glength = glength, newbound_rat = new_bound_rat, shift = bound_diff, shift_rat = bound_shift_rat)
     end
 end

@@ -54,6 +54,9 @@ function rationalize_poly(poly::DynamicPolynomials.Polynomial; tol=1e-15)
     return poly
 end
 
+rationalize_bound(lambda; tol=1e-15) =
+    Rational{BigInt}(rationalize(lambda; tol=tol))
+
 function g0_to_decomp(mat, basis)
     return conj_monovec(basis)'*mat*basis
 end
@@ -488,14 +491,20 @@ function round_project_gram_ideal(gram, basis, LHS, r, vars; partition=nothing, 
     return g_proj, bucket
 end
 
-function rigorous_min_eig(m::AbstractMatrix; prec::Int = 128)
+function rigorous_min_eig_bound(m::AbstractMatrix; prec::Int = 128)
     mc = AcbMatrix(m; prec=64)
 
     ev_approx, R_approx = Arblib.approx_eig_qr(mc; prec=prec)
 
     eps = Arblib.eig_global_enclosure(mc, ev_approx, R_approx; prec=prec)
 
-    min_v = BigFloat(minimum(Arb.(real.(ev_approx); prec=prec)) - Arb(eps; prec=prec)) 
+    eig_ball = minimum(Arb.(real.(ev_approx); prec=prec)) - Arb(eps; prec=prec)
+    eig_min_rat = Rational{BigInt}(Arblib.lbound(eig_ball))
+    return eig_min_rat, BigFloat(eig_min_rat)
+end
+
+function rigorous_min_eig(m::AbstractMatrix; prec::Int = 128)
+    return rigorous_min_eig_bound(m; prec=prec)[2]
 end
 
 function poly_clique(p,
